@@ -53,27 +53,27 @@
 
 ## Phase 3 — Files and Chat (REST only)
 
-- [ ] **Files app — Models**
-  - [ ] `apps/files/models.py`: File (uploaded_by User, file FileField or URL if using S3, name, size, content_type, created_at). Use storage from settings (default storage or custom).
-- [ ] **Files app — Services / Views / URLs**
-  - [ ] Upload: accept file in request; validate size/type; save via storage; create File record; return File id and metadata.
-  - [ ] URL: `POST /api/files/upload/`, `GET /api/files/<id>/` (metadata), optional download URL or redirect.
-- [ ] **Files app — Tests**
-  - [ ] Test upload returns 201 and file id; test invalid type/size returns 400.
-- [ ] **Chat app — Models**
-  - [ ] `apps/chat/models.py`: Message (room, author, content TextField, created_at), MessageAttachment (message, file ForeignKey to File). Use related_name.
-  - [ ] Migrations.
-- [ ] **Chat app — Services**
-  - [ ] `apps/chat/services.py`: `MessageService.send_message(room, author, content, attachment_file_ids=None)` — create Message and MessageAttachment rows; validate room membership.
-- [ ] **Chat app — Serializers / Views / URLs**
-  - [ ] MessageSerializer (id, author, content, attachments, created_at); CreateMessageSerializer (content, attachment_ids or files).
-  - [ ] List messages for room (query param optional: before/after for pagination), Send message (POST).
-  - [ ] URLs: `GET/POST /api/rooms/<room_id>/messages/`, optional `GET /api/messages/<id>/`, `DELETE /api/messages/<id>/`.
-  - [ ] Permissions: only room participants can list/send.
-- [ ] **Chat app — Tests**
-  - [ ] test_models: create message with attachment.
-  - [ ] test_services: send_message success, non-participant raises.
-  - [ ] test_views: list messages 200, send 201, non-participant 403.
+- [x] **Files app — Models**
+  - [x] `apps/files/models.py`: File (uploaded_by User, file FileField or URL if using S3, name, size, content_type, created_at). Use storage from settings (default storage or custom).
+- [x] **Files app — Services / Views / URLs**
+  - [x] Upload: accept file in request; validate size/type; save via storage; create File record; return File id and metadata.
+  - [x] URL: `POST /api/files/upload/`, `GET /api/files/<id>/` (metadata), optional download URL or redirect.
+- [x] **Files app — Tests**
+  - [x] Test upload returns 201 and file id; test invalid type/size returns 400.
+- [x] **Chat app — Models**
+  - [x] `apps/chat/models.py`: Message (room, author, content TextField, created_at), MessageAttachment (message, file ForeignKey to File). Use related_name.
+  - [x] Migrations.
+- [x] **Chat app — Services**
+  - [x] `apps/chat/services.py`: `MessageService.send_message(room, author, content, attachment_file_ids=None)` — create Message and MessageAttachment rows; validate room membership.
+- [x] **Chat app — Serializers / Views / URLs**
+  - [x] MessageSerializer (id, author, content, attachments, created_at); CreateMessageSerializer (content, attachment_ids or files).
+  - [x] List messages for room (query param optional: before/after for pagination), Send message (POST).
+  - [x] URLs: `GET/POST /api/rooms/<room_id>/messages/`, optional `GET /api/messages/<id>/`, `DELETE /api/messages/<id>/`.
+  - [x] Permissions: only room participants can list/send.
+- [x] **Chat app — Tests**
+  - [x] test_models: create message with attachment.
+  - [x] test_services: send_message success, non-participant raises.
+  - [x] test_views: list messages 200, send 201, non-participant 403.
 
 **Definition of done:** Upload file returns id; send message with content and optional file ids; list messages returns messages with attachments; tests pass. WebSocket chat is implemented by Senior.
 

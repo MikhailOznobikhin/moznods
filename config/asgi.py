@@ -4,11 +4,23 @@ ASGI config for MOznoDS.
 
 import os
 
+from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
 django_asgi_app = get_asgi_application()
 
-# Channels layers and URL routing will be added in Phase 3/4
-application = django_asgi_app
+from apps.chat.consumers import ChatConsumer  # noqa: E402
+from apps.calls.consumers import SignalingConsumer  # noqa: E402
+from django.urls import path  # noqa: E402
+
+websocket_urlpatterns = [
+    path("ws/room/<int:room_id>/", ChatConsumer.as_asgi()),
+    path("ws/call/<int:room_id>/", SignalingConsumer.as_asgi()),
+]
+
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": URLRouter(websocket_urlpatterns),
+})

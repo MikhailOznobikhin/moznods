@@ -45,17 +45,17 @@
 
 ## Phase 3 — Chat WebSocket
 
-- [ ] **Channels setup**
-  - [ ] ASGI app in `config/asgi.py`: ProtocolTypeRouter, URLRouter for WebSocket; ChannelLayer (Redis).
-  - [ ] Settings: CHANNEL_LAYERS with Redis backend.
-- [ ] **Chat consumer**
-  - [ ] `apps/chat/consumers.py`: consumer that joins room group on connect, leaves on disconnect.
-  - [ ] On receiving `chat_message` from client: validate, persist via MessageService (or delegate to sync), broadcast to room group.
-  - [ ] Send back confirmation or broadcasted message to all in room (including sender if needed).
-- [ ] **Routing**
-  - [ ] WebSocket URL e.g. `/ws/room/<room_id>/`; auth via query param or cookie (e.g. token); resolve user and room membership.
-- [ ] **Permissions**
-  - [ ] Only room participants can connect to room WebSocket and send messages.
+- [x] **Channels setup**
+  - [x] ASGI app in `config/asgi.py`: ProtocolTypeRouter, URLRouter for WebSocket; ChannelLayer (Redis).
+  - [x] Settings: CHANNEL_LAYERS with Redis backend.
+- [x] **Chat consumer**
+  - [x] `apps/chat/consumers.py`: consumer that joins room group on connect, leaves on disconnect.
+  - [x] On receiving `chat_message` from client: validate, persist via MessageService (or delegate to sync), broadcast to room group.
+  - [x] Send back confirmation or broadcasted message to all in room (including sender if needed).
+- [x] **Routing**
+  - [x] WebSocket URL e.g. `/ws/room/<room_id>/`; auth via query param or cookie (e.g. token); resolve user and room membership.
+- [x] **Permissions**
+  - [x] Only room participants can connect to room WebSocket and send messages.
 
 **Definition of done:** Client can connect to room WebSocket, send a message; all participants in room receive it; messages stored via existing REST/MessageService.
 
@@ -63,16 +63,16 @@
 
 ## Phase 4 — Calls (WebRTC signaling)
 
-- [ ] **Calls app**
-  - [ ] Create `apps/calls/`: models Call, CallParticipant if persisting call state; otherwise minimal or no DB models.
-  - [ ] `apps/calls/consumers.py`: SignalingConsumer.
-- [ ] **SignalingConsumer**
-  - [ ] Connect: join room group (e.g. `call_{room_id}`), accept connection, optionally broadcast user_joined.
-  - [ ] Disconnect: broadcast user_left, leave group.
-  - [ ] Receive: handle `join_call`, `leave_call`, `offer`, `answer`, `ice_candidate`; relay to target_user_id (or broadcast where appropriate).
-  - [ ] Ensure SDP/ICE payloads are forwarded unchanged; no business logic on media.
-- [ ] **ASGI routing**
-  - [ ] Add WebSocket path for calls (e.g. `/ws/call/<room_id>/` or same as chat with different consumer by path); authenticate user.
+- [x] **Calls app**
+  - [x] Create `apps/calls/`: models Call, CallParticipant if persisting call state; otherwise minimal or no DB models.
+  - [x] `apps/calls/consumers.py`: SignalingConsumer.
+- [x] **SignalingConsumer**
+  - [x] Connect: join room group (e.g. `call_{room_id}`), accept connection, optionally broadcast user_joined.
+  - [x] Disconnect: broadcast user_left, leave group.
+  - [x] Receive: handle `join_call`, `leave_call`, `offer`, `answer`, `ice_candidate`; relay to target_user_id (or broadcast where appropriate).
+  - [x] Ensure SDP/ICE payloads are forwarded unchanged; no business logic on media.
+- [x] **ASGI routing**
+  - [x] Add WebSocket path for calls (e.g. `/ws/call/<room_id>/` or same as chat with different consumer by path); authenticate user.
 - [ ] **Call state (optional for MVP)**
   - [ ] If needed: store/update call state in Redis (idle, connecting, active, ended) for UI; document in docs/webrtc.md.
 

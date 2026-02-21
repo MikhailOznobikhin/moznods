@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 
 from . import views
 
@@ -10,4 +10,5 @@ urlpatterns = [
     path("<int:pk>/join/", views.RoomJoinView.as_view(), name="join"),
     path("<int:pk>/leave/", views.RoomLeaveView.as_view(), name="leave"),
     path("<int:pk>/participants/", views.RoomParticipantListView.as_view(), name="participants"),
+    path("<int:room_id>/messages/", include("apps.chat.urls")),
 ]

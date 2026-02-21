@@ -69,10 +69,10 @@ flowchart LR
 
 ## Phase 3 — Files and Chat
 
-- [ ] Create `apps/files/`: File model, upload API, storage backend (local or S3-compatible).
-- [ ] Create `apps/chat/`: Message, MessageAttachment; MessageService; REST list/send messages with optional file_ids.
-- [ ] WebSocket consumer for chat: broadcast new messages to room channel (Senior).
-- [ ] Permissions: only room participants can read/send messages and upload files to room context.
+- [x] Create `apps/files/`: File model, upload API, storage backend (local or S3-compatible).
+- [x] Create `apps/chat/`: Message, MessageAttachment; MessageService; REST list/send messages with optional file_ids.
+- [x] WebSocket consumer for chat: broadcast new messages to room channel (Senior).
+- [x] Permissions: only room participants can read/send messages and upload files to room context.
 
 **Documentation updates:** `docs/api.md` (messages, files, WebSocket chat), `docs/structure.md`.
 
@@ -80,9 +80,9 @@ flowchart LR
 
 ## Phase 4 — Voice Calls
 
-- [ ] Create `apps/calls/`: Call, CallParticipant models (optional for MVP if state is only in Redis).
-- [ ] SignalingConsumer (Channels): handle join_call, leave_call, offer, answer, ice_candidate; relay to target user(s) in room.
-- [ ] ASGI routing: WebSocket URL for room (e.g. `/ws/room/<room_id>/`).
+- [x] Create `apps/calls/`: Call, CallParticipant models (optional for MVP if state is only in Redis).
+- [x] SignalingConsumer (Channels): handle join_call, leave_call, offer, answer, ice_candidate; relay to target user(s) in room.
+- [x] ASGI routing: WebSocket URL for calls `/ws/call/<room_id>/` (chat remains `/ws/room/<room_id>/`).
 - [ ] Optional: call state in Redis for presence/UI (idle, connecting, active, ended).
 
 **Documentation updates:** `docs/api.md` (WebSocket signaling), `docs/webrtc.md`.

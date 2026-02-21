@@ -83,8 +83,8 @@ class CallManager {
             video: false
         });
 
-        // Connect to signaling server
-        this.ws = new WebSocket(`ws://server/ws/room/${this.roomId}/`);
+        // Connect to signaling server (use /ws/call/ for WebRTC signaling)
+        this.ws = new WebSocket(`ws://server/ws/call/${this.roomId}/?token=YOUR_AUTH_TOKEN`);
         this.ws.onmessage = (event) => this.handleSignalingMessage(JSON.parse(event.data));
     }
 
@@ -232,104 +232,13 @@ class CallManager {
 
 ### Django Channels Consumer
 
-```python
-# apps/calls/consumers.py
+The signaling consumer lives in `apps/calls/consumers.py` (`SignalingConsumer`).
 
-import json
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from channels.db import database_sync_to_async
-
-class SignalingConsumer(AsyncJsonWebsocketConsumer):
-    async def connect(self):
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f'call_{self.room_id}'
-        self.user = self.scope['user']
-
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Notify others
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'user_left',
-                'user_id': self.user.id
-            }
-        )
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
-
-    async def receive_json(self, content):
-        message_type = content.get('type')
-        data = content.get('data', {})
-
-        if message_type == 'join_call':
-            await self.handle_join_call()
-        elif message_type == 'leave_call':
-            await self.handle_leave_call()
-        elif message_type in ('offer', 'answer', 'ice_candidate'):
-            await self.relay_signaling(message_type, data)
-
-    async def handle_join_call(self):
-        # Notify others about new participant
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'user_joined',
-                'user': {
-                    'id': self.user.id,
-                    'username': self.user.username
-                },
-                'exclude_channel': self.channel_name
-            }
-        )
-
-    async def relay_signaling(self, message_type, data):
-        target_user_id = data.get('target_user_id')
-        # Send to specific user via group
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'signaling_message',
-                'message_type': message_type,
-                'from_user_id': self.user.id,
-                'target_user_id': target_user_id,
-                'data': data
-            }
-        )
-
-    async def signaling_message(self, event):
-        # Only send to target user
-        if event['target_user_id'] == self.user.id:
-            await self.send_json({
-                'type': event['message_type'],
-                'data': {
-                    'from_user_id': event['from_user_id'],
-                    **event['data']
-                }
-            })
-
-    async def user_joined(self, event):
-        if event.get('exclude_channel') != self.channel_name:
-            await self.send_json({
-                'type': 'user_joined',
-                'data': {'user': event['user']}
-            })
-
-    async def user_left(self, event):
-        await self.send_json({
-            'type': 'user_left',
-            'data': {'user_id': event['user_id']}
-        })
-```
+- **URL:** `ws://host/ws/call/<room_id>/?token=<auth_token>` (see [api.md](api.md#websocket-api)).
+- **Auth:** User is resolved from `token` query parameter; only room participants can connect (same pattern as chat).
+- **Group:** `call_{room_id}`. On connect the consumer joins the group; on disconnect it sends `user_left` and leaves.
+- **Incoming:** `join_call` → broadcast `user_joined` (excluding self); `leave_call` → broadcast `user_left`; `offer`, `answer`, `ice_candidate` → relay to `target_user_id` via group event `signaling_relay`. SDP/ICE payloads are forwarded unchanged.
+- **Handlers:** `user_joined`, `user_left` broadcast to all in group (with exclude for join); `signaling_relay` sends only to the target user.
 
 ## TURN/STUN Configuration
 

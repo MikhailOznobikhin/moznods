@@ -115,10 +115,18 @@ Response:
 
 ### Connection
 
-Connect to WebSocket for real-time features:
+Two WebSocket endpoints:
+
+| Purpose | URL | Auth |
+|---------|-----|------|
+| Chat (messages) | `ws://host/ws/room/{room_id}/?token={auth_token}` | Token in query; room participant |
+| Calls (WebRTC signaling) | `ws://host/ws/call/{room_id}/?token={auth_token}` | Token in query; room participant |
+
+Example:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8001/ws/room/{room_id}/?token={auth_token}');
+const chatWs = new WebSocket('ws://localhost:8001/ws/room/1/?token=abc123');
+const callWs = new WebSocket('ws://localhost:8001/ws/call/1/?token=abc123');
 ```
 
 ### Message Format
@@ -165,6 +173,8 @@ All WebSocket messages follow this format:
 ```
 
 ### WebRTC Signaling
+
+Use the **call** WebSocket URL (`/ws/call/{room_id}/`) for signaling. Only room participants can connect.
 
 #### Join Call
 

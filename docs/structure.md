@@ -66,16 +66,11 @@ Text messaging with attachments.
 
 ### `apps/calls/`
 
-Voice call management and WebRTC signaling.
+WebRTC signaling for voice calls (MVP: signaling only; no DB models).
 
 **Responsibilities:**
-- Call state management
-- WebRTC signaling (SDP, ICE)
-- Participant tracking during calls
-
-**Key Models:**
-- `Call` – Call session
-- `CallParticipant` – User in a call
+- WebRTC signaling over WebSocket (offer, answer, ice_candidate)
+- Relay to target user; broadcast user_joined / user_left
 
 **WebSocket Consumers:**
 - `SignalingConsumer` – Handles WebRTC signaling messages
@@ -105,6 +100,7 @@ core/
 ├── exceptions.py      # Custom exceptions
 ├── permissions.py     # Shared DRF permissions
 ├── utils.py           # Helper functions
+├── ws_auth.py         # WebSocket auth (get_user_from_scope for chat/calls)
 └── mixins.py          # Reusable mixins
 ```
 
