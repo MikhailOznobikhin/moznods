@@ -47,10 +47,10 @@ flowchart LR
 
 ## Phase 1 — Authentication
 
-- [ ] Create `apps/accounts/`: custom User or extended profile, Profile model.
-- [ ] Token authentication (DRF TokenAuthentication or JWT); endpoints: register, login, logout, me.
-- [ ] Permissions: IsAuthenticated for protected endpoints.
-- [ ] UserService for registration logic; thin views.
+- [x] Create `apps/accounts/`: custom User or extended profile, Profile model.
+- [x] Token authentication (DRF TokenAuthentication or JWT); endpoints: register, login, logout, me.
+- [x] Permissions: IsAuthenticated for protected endpoints.
+- [x] UserService for registration logic; thin views.
 
 **Documentation updates:** `docs/api.md` (auth endpoints).
 

@@ -1,6 +1,7 @@
 """
 Django base settings for MOznoDS.
 """
+
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -9,7 +10,7 @@ SECRET_KEY = "django-insecure-change-in-production"
 
 DEBUG = False
 
-ALLOWED_HOSTS: list[str] = []
+ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -21,6 +22,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "core",
+    "apps.accounts",
 ]
 
 MIDDLEWARE = [

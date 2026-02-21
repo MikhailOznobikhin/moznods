@@ -1,6 +1,7 @@
 """
 Test settings: fast runs, no external services.
 """
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
@@ -18,6 +19,4 @@ PASSWORD_HASHERS = [
 
 CELERY_TASK_ALWAYS_EAGER = True
 
-CHANNEL_LAYERS = {
-    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
-}
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}

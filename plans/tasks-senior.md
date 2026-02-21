@@ -32,12 +32,12 @@
 
 ## Phase 1 — Auth (review and setup)
 
-- [ ] **Auth backend**
-  - [ ] Configure DRF TokenAuthentication (or JWT); add to DEFAULT_AUTHENTICATION_CLASSES.
-  - [ ] Ensure REST auth endpoints are wired (register, login, logout, me) — implemented by Junior; you review and adjust if needed.
-- [ ] **Code review**
-  - [ ] Review `apps/accounts/`: models, UserService, serializers, views; align with Fat Services / Thin Views ([AGENTS.md §3.4](../AGENTS.md)).
-  - [ ] Review permissions: unauthenticated for register/login; IsAuthenticated for me and other protected routes.
+- [x] **Auth backend**
+  - [x] Configure DRF TokenAuthentication (or JWT); add to DEFAULT_AUTHENTICATION_CLASSES.
+  - [x] Ensure REST auth endpoints are wired (register, login, logout, me) — implemented by Junior; you review and adjust if needed.
+- [x] **Code review**
+  - [x] Review `apps/accounts/`: models, UserService, serializers, views; align with Fat Services / Thin Views ([AGENTS.md §3.4](../AGENTS.md)).
+  - [x] Review permissions: unauthenticated for register/login; IsAuthenticated for me and other protected routes.
 
 **Definition of done:** Auth flow works (register → login → token → access protected URL); no logic in views beyond delegation to services.
 

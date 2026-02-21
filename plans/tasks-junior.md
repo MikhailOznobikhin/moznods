@@ -10,20 +10,20 @@
 
 ## Phase 1 — Authentication (accounts)
 
-- [ ] **Models**
-  - [ ] `apps/accounts/models.py`: User (extend AbstractUser or use default with Profile), Profile (user OneToOne, avatar ImageField optional, timestamps). Inherit from `core.models.TimestampedModel` where applicable.
-  - [ ] Migrations: `makemigrations`, `migrate`.
-- [ ] **Services**
-  - [ ] `apps/accounts/services.py`: `UserService` with `register(username, email, password, **kwargs)` creating User (and Profile if needed); validate unique email/username.
-- [ ] **Serializers**
-  - [ ] Serializers for register (username, email, password), login (email/username, password), user (id, username, email, profile fields).
-- [ ] **Views / URLs**
-  - [ ] RegisterView (POST), LoginView (POST, return token + user), LogoutView (POST, invalidate token if needed), MeView (GET current user). Use DRF APIView or equivalent; thin views calling UserService.
-  - [ ] URLs: `/api/auth/register/`, `/api/auth/login/`, `/api/auth/logout/`, `/api/auth/me/`.
-- [ ] **Tests**
-  - [ ] `apps/accounts/tests/test_models.py`: create user, profile.
-  - [ ] `apps/accounts/tests/test_services.py`: register success, duplicate email/username raises validation.
-  - [ ] `apps/accounts/tests/test_views.py`: register 201, login 200 + token, me 401 unauthenticated / 200 authenticated.
+- [x] **Models**
+  - [x] `apps/accounts/models.py`: User (extend AbstractUser or use default with Profile), Profile (user OneToOne, avatar ImageField optional, timestamps). Inherit from `core.models.TimestampedModel` where applicable.
+  - [x] Migrations: `makemigrations`, `migrate`.
+- [x] **Services**
+  - [x] `apps/accounts/services.py`: `UserService` with `register(username, email, password, **kwargs)` creating User (and Profile if needed); validate unique email/username.
+- [x] **Serializers**
+  - [x] Serializers for register (username, email, password), login (email/username, password), user (id, username, email, profile fields).
+- [x] **Views / URLs**
+  - [x] RegisterView (POST), LoginView (POST, return token + user), LogoutView (POST, invalidate token if needed), MeView (GET current user). Use DRF APIView or equivalent; thin views calling UserService.
+  - [x] URLs: `/api/auth/register/`, `/api/auth/login/`, `/api/auth/logout/`, `/api/auth/me/`.
+- [x] **Tests**
+  - [x] `apps/accounts/tests/test_models.py`: create user, profile.
+  - [x] `apps/accounts/tests/test_services.py`: register success, duplicate email/username raises validation.
+  - [x] `apps/accounts/tests/test_views.py`: register 201, login 200 + token, me 401 unauthenticated / 200 authenticated.
 
 **Definition of done:** User can register and login; token returned; me returns current user; tests pass.
 

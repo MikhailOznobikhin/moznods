@@ -1,8 +1,8 @@
 """
 Production settings.
 """
+
 import os
-from pathlib import Path
 
 from .base import *  # noqa: F401, F403
 
@@ -27,7 +27,7 @@ DATABASES = {
 
 # Static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]
+MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]  # noqa: F405
 
 # Security
 SECURE_BROWSER_XSS_FILTER = True
