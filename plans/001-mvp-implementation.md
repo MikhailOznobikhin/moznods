@@ -34,12 +34,12 @@ flowchart LR
 
 ## Phase 0 — Bootstrap
 
-- [ ] Create Django 5.1 project (`config/`, `manage.py`).
-- [ ] Split settings: `config/settings/base.py`, `local.py`, `production.py`.
-- [ ] Add `core/`: `TimestampedModel`, `exceptions.py`, `permissions.py`, `utils.py`.
-- [ ] Add `requirements/base.txt`, `local.txt`, `production.txt` (Django, DRF, Channels, PostgreSQL, Redis, Celery).
-- [ ] Optional: `docker-compose.yml` for PostgreSQL, Redis, MinIO (dev).
-- [ ] Configure ruff, pytest, pre-commit.
+- [x] Create Django 5.1 project (`config/`, `manage.py`).
+- [x] Split settings: `config/settings/base.py`, `local.py`, `production.py`.
+- [x] Add `core/`: `TimestampedModel`, `exceptions.py`, `permissions.py`, `utils.py`.
+- [x] Add `requirements/base.txt`, `local.txt`, `production.txt` (Django, DRF, Channels, PostgreSQL, Redis, Celery).
+- [x] Optional: `docker-compose.yml` for PostgreSQL, Redis, MinIO (dev).
+- [x] Configure ruff, pytest, pre-commit.
 
 **Documentation updates:** `docs/tech.md` (versions), `docs/structure.md` (paths).
 

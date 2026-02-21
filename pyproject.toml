@@ -1,0 +1,23 @@
+[project]
+name = "moznods"
+version = "0.1.0"
+description = "MOznoDS — group voice calls and chat"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["config", "core", "apps"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+pythonpath = ["."]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
+testpaths = ["apps", "core"]
+filterwarnings = ["ignore::DeprecationWarning"]

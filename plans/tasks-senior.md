@@ -8,23 +8,23 @@
 
 ## Phase 0 — Bootstrap
 
-- [ ] **Create Django project**
-  - [ ] `django-admin startproject config .` (or equivalent); ensure `config/` and `manage.py` exist.
-  - [ ] Split settings: `config/settings/base.py`, `local.py`, `production.py`; use env for secrets.
-- [ ] **Core module**
-  - [ ] `core/models.py`: `TimestampedModel` (created_at, updated_at, abstract).
-  - [ ] `core/exceptions.py`: custom exceptions (e.g. ValidationError wrapper if needed).
-  - [ ] `core/permissions.py`: base DRF permission classes (e.g. IsAuthenticated usage).
-  - [ ] `core/utils.py`: minimal helpers if any.
-- [ ] **Requirements**
-  - [ ] `requirements/base.txt`: Django 5.1, DRF, channels, channels-redis, daphne, psycopg, celery, redis, Pillow, boto3, python-dotenv.
-  - [ ] `requirements/local.txt`: extends base; pytest, pytest-django, pytest-asyncio, ruff, pyright, pre-commit, debug toolbar.
-  - [ ] `requirements/production.txt`: extends base; gunicorn, whitenoise (or similar).
-- [ ] **Dev infrastructure (optional)**
-  - [ ] `docker-compose.yml`: PostgreSQL 16, Redis 7, MinIO (or leave for later).
-- [ ] **Code quality**
-  - [ ] `ruff` config (e.g. pyproject.toml or ruff.toml); `.pre-commit-config.yaml` with ruff check + format.
-  - [ ] `pytest.ini` or `pyproject.toml`: DJANGO_SETTINGS_MODULE=config.settings.local (or test), pytest options.
+- [x] **Create Django project**
+  - [x] `django-admin startproject config .` (or equivalent); ensure `config/` and `manage.py` exist.
+  - [x] Split settings: `config/settings/base.py`, `local.py`, `production.py`; use env for secrets.
+- [x] **Core module**
+  - [x] `core/models.py`: `TimestampedModel` (created_at, updated_at, abstract).
+  - [x] `core/exceptions.py`: custom exceptions (e.g. ValidationError wrapper if needed).
+  - [x] `core/permissions.py`: base DRF permission classes (e.g. IsAuthenticated usage).
+  - [x] `core/utils.py`: minimal helpers if any.
+- [x] **Requirements**
+  - [x] `requirements/base.txt`: Django 5.1, DRF, channels, channels-redis, daphne, psycopg, celery, redis, Pillow, boto3, python-dotenv.
+  - [x] `requirements/local.txt`: extends base; pytest, pytest-django, pytest-asyncio, ruff, pyright, pre-commit, debug toolbar.
+  - [x] `requirements/production.txt`: extends base; gunicorn, whitenoise (or similar).
+- [x] **Dev infrastructure (optional)**
+  - [x] `docker-compose.yml`: PostgreSQL 16, Redis 7, MinIO (or leave for later).
+- [x] **Code quality**
+  - [x] `ruff` config (e.g. pyproject.toml or ruff.toml); `.pre-commit-config.yaml` with ruff check + format.
+  - [x] `pytest.ini` or `pyproject.toml`: DJANGO_SETTINGS_MODULE=config.settings.local (or test), pytest options.
 
 **Definition of done:** `python manage.py check` passes; `ruff check .` and `ruff format .` pass; `pytest` runs (can be empty suite).
 
