@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "core",
     "apps.accounts",
+    "apps.rooms",
 ]
 
 MIDDLEWARE = [
@@ -72,6 +73,10 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Registration: single invite code for MVP.
+# AICODE-TODO: Replace with per-user invite codes (e.g. 5 invites per user).
+REGISTRATION_INVITE_CODE = ""
 
 # REST Framework
 REST_FRAMEWORK = {

@@ -11,6 +11,9 @@ DEBUG = False
 SECRET_KEY = os.environ["SECRET_KEY"]
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 
+# Invite code required in production
+REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "")
+
 # Database from env
 DATABASES = {
     "default": {

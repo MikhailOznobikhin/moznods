@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
@@ -5,16 +6,27 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.Serializer):
-    """Registration input."""
+    """Registration input; requires invite_code (shared code for MVP)."""
 
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=8, write_only=True)
-    display_name = serializers.CharField(max_length=150, required=False, default="")
+    display_name = serializers.CharField(
+        max_length=150, required=False, default=""
+    )
+    invite_code = serializers.CharField(required=True, write_only=True)
 
     def validate_username(self, value: str) -> str:
         if not value.strip():
             raise serializers.ValidationError("Username cannot be blank.")
+        return value.strip()
+
+    def validate_invite_code(self, value: str) -> str:
+        expected = getattr(settings, "REGISTRATION_INVITE_CODE", "") or ""
+        if not expected:
+            raise serializers.ValidationError("Registration is not open.")
+        if value.strip() != expected:
+            raise serializers.ValidationError("Invalid invite code.")
         return value.strip()
 
 

@@ -31,21 +31,21 @@
 
 ## Phase 2 — Rooms
 
-- [ ] **Models**
-  - [ ] `apps/rooms/models.py`: Room (name, owner ForeignKey to User, timestamps), RoomParticipant (room, user, role or joined_at). Use `related_name` on FKs. Optionally RoomInvite (room, code, expires_at).
-  - [ ] Migrations.
-- [ ] **Services**
-  - [ ] `apps/rooms/services.py`: `RoomService.create_room(owner, name, **kwargs)`, `add_participant(room, user)`, `remove_participant(room, user)`. Validate e.g. no duplicate participant, room exists.
-- [ ] **Serializers**
-  - [ ] RoomSerializer (id, name, owner, participant count or list), CreateRoomSerializer (name + optional fields), RoomParticipantSerializer.
-- [ ] **Views / URLs**
-  - [ ] List rooms (user’s rooms), Create room, Retrieve, Update, Delete; Join room, Leave room; List room participants.
-  - [ ] URLs: `/api/rooms/`, `/api/rooms/<id>/`, `/api/rooms/<id>/join/`, `/api/rooms/<id>/leave/`, `/api/rooms/<id>/participants/`.
-  - [ ] Permissions: only participants (or owner) for update/delete/join/leave; list only user’s rooms.
-- [ ] **Tests**
-  - [ ] `test_models.py`: create room, add participant.
-  - [ ] `test_services.py`: create_room, add_participant, remove_participant, duplicate add raises.
-  - [ ] `test_views.py`: list/create/retrieve/update/delete, join/leave, list participants; 401/403 where expected.
+- [x] **Models**
+  - [x] `apps/rooms/models.py`: Room (name, owner ForeignKey to User, timestamps), RoomParticipant (room, user, role or joined_at). Use `related_name` on FKs. Optionally RoomInvite (room, code, expires_at).
+  - [x] Migrations.
+- [x] **Services**
+  - [x] `apps/rooms/services.py`: `RoomService.create_room(owner, name, **kwargs)`, `add_participant(room, user)`, `remove_participant(room, user)`. Validate e.g. no duplicate participant, room exists.
+- [x] **Serializers**
+  - [x] RoomSerializer (id, name, owner, participant count or list), CreateRoomSerializer (name + optional fields), RoomParticipantSerializer.
+- [x] **Views / URLs**
+  - [x] List rooms (user’s rooms), Create room, Retrieve, Update, Delete; Join room, Leave room; List room participants.
+  - [x] URLs: `/api/rooms/`, `/api/rooms/<id>/`, `/api/rooms/<id>/join/`, `/api/rooms/<id>/leave/`, `/api/rooms/<id>/participants/`.
+  - [x] Permissions: only participants (or owner) for update/delete/join/leave; list only user’s rooms.
+- [x] **Tests**
+  - [x] `test_models.py`: create room, add participant.
+  - [x] `test_services.py`: create_room, add_participant, remove_participant, duplicate add raises.
+  - [x] `test_views.py`: list/create/retrieve/update/delete, join/leave, list participants; 401/403 where expected.
 
 **Definition of done:** CRUD + join/leave work; only participants see room and can join/leave; tests pass.
 

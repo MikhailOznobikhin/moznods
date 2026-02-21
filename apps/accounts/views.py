@@ -17,7 +17,8 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = UserService.register(**serializer.validated_data)
+        data = {k: v for k, v in serializer.validated_data.items() if k != "invite_code"}
+        user = UserService.register(**data)
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
             {"token": token.key, "user": UserSerializer(user).data},

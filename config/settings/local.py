@@ -16,18 +16,25 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key")
 
-# Database: SQLite for minimal local dev; override with PostgreSQL via docker or env later
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
+# Database: PostgreSQL via DATABASE_URL (e.g. docker-compose); fallback SQLite
+if os.environ.get("DATABASE_URL"):
+    import dj_database_url
+    DATABASES = {"default": dj_database_url.config(conn_max_age=60)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
+        }
     }
-}
 
 # Optional: CORS for local frontend
 INSTALLED_APPS = [*INSTALLED_APPS, "corsheaders"]  # noqa: F405
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", *MIDDLEWARE]  # noqa: F405
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Invite code for registration (dev default; set in .env for production)
+REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "moznods")
 
 # Redis defaults for local
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")

@@ -20,3 +20,6 @@ PASSWORD_HASHERS = [
 CELERY_TASK_ALWAYS_EAGER = True
 
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+
+# Invite code for tests
+REGISTRATION_INVITE_CODE = "testcode"

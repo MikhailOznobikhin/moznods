@@ -1,0 +1,13 @@
+from django.urls import path
+
+from . import views
+
+app_name = "rooms"
+
+urlpatterns = [
+    path("", views.RoomListCreateView.as_view(), name="list-create"),
+    path("<int:pk>/", views.RoomDetailView.as_view(), name="detail"),
+    path("<int:pk>/join/", views.RoomJoinView.as_view(), name="join"),
+    path("<int:pk>/leave/", views.RoomLeaveView.as_view(), name="leave"),
+    path("<int:pk>/participants/", views.RoomParticipantListView.as_view(), name="participants"),
+]

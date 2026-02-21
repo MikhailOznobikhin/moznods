@@ -58,10 +58,10 @@ flowchart LR
 
 ## Phase 2 — Rooms
 
-- [ ] Create `apps/rooms/`: models Room, RoomParticipant (and optionally RoomInvite).
-- [ ] RoomService: create_room, add_participant, remove_participant.
-- [ ] REST: list (user's rooms), create, retrieve, update, delete; join, leave; list participants.
-- [ ] Permissions: only participants (or owner) for sensitive actions.
+- [x] Create `apps/rooms/`: models Room, RoomParticipant (and optionally RoomInvite).
+- [x] RoomService: create_room, add_participant, remove_participant.
+- [x] REST: list (user's rooms), create, retrieve, update, delete; join, leave; list participants.
+- [x] Permissions: only participants (or owner) for sensitive actions.
 
 **Documentation updates:** `docs/api.md` (rooms endpoints), `docs/structure.md` (models).
 

@@ -112,8 +112,11 @@ SECRET_KEY=your-secret-key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
-# Database
+# Database (PostgreSQL; if unset, local uses SQLite)
 DATABASE_URL=postgres://user:password@localhost:5432/moznods
+
+# Registration: invite code required to register (single code for MVP)
+REGISTRATION_INVITE_CODE=moznods
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
