@@ -3,6 +3,7 @@ Call presence state in Redis for UI (idle, connecting, active, ended).
 Key: call:state:{room_id} = hash of user_id -> JSON { state, username }.
 TTL on key so stale entries expire if consumer crashes without disconnect.
 """
+from __future__ import annotations
 
 import json
 from typing import Any

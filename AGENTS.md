@@ -28,9 +28,9 @@ This document is the **single source of truth** for any autonomous or semi-auton
 
 | Layer | Technology |
 |-------|------------|
-| Backend Framework | Django 5.1 + Django REST Framework |
+| Backend Framework | Django 6.0 + Django REST Framework |
 | Real-time | Django Channels (WebSocket) |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 18.2 |
 | Cache & Message Broker | Redis |
 | Background Tasks | Celery |
 | Voice/Video | WebRTC (P2P mesh topology) |

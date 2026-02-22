@@ -1,16 +1,16 @@
 -r base.txt
 
 # Testing
-pytest>=8.0,<9.0
-pytest-django>=4.8,<5.0
-pytest-asyncio>=0.23,<1.0
-pytest-cov>=4.1,<5.0
-factory-boy>=3.3,<4.0
+pytest==8.3.4
+pytest-django==4.19.0
+pytest-asyncio==0.25.3
+pytest-cov==6.0.0
+factory-boy==3.5.1
 
 # Code quality
-ruff>=0.4,<1.0
-pyright>=1.1,<2.0
-pre-commit>=3.0,<4.0
+ruff==0.9.5
+pyright==1.1.355
+pre-commit==4.2.0
 
 # Debugging
-django-debug-toolbar>=4.3,<5.0
+django-debug-toolbar==4.10.0

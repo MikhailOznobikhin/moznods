@@ -28,7 +28,7 @@ MOznoDS is a web application for group voice calls and messaging — a simplifie
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.14+
 - PostgreSQL 16
 - Redis 7+
 - Node.js 20+ (for frontend, if applicable)

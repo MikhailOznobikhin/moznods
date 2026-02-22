@@ -6,11 +6,11 @@ This document describes the technologies, dependencies, and version requirements
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Python | 3.12+ | Runtime |
-| Django | 5.1 | Web framework |
-| Django REST Framework | 3.15+ | REST API |
-| Django Channels | 4.0+ | WebSocket support |
-| PostgreSQL | 16 | Primary database |
+| Python | 3.14 | Runtime |
+| Django | 6.0 | Web framework |
+| Django REST Framework | 3.16+ | REST API |
+| Django Channels | 4.3+ | WebSocket support |
+| PostgreSQL | 18.2 | Primary database |
 | Redis | 7+ | Cache, Channels layer, Celery broker |
 | Celery | 5.4+ | Background tasks |
 
@@ -38,28 +38,29 @@ This document describes the technologies, dependencies, and version requirements
 # requirements/base.txt
 
 # Django
-Django>=5.1,<5.2
-djangorestframework>=3.15,<4.0
-django-cors-headers>=4.3,<5.0
+Django>=6.0,<7.0
+djangorestframework>=3.16,<4.0
+django-cors-headers>=4.6,<5.0
 
 # Channels (WebSocket)
-channels>=4.0,<5.0
-channels-redis>=4.2,<5.0
-daphne>=4.1,<5.0
+channels>=4.3,<5.0
+channels-redis>=4.3,<5.0
+daphne>=4.4,<5.0
 
 # Database
-psycopg[binary]>=3.1,<4.0
+psycopg[binary]>=3.3,<4.0
+dj-database-url>=2.2,<3.0
 
 # Background tasks
 celery>=5.4,<6.0
 redis>=5.0,<6.0
 
 # File handling
-Pillow>=10.0,<11.0
-boto3>=1.34,<2.0  # For S3-compatible storage
+Pillow>=11.0,<12.0
+boto3>=1.37,<2.0  # For S3-compatible storage
 
 # Utilities
-python-dotenv>=1.0,<2.0
+python-dotenv>=1.2,<2.0
 ```
 
 ### Development Dependencies
@@ -70,29 +71,28 @@ python-dotenv>=1.0,<2.0
 -r base.txt
 
 # Testing
-pytest>=8.0,<9.0
-pytest-django>=4.8,<5.0
-pytest-asyncio>=0.23,<1.0
-pytest-cov>=4.1,<5.0
-factory-boy>=3.3,<4.0
+pytest>=8.3,<9.0
+pytest-django>=4.19,<5.0
+pytest-asyncio>=0.25,<1.0
+pytest-cov>=6.0,<7.0
+factory-boy>=3.5,<4.0
 
 # Code quality
-ruff>=0.4,<1.0
+ruff>=0.9,<1.0
 pyright>=1.1,<2.0
-pre-commit>=3.7,<4.0
+pre-commit>=4.2,<5.0
 
 # Debugging
-django-debug-toolbar>=4.3,<5.0
-ipdb>=0.13,<1.0
+django-debug-toolbar>=4.10,<5.0
 ```
 
 ## Version Update Policy
 
 ### Semantic Versioning
 
-- **Major updates** (e.g., Django 5.x → 6.x): Requires planning and testing
-- **Minor updates** (e.g., Django 5.1 → 5.2): Apply after reviewing changelog
-- **Patch updates** (e.g., Django 5.1.1 → 5.1.2): Apply promptly for security fixes
+- **Major updates** (e.g., Django 6.x → 7.x): Requires planning and testing
+- **Minor updates** (e.g., Django 6.0 → 6.1): Apply after reviewing changelog
+- **Patch updates** (e.g., Django 6.0.1 → 6.0.2): Apply promptly for security fixes
 
 ### Update Procedure
 

@@ -17,7 +17,15 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key")
 
 # Database: PostgreSQL via DATABASE_URL (e.g. docker-compose); fallback SQLite
-if os.environ.get("DATABASE_URL"):
+# Set USE_SQLITE=1 to force SQLite (e.g. when PostgreSQL is not running)
+if os.environ.get("USE_SQLITE"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
+        }
+    }
+elif os.environ.get("DATABASE_URL"):
     import dj_database_url
     DATABASES = {"default": dj_database_url.config(conn_max_age=60)}
 else:
@@ -39,3 +47,7 @@ REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "moznods")
 # Redis defaults for local
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2")
+
+# Set USE_INMEMORY_CHANNELS=1 to run without Redis (WebSocket in-memory only, single process)
+if os.environ.get("USE_INMEMORY_CHANNELS"):
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
