@@ -1,10 +1,10 @@
-# Development: PostgreSQL, Redis, MinIO
+# Development: PostgreSQL, Redis, MinIO, Django, Celery
 # Usage: docker compose up -d
-# Then: DATABASE_URL=postgres://moznods:moznods@127.0.0.1:5432/moznods REDIS_URL=redis://127.0.0.1:6379/0
+# Then: http://localhost:8000
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18.2-alpine3.22
     environment:
       POSTGRES_DB: moznods
       POSTGRES_USER: moznods
@@ -13,11 +13,21 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moznods"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio:latest
@@ -30,6 +40,45 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
+  web:
+    build: .
+    command: gunicorn --bind 0.0.0.0:8000 --workers 3 config.wsgi:application
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://moznods:moznods@db:5432/moznods
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    volumes:
+      - ./media:/app/media
+      - ./static:/app/static
+
+  celery:
+    build: .
+    command: celery -A config worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgres://moznods:moznods@db:5432/moznods
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
 
 volumes:
   postgres_data: {}
