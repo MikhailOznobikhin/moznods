@@ -3,7 +3,7 @@ name = "moznods"
 version = "0.1.0"
 description = "MOznoDS — group voice calls and chat"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.14"
 
 [tool.ruff]
 target-version = "py312"
