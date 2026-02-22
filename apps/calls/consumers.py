@@ -1,14 +1,25 @@
 """
 WebRTC signaling WebSocket consumer.
 Relays offer, answer, ice_candidate to target user; broadcasts user_joined / user_left.
+Call state (idle, connecting, active, ended) is stored in Redis for presence/UI.
 """
 
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from core.ws_auth import get_user_from_scope
 from apps.rooms.models import Room
 from apps.rooms.services import RoomService
+
+from .call_state import (
+    STATE_ACTIVE,
+    STATE_CONNECTING,
+    get_room_aggregate_state,
+    get_room_state,
+    remove_user as call_state_remove_user,
+    set_user_state as call_state_set_user_state,
+)
 
 
 @database_sync_to_async
@@ -40,11 +51,17 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             return
         self.room_group_name = f"call_{self.room_id}"
         self.user_id = self.user.id
+        self._username = getattr(self.user, "username", "") or ""
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await sync_to_async(call_state_set_user_state)(
+            self.room_id, self.user_id, self._username, STATE_CONNECTING
+        )
         await self.accept()
 
     async def disconnect(self, close_code):
         if hasattr(self, "room_group_name"):
+            await sync_to_async(call_state_remove_user)(self.room_id, self.user_id)
+            await self._broadcast_call_state()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -71,26 +88,45 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "detail": "Unknown message type."})
 
     async def _broadcast_user_joined(self):
-        """Notify other participants that this user joined the call."""
+        """Notify other participants that this user joined the call; update Redis state to active."""
+        await sync_to_async(call_state_set_user_state)(
+            self.room_id, self.user_id, self._username, STATE_ACTIVE
+        )
+        await self._broadcast_call_state()
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "user_joined",
                 "user": {
                     "id": self.user_id,
-                    "username": getattr(self.user, "username", ""),
+                    "username": self._username,
                 },
                 "exclude_channel": self.channel_name,
             },
         )
 
     async def _broadcast_user_left(self):
-        """Notify others that this user left the call (explicit leave_call)."""
+        """Notify others that this user left the call (explicit leave_call); remove from Redis."""
+        await sync_to_async(call_state_remove_user)(self.room_id, self.user_id)
+        await self._broadcast_call_state()
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "user_left",
                 "user_id": self.user_id,
+            },
+        )
+
+    async def _broadcast_call_state(self):
+        """Send call_state to all in group so UI can show presence (idle/connecting/active/ended)."""
+        participants = await sync_to_async(get_room_state)(self.room_id)
+        room_state = await sync_to_async(get_room_aggregate_state)(self.room_id)
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "call_state",
+                "participants": participants,
+                "room_state": room_state,
             },
         )
 
@@ -110,6 +146,16 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 "data": data,
             },
         )
+
+    async def call_state(self, event):
+        """Send current call presence to this client."""
+        await self.send_json({
+            "type": "call_state",
+            "data": {
+                "participants": event["participants"],
+                "room_state": event["room_state"],
+            },
+        })
 
     async def user_joined(self, event):
         """Send user_joined to this client (excluding sender)."""

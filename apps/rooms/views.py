@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.calls.call_state import get_room_aggregate_state, get_room_state
+
 from .models import Room
 from .permissions import IsRoomOwner, IsRoomParticipant
 from .serializers import (
@@ -19,8 +21,21 @@ class RoomListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List rooms where the user is a participant."""
+        """List rooms where the user is a participant. Paginated."""
+        from rest_framework.pagination import PageNumberPagination
+
         rooms = Room.objects.filter(participants__user=request.user).distinct()
+        paginator = PageNumberPagination()
+        try:
+            page_size = request.query_params.get("page_size")
+            if page_size is not None:
+                paginator.page_size = int(page_size)
+        except (TypeError, ValueError):
+            pass
+        page = paginator.paginate_queryset(rooms, request)
+        if page is not None:
+            serializer = RoomSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
         serializer = RoomSerializer(rooms, many=True)
         return Response(serializer.data)
 
@@ -120,3 +135,19 @@ class RoomParticipantListView(APIView):
         participants = room.participants.select_related("user").all()
         serializer = RoomParticipantSerializer(participants, many=True)
         return Response(serializer.data)
+
+
+class RoomCallStateView(APIView):
+    """Return current call presence state (Redis) for the room. Participants only."""
+
+    permission_classes = [IsAuthenticated, IsRoomParticipant]
+
+    def get(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        participants = get_room_state(room.id)
+        room_state = get_room_aggregate_state(room.id)
+        return Response({
+            "participants": participants,
+            "room_state": room_state,
+        })

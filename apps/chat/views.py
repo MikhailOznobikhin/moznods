@@ -28,12 +28,25 @@ class MessageListCreateView(APIView):
             )
 
     def get(self, request, room_id):
+        from rest_framework.pagination import PageNumberPagination
+
         room = self.get_room()
         err = self.check_room_access(request, room)
         if err:
             return err
-        messages = Message.objects.filter(room=room).select_related("author").prefetch_related("attachments__file")[:100]
-        serializer = MessageSerializer(messages, many=True)
+        qs = Message.objects.filter(room=room).select_related("author").prefetch_related("attachments__file")
+        paginator = PageNumberPagination()
+        try:
+            page_size = request.query_params.get("page_size")
+            if page_size is not None:
+                paginator.page_size = int(page_size)
+        except (TypeError, ValueError):
+            pass
+        page = paginator.paginate_queryset(qs, request)
+        if page is not None:
+            serializer = MessageSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+        serializer = MessageSerializer(qs[:100], many=True)
         return Response(serializer.data)
 
     def post(self, request, room_id):

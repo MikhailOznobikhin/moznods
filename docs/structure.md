@@ -71,9 +71,13 @@ WebRTC signaling for voice calls (MVP: signaling only; no DB models).
 **Responsibilities:**
 - WebRTC signaling over WebSocket (offer, answer, ice_candidate)
 - Relay to target user; broadcast user_joined / user_left
+- Call presence state in Redis (idle, connecting, active, ended) for UI
 
 **WebSocket Consumers:**
 - `SignalingConsumer` – Handles WebRTC signaling messages
+
+**Modules:**
+- `call_state.py` – Redis-backed call presence (set/remove user state, get room state)
 
 ### `apps/files/`
 

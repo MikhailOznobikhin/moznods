@@ -44,7 +44,7 @@ class TestFileAPI:
             status.HTTP_403_FORBIDDEN,
         )
 
-    def test_detail_200(self, api_client: APIClient):
+    def test_detail_200_uploader(self, api_client: APIClient):
         user = create_user(username="u")
         from django.core.files.base import ContentFile
 
@@ -58,5 +58,50 @@ class TestFileAPI:
         )
         api_client.force_authenticate(user=user)
         response = api_client.get(reverse("files:detail", kwargs={"pk": obj.pk}))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "x.txt"
+
+    def test_detail_403_non_uploader_not_in_room(self, api_client: APIClient):
+        from django.core.files.base import ContentFile
+
+        from apps.files.models import File
+        from apps.rooms.tests.factories import create_room
+
+        uploader = create_user(username="uploader")
+        other = create_user(username="other")
+        obj = File.objects.create(
+            uploaded_by=uploader,
+            file=ContentFile(b"x", name="x.txt"),
+            name="x.txt",
+            size=1,
+            content_type="text/plain",
+        )
+        api_client.force_authenticate(user=other)
+        response = api_client.get(reverse("files:detail", kwargs={"pk": obj.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_detail_200_participant_in_room_with_attachment(self, api_client: APIClient):
+        from django.core.files.base import ContentFile
+
+        from apps.chat.models import Message, MessageAttachment
+        from apps.files.models import File
+        from apps.rooms.models import RoomParticipant
+        from apps.rooms.tests.factories import create_room
+
+        uploader = create_user(username="uploader")
+        participant = create_user(username="participant")
+        room = create_room(owner=uploader, name="R1")
+        RoomParticipant.objects.create(room=room, user=participant)
+        f = File.objects.create(
+            uploaded_by=uploader,
+            file=ContentFile(b"x", name="x.txt"),
+            name="x.txt",
+            size=1,
+            content_type="text/plain",
+        )
+        msg = Message.objects.create(room=room, author=uploader, content="Hi")
+        MessageAttachment.objects.create(message=msg, file=f)
+        api_client.force_authenticate(user=participant)
+        response = api_client.get(reverse("files:detail", kwargs={"pk": f.pk}))
         assert response.status_code == status.HTTP_200_OK
         assert response.data["name"] == "x.txt"

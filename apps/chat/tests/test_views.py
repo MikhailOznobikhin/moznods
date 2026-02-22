@@ -18,7 +18,8 @@ class TestMessageAPI:
         api_client.force_authenticate(user=user)
         response = api_client.get(_messages_url(room.pk))
         assert response.status_code == status.HTTP_200_OK
-        assert isinstance(response.data, list)
+        assert "results" in response.data
+        assert isinstance(response.data["results"], list)
 
     def test_list_messages_non_participant_403(self, api_client: APIClient):
         owner = create_user(username="owner")

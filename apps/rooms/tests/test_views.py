@@ -24,7 +24,8 @@ class TestRoomAPI:
         api_client.force_authenticate(user=user)
         response = api_client.get(reverse("rooms:list-create"))
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == []
+        assert response.data["results"] == []
+        assert response.data["count"] == 0
 
     def test_list_rooms_returns_only_participant_rooms(self, api_client: APIClient):
         user = create_user(username="u")
@@ -34,8 +35,21 @@ class TestRoomAPI:
         api_client.force_authenticate(user=user)
         response = api_client.get(reverse("rooms:list-create"))
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["name"] == "Mine"
+        assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["name"] == "Mine"
+        assert response.data["count"] == 1
+
+    def test_list_rooms_pagination(self, api_client: APIClient):
+        user = create_user(username="u")
+        for i in range(3):
+            create_room(owner=user, name=f"Room {i}")
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse("rooms:list-create"), {"page_size": 2})
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 2
+        assert response.data["count"] == 3
+        assert response.data["next"] is not None
+        assert response.data["previous"] is None
 
     def test_create_room_201(self, api_client: APIClient):
         user = create_user(username="u")
@@ -142,3 +156,22 @@ class TestRoomAPI:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]["user"]["username"] == "u"
+
+    def test_call_state_200_participant(self, api_client: APIClient):
+        user = create_user(username="u")
+        room = create_room(owner=user, name="R1")
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse("rooms:call-state", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_200_OK
+        assert "participants" in response.data
+        assert "room_state" in response.data
+        assert response.data["room_state"] in ("idle", "active")
+        assert isinstance(response.data["participants"], list)
+
+    def test_call_state_403_non_participant(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        other = create_user(username="other")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=other)
+        response = api_client.get(reverse("rooms:call-state", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN

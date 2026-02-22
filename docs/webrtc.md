@@ -228,6 +228,18 @@ class CallManager {
 }
 ```
 
+## Call State (Presence) in Redis
+
+For UI presence (who is in the call, idle vs active), the server stores call state in Redis:
+
+- **Key:** `call:state:{room_id}` — Redis hash of `user_id` → JSON `{ "state", "username" }`.
+- **States:** `idle`, `connecting`, `active`, `ended`.
+- **TTL:** 1 hour on the key so stale entries expire if the consumer disconnects without cleanup.
+
+On WebSocket connect the user is set to `connecting`; on `join_call` to `active`; on `leave_call` or disconnect the user is removed. After each change, a `call_state` message is broadcast to the room group so all connected clients can update the UI.
+
+REST endpoint `GET /api/rooms/{id}/call-state/` (room participants only) returns current participants and `room_state` for polling without WebSocket.
+
 ## Server Implementation
 
 ### Django Channels Consumer

@@ -99,6 +99,9 @@ REST_FRAMEWORK = {
 # Celery
 CELERY_BROKER_URL = "redis://localhost:6379/1"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/2"
+
+# Call state (presence) for voice calls UI — Redis hash per room
+CALL_STATE_REDIS_URL = "redis://localhost:6379/3"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"

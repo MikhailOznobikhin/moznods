@@ -24,6 +24,9 @@ apps/
 │       ├── test_models.py   # Model tests
 │       ├── test_services.py # Service layer tests
 │       └── test_views.py    # API endpoint tests
+├── calls/
+│   └── tests/
+│       └── test_call_state.py   # Call state (Redis) when Redis unavailable
 └── ...
 
 tests/                       # Project-level tests

@@ -83,7 +83,7 @@ flowchart LR
 - [x] Create `apps/calls/`: Call, CallParticipant models (optional for MVP if state is only in Redis).
 - [x] SignalingConsumer (Channels): handle join_call, leave_call, offer, answer, ice_candidate; relay to target user(s) in room.
 - [x] ASGI routing: WebSocket URL for calls `/ws/call/<room_id>/` (chat remains `/ws/room/<room_id>/`).
-- [ ] Optional: call state in Redis for presence/UI (idle, connecting, active, ended).
+- [x] Optional: call state in Redis for presence/UI (idle, connecting, active, ended).
 
 **Documentation updates:** `docs/api.md` (WebSocket signaling), `docs/webrtc.md`.
 
@@ -91,10 +91,10 @@ flowchart LR
 
 ## Phase 5 — Integration
 
-- [ ] Review and fix permissions across all apps.
-- [ ] Pagination for list endpoints (rooms, messages).
-- [ ] Test coverage: models, services, views (and critical paths for consumers).
-- [ ] Update docs: structure, API, tech, testing.
+- [x] Review and fix permissions across all apps.
+- [x] Pagination for list endpoints (rooms, messages).
+- [x] Test coverage: models, services, views (and critical paths for consumers).
+- [x] Update docs: structure, API, tech, testing.
 
 **Documentation updates:** `docs/structure.md`, `docs/api.md`, `docs/testing.md` as needed.
 

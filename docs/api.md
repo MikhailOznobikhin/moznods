@@ -91,6 +91,7 @@ Response:
 | POST | `/api/rooms/{id}/join/` | Join room |
 | POST | `/api/rooms/{id}/leave/` | Leave room |
 | GET | `/api/rooms/{id}/participants/` | List room participants |
+| GET | `/api/rooms/{id}/call-state/` | Get current call presence (idle/active, participants in call) |
 
 ### Messages
 
@@ -106,7 +107,7 @@ Response:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/files/upload/` | Upload file |
-| GET | `/api/files/{id}/` | Get file info |
+| GET | `/api/files/{id}/` | Get file info (uploader or room participant with attachment) |
 | GET | `/api/files/{id}/download/` | Download file |
 
 ---
@@ -261,6 +262,25 @@ Use the **call** WebSocket URL (`/ws/call/{room_id}/`) for signaling. Only room 
 }
 ```
 
+#### Call State (presence)
+
+Sent when someone joins or leaves the call, so the UI can show who is in the call. Also available via REST `GET /api/rooms/{id}/call-state/`.
+
+```json
+{
+    "type": "call_state",
+    "data": {
+        "participants": [
+            {"user_id": 1, "username": "alice", "state": "active"},
+            {"user_id": 2, "username": "bob", "state": "connecting"}
+        ],
+        "room_state": "active"
+    }
+}
+```
+
+`room_state` is `"idle"` when no one is in the call, `"active"` otherwise. Participant `state` may be `idle`, `connecting`, `active`, or `ended`.
+
 ---
 
 ## Error Responses
@@ -299,12 +319,33 @@ Use the **call** WebSocket URL (`/ws/call/{room_id}/`) for signaling. Only room 
 
 ---
 
+### Call State (REST)
+
+Room participants can get current call presence without WebSocket:
+
+```http
+GET /api/rooms/{id}/call-state/
+```
+
+Response:
+```json
+{
+    "participants": [
+        {"user_id": 1, "username": "alice", "state": "active"}
+    ],
+    "room_state": "active"
+}
+```
+
+---
+
 ## Pagination
 
-List endpoints support pagination:
+List endpoints (rooms, messages) support pagination:
 
 ```http
 GET /api/rooms/?page=1&page_size=20
+GET /api/rooms/{id}/messages/?page=1&page_size=20
 ```
 
 Response:

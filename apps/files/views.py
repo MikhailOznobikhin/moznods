@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -6,6 +7,7 @@ from rest_framework.views import APIView
 
 from .constants import ALLOWED_CONTENT_TYPES, MAX_UPLOAD_SIZE
 from .models import File
+from .permissions import IsFileAccessible
 from .serializers import FileSerializer
 
 
@@ -55,9 +57,12 @@ class FileUploadView(APIView):
 
 
 class FileDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsFileAccessible]
+
+    def get_object(self):
+        return get_object_or_404(File, pk=self.kwargs["pk"])
 
     def get(self, request, pk):
-        from django.shortcuts import get_object_or_404
-        obj = get_object_or_404(File, pk=pk)
+        obj = self.get_object()
+        self.check_object_permissions(request, obj)
         return Response(FileSerializer(obj).data)
