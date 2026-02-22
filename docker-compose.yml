@@ -54,6 +54,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/1
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - DEBUG=True
+      - DJANGO_LOG_LEVEL=DEBUG
     depends_on:
       db:
         condition: service_healthy
@@ -74,6 +75,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/1
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - DEBUG=True
+      - DJANGO_LOG_LEVEL=DEBUG
     depends_on:
       db:
         condition: service_healthy
