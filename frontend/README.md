@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# MOznoDS Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightweight React + TypeScript + Vite application for MOznoDS.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Authentication**: Login/Register with JWT (Token) auth.
+- **Rooms**: Create and join chat rooms.
+- **Real-time Chat**: WebSocket-based messaging with file attachments.
+- **Voice/Video Calls**: P2P WebRTC calls with mesh topology.
 
-## React Compiler
+## Development Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Expanding the ESLint configuration
+2. **Run Development Server**:
+   ```bash
+   npm run dev
+   ```
+   The app will be available at http://localhost:5173.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+3. **Environment Variables**:
+   Copy `.env.example` to `.env` (if exists) or set:
+   ```
+   VITE_API_URL=http://localhost:8000
+   VITE_WS_URL=ws://localhost:8000
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Docker
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The frontend is included in the main `docker-compose.yml`.
+To run the full stack:
+```bash
+docker-compose up --build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Architecture
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **State Management**: Zustand (`src/store/`)
+- **Routing**: React Router v6 (`src/App.tsx`)
+- **Styling**: Tailwind CSS
+- **API**: Axios + Native WebSocket

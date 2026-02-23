@@ -6,7 +6,7 @@ import { useRoomStore } from '../store/useRoomStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCallStore } from '../store/useCallStore';
-import { Hash, Phone } from 'lucide-react';
+import { Hash, Phone, Video, Mic } from 'lucide-react';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +14,7 @@ export const RoomPage = () => {
   const { currentRoom, getRoom } = useRoomStore();
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
-  const { joinCall, isActive } = useCallStore();
+  const { joinCall, isActive, error: callError } = useCallStore();
 
   useEffect(() => {
     if (roomId && token) {
@@ -28,9 +28,9 @@ export const RoomPage = () => {
     }
   }, [roomId, token, getRoom, fetchMessages, connect, disconnect]);
 
-  const handleJoinCall = () => {
+  const handleJoinCall = (withVideo: boolean) => {
     if (roomId && token && user) {
-      joinCall(roomId, token, user.id);
+      joinCall(roomId, token, user, withVideo);
     }
   };
 
@@ -43,29 +43,46 @@ export const RoomPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
-      {/* Room Header */}
-      <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
-        <div className="flex items-center gap-3">
-          <Hash className="w-5 h-5 text-gray-400" />
-          <h2 className="text-lg font-bold text-white">{currentRoom.name}</h2>
-          <span className="text-sm text-gray-500">
-            {currentRoom.participant_count} participants
-          </span>
+      <div className="flex-1 flex flex-col h-full bg-gray-900">
+        {/* Room Header */}
+        <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
+          <div className="flex items-center gap-3">
+            <Hash className="w-5 h-5 text-gray-400" />
+            <h2 className="text-lg font-bold text-white">{currentRoom.name}</h2>
+            <span className="text-sm text-gray-500">
+              {currentRoom.participant_count} participants
+            </span>
+          </div>
+
+          {!isActive && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleJoinCall(false)}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
+                title="Join Voice Call"
+              >
+                <Phone className="w-4 h-4" />
+                <span className="hidden sm:inline">Voice</span>
+              </button>
+              <button
+                onClick={() => handleJoinCall(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                title="Join Video Call"
+              >
+                <Video className="w-4 h-4" />
+                <span className="hidden sm:inline">Video</span>
+              </button>
+            </div>
+          )}
         </div>
-
-        {!isActive && (
-          <button
-            onClick={handleJoinCall}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
-          >
-            <Phone className="w-4 h-4" />
-            Join Call
-          </button>
+        
+        {callError && (
+          <div className="bg-red-900/50 border-b border-red-900 px-6 py-2">
+             <p className="text-sm text-red-200">{callError}</p>
+          </div>
         )}
-      </div>
 
-      {/* Messages Area */}
+        {/* Messages Area */}
       <MessageList />
 
       {/* Input Area */}

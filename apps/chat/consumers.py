@@ -38,15 +38,35 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def connect(self):
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
+        
+        # Authenticate user
+        from core.ws_auth import get_user_from_scope
         self.user = await database_sync_to_async(get_user_from_scope)(self.scope)
-        ok, room = await check_participant(self.room_id, self.user)
-        if not ok or room is None:
+        
+        if not self.user or not self.user.is_authenticated:
+            print(f"WebSocket auth failed for room {self.room_id}")
             await self.close(code=4403)
             return
+
+        ok, room = await check_participant(self.room_id, self.user)
+        # If admin, allow access even if not participant (optional debug helper)
+        if (not ok or room is None) and self.user.is_superuser:
+             try:
+                room = await database_sync_to_async(Room.objects.get)(pk=self.room_id)
+                ok = True
+             except Room.DoesNotExist:
+                pass
+
+        if not ok or room is None:
+            print(f"WebSocket participant check failed for user {self.user} in room {self.room_id}")
+            await self.close(code=4403)
+            return
+            
         self.room = room
         self.room_group_name = f"chat_{self.room_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
+        print(f"WebSocket connected for user {self.user} in room {self.room_id}")
 
     async def disconnect(self, close_code):
         if hasattr(self, "room_group_name"):

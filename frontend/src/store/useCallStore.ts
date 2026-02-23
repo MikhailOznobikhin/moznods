@@ -12,7 +12,7 @@ interface CallState {
   isVideoEnabled: boolean;
   error: string | null;
 
-  joinCall: (roomId: number, token: string, userId: number) => Promise<void>;
+  joinCall: (roomId: number, token: string, user: { id: number; username: string }, withVideo?: boolean) => Promise<void>;
   leaveCall: () => void;
   toggleAudio: () => void;
   toggleVideo: () => void;
@@ -36,15 +36,47 @@ export const useCallStore = create<CallState>((set, get) => ({
   isVideoEnabled: true,
   error: null,
 
-  joinCall: async (roomId, token, currentUserId) => {
+  joinCall: async (roomId, token, user, withVideo = true) => {
     try {
-      console.log('Joining call...', roomId);
-      // 1. Get Local Stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+      console.log('Joining call...', roomId, { withVideo });
+      
+      let stream: MediaStream;
+      try {
+        // 1. Try to Get Local Stream
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: withVideo,
+          audio: true,
+        });
+      } catch (err: any) {
+        console.error('Initial getUserMedia failed:', err.name, err.message);
+        
+        // If video was requested but failed, try audio only
+        // BUT only if the error suggests video is the problem (NotFoundError)
+        // If PermissionDenied, it usually applies to the whole origin, but we can try just audio
+        if (withVideo) {
+          console.warn('Video request failed, attempting audio-only fallback...');
+          try {
+             stream = await navigator.mediaDevices.getUserMedia({
+              video: false,
+              audio: true,
+            });
+            withVideo = false; // Successfully fell back to audio only
+          } catch (audioErr) {
+             throw err; // Throw original error if fallback also fails
+          }
+        } else {
+          throw err;
+        }
+      }
+
+      set({ 
+        localStream: stream, 
+        isActive: true, 
+        roomId: roomId, 
+        error: null,
+        isVideoEnabled: withVideo,
+        isAudioEnabled: true 
       });
-      set({ localStream: stream, isActive: true, roomId, error: null });
 
       // 2. Connect Signaling WebSocket
       const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -81,6 +113,14 @@ export const useCallStore = create<CallState>((set, get) => ({
             const targetUserId = data.user_id;
             closePeerConnection(targetUserId, set, get);
           } 
+          else if (type === 'existing_participants') {
+             // Connect to existing users in the room
+             const { users } = data;
+             for (const user of users) {
+               // Don't connect to self
+               await createPeerConnection(user.id, stream, ws, true, set, get);
+             }
+          }
           else if (type === 'offer') {
             // Received offer, we answer
             const { from_user_id, sdp } = data;
@@ -118,9 +158,15 @@ export const useCallStore = create<CallState>((set, get) => ({
 
       set({ ws });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to join call:', error);
-      set({ error: 'Failed to access camera/microphone' });
+      let errorMessage = 'Failed to access camera/microphone';
+      if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'Required device (camera or microphone) not found';
+      } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'Permission to access camera/microphone denied';
+      }
+      set({ error: errorMessage, isActive: false });
       get().leaveCall();
     }
   },

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import api from '../api/client';
-import { Room, CreateRoomPayload } from '../types/room';
+import type { Room, CreateRoomPayload } from '../types/room';
+
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
 
 interface RoomState {
   rooms: Room[];
@@ -23,8 +30,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   fetchRooms: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get<Room[]>('/api/rooms/');
-      set({ rooms: response.data, isLoading: false });
+      const response = await api.get<PaginatedResponse<Room>>('/api/rooms/');
+      set({ rooms: response.data.results, isLoading: false });
     } catch (error: any) {
       set({
         isLoading: false,

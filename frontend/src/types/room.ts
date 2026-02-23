@@ -1,4 +1,4 @@
-import { User } from './auth';
+import {type User } from './auth';
 
 export interface Room {
   id: number;

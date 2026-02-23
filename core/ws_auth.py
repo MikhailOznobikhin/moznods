@@ -18,6 +18,10 @@ def get_user_from_scope(scope):
     if not token_key:
         return None
     try:
+        # Check if it is a list and get the first element
+        if isinstance(token_key, list):
+            token_key = token_key[0]
+            
         token = Token.objects.get(key=token_key)
         return token.user
     except Token.DoesNotExist:

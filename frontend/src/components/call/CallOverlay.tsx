@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCallStore } from '../../store/useCallStore';
+import { useRoomStore } from '../../store/useRoomStore';
 import { VideoPlayer } from './VideoPlayer';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -14,6 +15,7 @@ export const CallOverlay = () => {
     isAudioEnabled,
     isVideoEnabled,
   } = useCallStore();
+  const { currentRoom } = useRoomStore();
   const [isExpanded, setIsExpanded] = useState(true);
 
   if (!isActive) return null;
@@ -69,13 +71,24 @@ export const CallOverlay = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 h-full">
             {/* Local Video */}
             {localStream && (
-              <VideoPlayer stream={localStream} isLocal />
+              <VideoPlayer 
+                stream={localStream} 
+                isLocal 
+                username="You"
+              />
             )}
 
             {/* Remote Videos */}
-            {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
-              <VideoPlayer key={userId} stream={stream} />
-            ))}
+            {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
+              const participant = currentRoom?.participants?.find(p => p.id === userId);
+              return (
+                <VideoPlayer 
+                  key={userId} 
+                  stream={stream} 
+                  username={participant?.username || `User ${userId}`}
+                />
+              );
+            })}
           </div>
         </div>
       )}

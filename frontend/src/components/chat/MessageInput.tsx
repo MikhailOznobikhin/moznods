@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Send, Paperclip, X, FileText, Loader2 } from 'lucide-react';
 import { useChatStore } from '../../store/useChatStore';
-import { FileData } from '../../types/chat';
+import {type FileData } from '../../types/chat';
 
 export const MessageInput = () => {
   const { sendMessage, uploadFile, isConnected } = useChatStore();
@@ -50,7 +50,7 @@ export const MessageInput = () => {
       }
     } catch (error) {
       console.error('Failed to upload file:', error);
-      // TODO: Show toast notification
+      alert('File upload failed. Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

@@ -16,7 +16,7 @@ from apps.calls.consumers import SignalingConsumer  # noqa: E402
 from django.urls import path  # noqa: E402
 
 websocket_urlpatterns = [
-    path("ws/room/<int:room_id>/", ChatConsumer.as_asgi()),
+    path("ws/chat/<int:room_id>/", ChatConsumer.as_asgi()),
     path("ws/call/<int:room_id>/", SignalingConsumer.as_asgi()),
 ]
 

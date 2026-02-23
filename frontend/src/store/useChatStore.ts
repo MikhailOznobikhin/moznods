@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../api/client';
-import { Message, SendMessagePayload, FileData } from '../types/chat';
+import { type Message, type SendMessagePayload, type FileData } from '../types/chat';
 
 interface ChatState {
   messages: Message[];
@@ -26,9 +26,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchMessages: async (roomId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get<Message[]>(`/api/chat/${roomId}/messages/`);
-      set({ messages: response.data.reverse(), isLoading: false }); // Show newest at bottom
+      // Handle pagination
+      const response = await api.get<any>(`/api/chat/${roomId}/messages/`);
+      const data = response.data;
+      
+      let messages: Message[] = [];
+      if (Array.isArray(data)) {
+        messages = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        messages = data.results;
+      }
+      
+      // API returns newest first due to ordering = ["-created_at"]
+      // We want oldest first for display (top to bottom)
+      set({ messages: messages.reverse(), isLoading: false });
     } catch (error: any) {
+      console.error('Fetch messages error:', error);
       set({
         isLoading: false,
         error: error.response?.data?.detail || 'Failed to fetch messages',
@@ -38,16 +51,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   connect: (roomId, token) => {
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-    const ws = new WebSocket(`${wsUrl}/ws/chat/${roomId}/?token=${token}`);
+    // Ensure correct path
+    const url = `${wsUrl}/ws/chat/${roomId}/?token=${token}`;
+    console.log('Connecting to WebSocket:', url);
+    
+    const ws = new WebSocket(url);
 
     ws.onopen = () => {
       set({ isConnected: true, error: null });
       console.log('Connected to chat');
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       set({ isConnected: false, ws: null });
-      console.log('Disconnected from chat');
+      console.log('Disconnected from chat', event.code, event.reason);
+      if (event.code === 4403) {
+          set({ error: 'Access denied (4403). Check permissions.' });
+      } else if (event.code !== 1000) {
+          set({ error: `Connection lost (${event.code})` });
+      }
     };
 
     ws.onmessage = (event) => {

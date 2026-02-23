@@ -30,7 +30,7 @@ class MessageListCreateView(APIView):
     def get(self, request, room_id):
         from rest_framework.pagination import PageNumberPagination
 
-        room = self.get_room()
+        room = get_object_or_404(Room, pk=room_id)
         err = self.check_room_access(request, room)
         if err:
             return err
@@ -50,7 +50,7 @@ class MessageListCreateView(APIView):
         return Response(serializer.data)
 
     def post(self, request, room_id):
-        room = self.get_room()
+        room = get_object_or_404(Room, pk=room_id)
         err = self.check_room_access(request, room)
         if err:
             return err
