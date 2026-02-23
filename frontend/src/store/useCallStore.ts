@@ -1,0 +1,252 @@
+import { create } from 'zustand';
+
+interface CallState {
+  isActive: boolean;
+  isJoined: boolean;
+  localStream: MediaStream | null;
+  remoteStreams: Map<number, MediaStream>; // userId -> stream
+  peers: Map<number, RTCPeerConnection>; // userId -> peer connection
+  ws: WebSocket | null;
+  roomId: number | null;
+  isAudioEnabled: boolean;
+  isVideoEnabled: boolean;
+  error: string | null;
+
+  joinCall: (roomId: number, token: string, userId: number) => Promise<void>;
+  leaveCall: () => void;
+  toggleAudio: () => void;
+  toggleVideo: () => void;
+}
+
+const STUN_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+  ],
+};
+
+export const useCallStore = create<CallState>((set, get) => ({
+  isActive: false,
+  isJoined: false,
+  localStream: null,
+  remoteStreams: new Map(),
+  peers: new Map(),
+  ws: null,
+  roomId: null,
+  isAudioEnabled: true,
+  isVideoEnabled: true,
+  error: null,
+
+  joinCall: async (roomId, token, currentUserId) => {
+    try {
+      console.log('Joining call...', roomId);
+      // 1. Get Local Stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      set({ localStream: stream, isActive: true, roomId, error: null });
+
+      // 2. Connect Signaling WebSocket
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+      const ws = new WebSocket(`${wsUrl}/ws/call/${roomId}/?token=${token}`);
+
+      ws.onopen = () => {
+        console.log('Connected to signaling server');
+        ws.send(JSON.stringify({ type: 'join_call' }));
+        set({ isJoined: true });
+      };
+
+      ws.onclose = () => {
+        console.log('Signaling server disconnected');
+        get().leaveCall();
+      };
+
+      ws.onerror = (e) => {
+        console.error('Signaling error:', e);
+        set({ error: 'Connection error' });
+      };
+
+      ws.onmessage = async (event) => {
+        const message = JSON.parse(event.data);
+        const { type, data } = message;
+        // console.log('Signaling message:', type, data);
+
+        try {
+          if (type === 'user_joined') {
+            // New user joined, we (existing user) initiate connection
+            const targetUserId = data.user.id;
+            await createPeerConnection(targetUserId, stream, ws, true, set, get);
+          } 
+          else if (type === 'user_left') {
+            const targetUserId = data.user_id;
+            closePeerConnection(targetUserId, set, get);
+          } 
+          else if (type === 'offer') {
+            // Received offer, we answer
+            const { from_user_id, sdp } = data;
+            const peer = await createPeerConnection(from_user_id, stream, ws, false, set, get);
+            await peer.setRemoteDescription(new RTCSessionDescription(sdp));
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            
+            ws.send(JSON.stringify({
+              type: 'answer',
+              data: {
+                target_user_id: from_user_id,
+                sdp: peer.localDescription,
+              },
+            }));
+          } 
+          else if (type === 'answer') {
+            const { from_user_id, sdp } = data;
+            const peer = get().peers.get(from_user_id);
+            if (peer) {
+              await peer.setRemoteDescription(new RTCSessionDescription(sdp));
+            }
+          } 
+          else if (type === 'ice_candidate') {
+            const { from_user_id, candidate } = data;
+            const peer = get().peers.get(from_user_id);
+            if (peer) {
+              await peer.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+          }
+        } catch (err) {
+          console.error('Error handling signaling message:', err);
+        }
+      };
+
+      set({ ws });
+
+    } catch (error) {
+      console.error('Failed to join call:', error);
+      set({ error: 'Failed to access camera/microphone' });
+      get().leaveCall();
+    }
+  },
+
+  leaveCall: () => {
+    const { localStream, peers, ws, roomId } = get();
+
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+
+    peers.forEach(peer => peer.close());
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'leave_call' }));
+      ws.close();
+    }
+
+    set({
+      isActive: false,
+      isJoined: false,
+      localStream: null,
+      remoteStreams: new Map(),
+      peers: new Map(),
+      ws: null,
+      roomId: null,
+    });
+  },
+
+  toggleAudio: () => {
+    const { localStream, isAudioEnabled } = get();
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => track.enabled = !isAudioEnabled);
+      set({ isAudioEnabled: !isAudioEnabled });
+    }
+  },
+
+  toggleVideo: () => {
+    const { localStream, isVideoEnabled } = get();
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => track.enabled = !isVideoEnabled);
+      set({ isVideoEnabled: !isVideoEnabled });
+    }
+  },
+}));
+
+// Helper to create PeerConnection
+async function createPeerConnection(
+  targetUserId: number,
+  localStream: MediaStream,
+  ws: WebSocket,
+  isInitiator: boolean,
+  set: any,
+  get: any
+): Promise<RTCPeerConnection> {
+  const peer = new RTCPeerConnection(STUN_SERVERS);
+
+  // Add local tracks
+  localStream.getTracks().forEach(track => {
+    peer.addTrack(track, localStream);
+  });
+
+  // Handle ICE candidates
+  peer.onicecandidate = (event) => {
+    if (event.candidate) {
+      ws.send(JSON.stringify({
+        type: 'ice_candidate',
+        data: {
+          target_user_id: targetUserId,
+          candidate: event.candidate,
+        },
+      }));
+    }
+  };
+
+  // Handle remote stream
+  peer.ontrack = (event) => {
+    console.log(`Received remote track from ${targetUserId}`);
+    const [remoteStream] = event.streams;
+    
+    // Update state safely
+    set((state: CallState) => {
+      const newRemoteStreams = new Map(state.remoteStreams);
+      newRemoteStreams.set(targetUserId, remoteStream);
+      return { remoteStreams: newRemoteStreams };
+    });
+  };
+
+  // Store peer
+  set((state: CallState) => {
+    const newPeers = new Map(state.peers);
+    newPeers.set(targetUserId, peer);
+    return { peers: newPeers };
+  });
+
+  if (isInitiator) {
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    
+    ws.send(JSON.stringify({
+      type: 'offer',
+      data: {
+        target_user_id: targetUserId,
+        sdp: peer.localDescription,
+      },
+    }));
+  }
+
+  return peer;
+}
+
+function closePeerConnection(userId: number, set: any, get: any) {
+  const { peers, remoteStreams } = get();
+  
+  const peer = peers.get(userId);
+  if (peer) {
+    peer.close();
+  }
+
+  set((state: CallState) => {
+    const newPeers = new Map(state.peers);
+    newPeers.delete(userId);
+    
+    const newRemoteStreams = new Map(state.remoteStreams);
+    newRemoteStreams.delete(userId);
+    
+    return { peers: newPeers, remoteStreams: newRemoteStreams };
+  });
+}

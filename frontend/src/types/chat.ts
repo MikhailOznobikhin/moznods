@@ -1,14 +1,17 @@
 import { User } from './auth';
 
+export interface FileData {
+  id: number;
+  file: string; // URL
+  name: string;
+  size: number;
+  content_type: string;
+  created_at: string;
+}
+
 export interface Attachment {
   id: number;
-  file: {
-    id: number;
-    url: string;
-    name: string;
-    size: number;
-    mime_type: string;
-  };
+  file: FileData;
 }
 
 export interface Message {

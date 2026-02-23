@@ -5,14 +5,16 @@ import { MessageInput } from '../components/chat/MessageInput';
 import { useRoomStore } from '../store/useRoomStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { Hash } from 'lucide-react';
+import { useCallStore } from '../store/useCallStore';
+import { Hash, Phone } from 'lucide-react';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
   const roomId = parseInt(id || '0');
   const { currentRoom, getRoom } = useRoomStore();
   const { connect, disconnect, fetchMessages } = useChatStore();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
+  const { joinCall, isActive } = useCallStore();
 
   useEffect(() => {
     if (roomId && token) {
@@ -25,6 +27,12 @@ export const RoomPage = () => {
       };
     }
   }, [roomId, token, getRoom, fetchMessages, connect, disconnect]);
+
+  const handleJoinCall = () => {
+    if (roomId && token && user) {
+      joinCall(roomId, token, user.id);
+    }
+  };
 
   if (!currentRoom) {
     return (
@@ -45,6 +53,16 @@ export const RoomPage = () => {
             {currentRoom.participant_count} participants
           </span>
         </div>
+
+        {!isActive && (
+          <button
+            onClick={handleJoinCall}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+          >
+            <Phone className="w-4 h-4" />
+            Join Call
+          </button>
+        )}
       </div>
 
       {/* Messages Area */}

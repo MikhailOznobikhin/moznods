@@ -77,7 +77,7 @@ export const MessageList = () => {
                     {message.attachments.map((att) => (
                       <a
                         key={att.id}
-                        href={att.file.url}
+                        href={att.file.file}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`flex items-center gap-2 p-2 rounded bg-gray-900/50 hover:bg-gray-900 transition-colors text-sm ${

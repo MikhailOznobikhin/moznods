@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../api/client';
-import { Message, SendMessagePayload } from '../types/chat';
+import { Message, SendMessagePayload, FileData } from '../types/chat';
 
 interface ChatState {
   messages: Message[];
@@ -13,6 +13,7 @@ interface ChatState {
   connect: (roomId: number, token: string) => void;
   disconnect: () => void;
   sendMessage: (payload: SendMessagePayload) => void;
+  uploadFile: (file: File) => Promise<FileData>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -81,6 +82,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
     } else {
       set({ error: 'WebSocket is not connected' });
+    }
+  },
+
+  uploadFile: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await api.post<FileData>('/api/files/upload/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.file?.[0] || 'File upload failed');
     }
   },
 }));
