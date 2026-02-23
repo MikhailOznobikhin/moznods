@@ -37,6 +37,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for room chat. Join room group, receive chat_message, persist and broadcast."""
 
     async def connect(self):
+        print(f"DEBUG: ChatConsumer.connect() called for room {self.scope['url_route']['kwargs'].get('room_id')}")
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         
         # Authenticate user
@@ -76,13 +77,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def receive_json(self, content):
+        print(f"Received WebSocket message: {content}")
         msg_type = content.get("type")
         if msg_type != "chat_message":
+            print(f"Unknown message type: {msg_type}")
             await self.send_json({"type": "error", "detail": "Unknown message type."})
             return
         data = content.get("data", {})
         content_text = data.get("content", "")
         attachment_ids = data.get("attachment_ids", [])
+        print(f"Processing message from {self.user}: {content_text}")
         try:
             payload = await save_and_broadcast_message(
                 self.room,
@@ -90,7 +94,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 content_text,
                 attachment_ids,
             )
+            print(f"Message saved: {payload['id']}")
         except Exception as e:
+            print(f"Error saving message: {e}")
             from core.exceptions import ValidationError
             if isinstance(e, ValidationError):
                 await self.send_json(

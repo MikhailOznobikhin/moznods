@@ -9,6 +9,7 @@ export const CallOverlay = () => {
     isActive,
     localStream,
     remoteStreams,
+    participants,
     leaveCall,
     toggleAudio,
     toggleVideo,
@@ -80,12 +81,15 @@ export const CallOverlay = () => {
 
             {/* Remote Videos */}
             {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
-              const participant = currentRoom?.participants?.find(p => p.id === userId);
+              const participant = participants?.get(userId);
+              const roomParticipant = currentRoom?.participants?.find(p => p.id === userId);
+              const username = participant?.username || roomParticipant?.username || `User ${userId}`;
+              
               return (
                 <VideoPlayer 
                   key={userId} 
                   stream={stream} 
-                  username={participant?.username || `User ${userId}`}
+                  username={username}
                 />
               );
             })}

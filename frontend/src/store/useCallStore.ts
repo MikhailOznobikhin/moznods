@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 
+interface CallParticipant {
+  id: number;
+  username: string;
+  state: string;
+}
+
 interface CallState {
   isActive: boolean;
   isJoined: boolean;
   localStream: MediaStream | null;
   remoteStreams: Map<number, MediaStream>; // userId -> stream
   peers: Map<number, RTCPeerConnection>; // userId -> peer connection
+  participants: Map<number, CallParticipant>; // userId -> participant details
   ws: WebSocket | null;
   roomId: number | null;
   isAudioEnabled: boolean;
@@ -30,6 +37,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   localStream: null,
   remoteStreams: new Map(),
   peers: new Map(),
+  participants: new Map(),
   ws: null,
   roomId: null,
   isAudioEnabled: true,
@@ -104,13 +112,49 @@ export const useCallStore = create<CallState>((set, get) => ({
         // console.log('Signaling message:', type, data);
 
         try {
-          if (type === 'user_joined') {
+          if (type === 'call_state') {
+            const participants = data.participants;
+            const participantsMap = new Map<number, CallParticipant>();
+            
+            if (Array.isArray(participants)) {
+              participants.forEach((p: any) => {
+                participantsMap.set(p.user_id, {
+                  id: p.user_id,
+                  username: p.username,
+                  state: p.state,
+                });
+              });
+            }
+            
+            set({ participants: participantsMap });
+          }
+          else if (type === 'user_joined') {
             // New user joined, we (existing user) initiate connection
             const targetUserId = data.user.id;
+            
+            // Add to participants
+            set((state: CallState) => {
+              const newParticipants = new Map(state.participants);
+              newParticipants.set(targetUserId, {
+                id: targetUserId,
+                username: data.user.username,
+                state: 'active'
+              });
+              return { participants: newParticipants };
+            });
+
             await createPeerConnection(targetUserId, stream, ws, true, set, get);
           } 
           else if (type === 'user_left') {
             const targetUserId = data.user_id;
+            
+            // Remove from participants
+            set((state: CallState) => {
+              const newParticipants = new Map(state.participants);
+              newParticipants.delete(targetUserId);
+              return { participants: newParticipants };
+            });
+
             closePeerConnection(targetUserId, set, get);
           } 
           else if (type === 'existing_participants') {
@@ -191,6 +235,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       localStream: null,
       remoteStreams: new Map(),
       peers: new Map(),
+      participants: new Map(),
       ws: null,
       roomId: null,
     });

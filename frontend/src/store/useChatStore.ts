@@ -50,6 +50,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   connect: (roomId, token) => {
+    // Disconnect existing connection if any
+    const currentWs = get().ws;
+    if (currentWs) {
+      console.log('Closing existing connection before new one');
+      currentWs.onclose = null;
+      currentWs.onmessage = null;
+      currentWs.onopen = null;
+      currentWs.close();
+      set({ ws: null, isConnected: false });
+    }
+
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
     // Ensure correct path
     const url = `${wsUrl}/ws/chat/${roomId}/?token=${token}`;
@@ -90,6 +101,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   disconnect: () => {
     const { ws } = get();
     if (ws) {
+      ws.onclose = null;
+      ws.onmessage = null;
+      ws.onopen = null;
       ws.close();
       set({ ws: null, isConnected: false });
     }
@@ -97,12 +111,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: (payload) => {
     const { ws } = get();
+    console.log('Attempting to send message via WS. State:', ws?.readyState);
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
+      const data = JSON.stringify({
         type: 'chat_message',
         data: payload,
-      }));
+      });
+      console.log('Sending data:', data);
+      ws.send(data);
     } else {
+      console.error('WebSocket is not connected. State:', ws?.readyState);
       set({ error: 'WebSocket is not connected' });
     }
   },

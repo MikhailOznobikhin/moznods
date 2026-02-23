@@ -63,6 +63,7 @@ services:
       minio:
         condition: service_started
     volumes:
+      - .:/app
       - ./media:/app/media
       - ./static:/app/static
 
