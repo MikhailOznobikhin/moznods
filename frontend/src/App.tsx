@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+import { RoomPage } from './pages/RoomPage';
 
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -26,7 +27,7 @@ function App() {
                 Select a room to start chatting
               </div>
             } />
-            {/* Room routes will go here */}
+            <Route path="/rooms/:id" element={<RoomPage />} />
           </Route>
         </Route>
 
