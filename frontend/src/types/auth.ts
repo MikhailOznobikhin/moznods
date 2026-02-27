@@ -21,5 +21,4 @@ export interface RegisterPayload {
   email: string;
   password: string;
   display_name?: string;
-  invite_code: string;
 }

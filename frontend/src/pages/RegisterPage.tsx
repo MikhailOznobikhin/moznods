@@ -12,7 +12,6 @@ export const RegisterPage = () => {
     username: '',
     email: '',
     password: '',
-    invite_code: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,14 +64,7 @@ export const RegisterPage = () => {
             minLength={8}
           />
 
-          <Input
-            label="Invite Code"
-            type="text"
-            value={formData.invite_code}
-            onChange={(e) => setFormData({ ...formData, invite_code: e.target.value })}
-            required
-            placeholder="Enter your invite code"
-          />
+          
 
           {error && (
             <div className="p-3 bg-red-900/50 border border-red-900 rounded text-red-200 text-sm">

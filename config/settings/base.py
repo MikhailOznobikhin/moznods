@@ -82,10 +82,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Registration: single invite code for MVP.
-# AICODE-TODO: Replace with per-user invite codes (e.g. 5 invites per user).
-REGISTRATION_INVITE_CODE = ""
-
 # REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

@@ -75,9 +75,6 @@ INSTALLED_APPS = [*INSTALLED_APPS, "corsheaders"]  # noqa: F405
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", *MIDDLEWARE]  # noqa: F405
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Invite code for registration (dev default; set in .env for production)
-REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "moznods")
-
 # Redis defaults for local
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2")

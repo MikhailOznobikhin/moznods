@@ -17,9 +17,7 @@ All API endpoints (except registration and login) require authentication.
 Authorization: Token <your-token>
 ```
 
-### Registration (requires invite code)
-
-Registration is limited by an invite code (single shared code for MVP; per-user invites planned).
+### Registration
 
 ```http
 POST /api/auth/register/
@@ -29,7 +27,6 @@ Content-Type: application/json
     "username": "newuser",
     "email": "user@example.com",
     "password": "password123",
-    "invite_code": "your-invite-code",
     "display_name": "Optional Display Name"
 }
 ```

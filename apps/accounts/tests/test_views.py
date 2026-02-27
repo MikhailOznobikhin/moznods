@@ -14,25 +14,12 @@ class TestAuthAPI:
             "username": "newuser",
             "email": "new@example.com",
             "password": "securepass123",
-            "invite_code": "testcode",
         }
         response = api_client.post(url, data)
         assert response.status_code == status.HTTP_201_CREATED
         assert "token" in response.data
         assert response.data["user"]["username"] == "newuser"
         assert response.data["user"]["email"] == "new@example.com"
-
-    def test_register_invalid_invite_code_400(self, api_client: APIClient):
-        url = reverse("accounts:register")
-        data = {
-            "username": "newuser",
-            "email": "new@example.com",
-            "password": "securepass123",
-            "invite_code": "wrongcode",
-        }
-        response = api_client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "invite_code" in response.data
 
     def test_login_200_returns_token(self, api_client: APIClient):
         create_user(username="u", email="u@example.com", password="pass")
