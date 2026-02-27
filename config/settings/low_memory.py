@@ -1,65 +1,65 @@
 """
 Low memory server settings (375MB RAM)
-- SQLite instead of PostgreSQL
-- InMemory channels instead of Redis
-- No Celery
 """
-
 import os
-from .base import *  # noqa: F401, F403
+from .base import *
 
-# Читаем .env
+# Загружаем .env
 from dotenv import load_dotenv
-load_dotenv(BASE_DIR / ".env")  # noqa: F405
+load_dotenv(BASE_DIR / ".env")
 
-DEBUG = False
+DEBUG = True
 
+# Основные настройки
 SECRET_KEY = os.environ["SECRET_KEY"]
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 
-# SQLite для экономии памяти
+# База данных SQLite
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
+        "NAME": BASE_DIR / "db.sqlite3",
         "OPTIONS": {
             "timeout": 20,
-            "transaction_mode": "IMMEDIATE",
             "init_command": "PRAGMA journal_mode=WAL;"
         }
     }
 }
 
-# Static files с whitenoise
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]  # noqa: F405
+# Статика - важно для админки!
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Безопасность
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = "DENY"
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# Whitenoise для статики
+MIDDLEWARE = [
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+] + MIDDLEWARE
 
-# Отключаем Celery полностью
-CELERY_BROKER_URL = None
-CELERY_RESULT_BACKEND = None
-
-# Удаляем Celery из INSTALLED_APPS если он там есть
-if 'celery' in INSTALLED_APPS:  # noqa: F405
-    INSTALLED_APPS.remove('celery')  # noqa: F405
-
-# InMemory каналы для WebSocket (без Redis)
+# CSRF настройки - РАБОЧИЙ ВАРИАНТ!
+CSRF_TRUSTED_ORIGINS = [
+    'http://193.124.117.231', 
+    'https://193.124.117.231',  # Добавили HTTPS!
+    'http://localhost', 
+    'http://127.0.0.1'
+]
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+CORS_ALLOW_CREDENTIALS = True
+# Channels без Redis
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
-        "CONFIG": {
-            "capacity": 1000,  # Ограничиваем для экономии памяти
-        },
+        "CONFIG": {"capacity": 1000},
     }
 }
 
-# Логирование для продакшена
+# Убираем Celery
+CELERY_BROKER_URL = None
+CELERY_RESULT_BACKEND = None#ование для продакшена
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
