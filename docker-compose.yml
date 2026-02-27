@@ -29,17 +29,17 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
+  # minio:
+  #   image: minio/minio:latest
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: minioadmin
+  #     MINIO_ROOT_PASSWORD: minioadmin
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   volumes:
+  #     - minio_data:/data
 
   web:
     build: .
@@ -52,7 +52,7 @@ services:
       - DATABASE_URL=postgres://moznods:moznods@db:5432/moznods
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      # - AWS_S3_ENDPOINT_URL=http://minio:9000
       - DEBUG=True
       - DJANGO_LOG_LEVEL=DEBUG
     depends_on:
@@ -60,8 +60,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
+      # minio:
+      #   condition: service_started
     volumes:
       - .:/app
       - ./media:/app/media
@@ -74,7 +74,7 @@ services:
       - DATABASE_URL=postgres://moznods:moznods@db:5432/moznods
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      # - AWS_S3_ENDPOINT_URL=http://minio:9000
       - DEBUG=True
       - DJANGO_LOG_LEVEL=DEBUG
     depends_on:
@@ -82,8 +82,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
+      # minio:
+      #   condition: service_started
 
   frontend:
     build: ./frontend
@@ -99,4 +99,4 @@ services:
 
 volumes:
   postgres_data: {}
-  minio_data: {}
+  # minio_data: {}

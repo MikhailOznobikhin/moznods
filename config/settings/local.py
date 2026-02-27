@@ -10,7 +10,7 @@ from .base import *  # noqa: F401, F403, F405
 
 load_dotenv(BASE_DIR / ".env")  # noqa: F405
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes", "on")
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0", "*"]
 
 # Add logging to see full tracebacks in console

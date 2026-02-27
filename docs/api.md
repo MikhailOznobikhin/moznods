@@ -5,7 +5,7 @@ This document describes the REST and WebSocket APIs for MOznoDS.
 ## Base URL
 
 - Development: `http://localhost:8000/api/`
-- WebSocket: `ws://localhost:8001/ws/`
+- WebSocket: `ws://localhost:8000/ws/` (port may vary; in dev via Daphne it can be 8001)
 
 ## Authentication
 
@@ -67,14 +67,9 @@ Response:
 | POST | `/api/auth/login/` | Login and get token |
 | POST | `/api/auth/logout/` | Logout (invalidate token) |
 | GET | `/api/auth/me/` | Get current user info |
+| PATCH | `/api/auth/profile/` | Update current profile (display_name, avatar) |
 
-### Users
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users/` | List users |
-| GET | `/api/users/{id}/` | Get user details |
-| PATCH | `/api/users/{id}/` | Update user profile |
+User payload includes `avatar_url` (may be empty string if no avatar).
 
 ### Rooms
 
@@ -89,6 +84,8 @@ Response:
 | POST | `/api/rooms/{id}/leave/` | Leave room |
 | GET | `/api/rooms/{id}/participants/` | List room participants |
 | GET | `/api/rooms/{id}/call-state/` | Get current call presence (idle/active, participants in call) |
+| POST | `/api/rooms/{id}/add-participant/` | Add participant by id/username/email (owner only) |
+| POST | `/api/rooms/{id}/remove-participant/` | Remove participant by id/username/email (owner only) |
 
 ### Messages
 
@@ -96,8 +93,6 @@ Response:
 |--------|----------|-------------|
 | GET | `/api/rooms/{room_id}/messages/` | List messages in room |
 | POST | `/api/rooms/{room_id}/messages/` | Send message |
-| GET | `/api/messages/{id}/` | Get message details |
-| DELETE | `/api/messages/{id}/` | Delete message |
 
 ### Files
 
@@ -113,18 +108,18 @@ Response:
 
 ### Connection
 
-Two WebSocket endpoints:
+Two WebSocket endpoints (ASGI):
 
 | Purpose | URL | Auth |
 |---------|-----|------|
-| Chat (messages) | `ws://host/ws/room/{room_id}/?token={auth_token}` | Token in query; room participant |
+| Chat (messages) | `ws://host/ws/chat/{room_id}/?token={auth_token}` | Token in query; room participant |
 | Calls (WebRTC signaling) | `ws://host/ws/call/{room_id}/?token={auth_token}` | Token in query; room participant |
 
 Example:
 
 ```javascript
-const chatWs = new WebSocket('ws://localhost:8001/ws/room/1/?token=abc123');
-const callWs = new WebSocket('ws://localhost:8001/ws/call/1/?token=abc123');
+const chatWs = new WebSocket('ws://localhost:8000/ws/chat/1/?token=abc123');
+const callWs = new WebSocket('ws://localhost:8000/ws/call/1/?token=abc123');
 ```
 
 ### Message Format
@@ -147,7 +142,7 @@ All WebSocket messages follow this format:
     "type": "chat_message",
     "data": {
         "content": "Hello, world!",
-        "attachments": [1, 2]  // File IDs
+        "attachment_ids": [1, 2]  // File IDs
     }
 }
 ```
@@ -161,7 +156,9 @@ All WebSocket messages follow this format:
         "id": 123,
         "author": {
             "id": 1,
-            "username": "user"
+            "username": "user",
+            "display_name": "User",
+            "avatar_url": "http://localhost:8000/media/avatars/...jpg"
         },
         "content": "Hello, world!",
         "attachments": [...],
@@ -298,6 +295,45 @@ Sent when someone joins or leaves the call, so the UI can show who is in the cal
 |------|-------------|-------------|
 | `authentication_required` | 401 | Missing or invalid token |
 | `permission_denied` | 403 | User lacks permission |
+
+---
+
+## Permissions
+
+Summary of access rules:
+
+- Authentication required for all endpoints except register/login.
+- Rooms:
+  - List/get: participants only
+  - Update/delete: owner only
+  - Join: any authenticated user (if room exists)
+  - Leave: participants only
+  - Participants list: participants only
+  - Add/remove participant: owner only
+- Messages:
+  - List/send: participants only
+- Files:
+  - Upload: authenticated user
+  - Get/download: uploader or room participant where the file is attached
+- WebSocket (chat/call): participants only; token in query
+
+---
+
+## Pagination
+
+- Rooms list (`GET /api/rooms/`) uses PageNumberPagination; query params:
+  - `page`: page number (default 1)
+  - `page_size`: items per page (default 20)
+- Messages list (`GET /api/rooms/{room_id}/messages/`) uses PageNumberPagination; same params.
+- Response format:
+```json
+{
+  "count": 42,
+  "next": "http://.../api/rooms/?page=3",
+  "previous": "http://.../api/rooms/?page=1",
+  "results": [ ... ]
+}
+```
 | `not_found` | 404 | Resource not found |
 | `validation_error` | 400 | Invalid request data |
 | `room_full` | 400 | Room has reached max participants |

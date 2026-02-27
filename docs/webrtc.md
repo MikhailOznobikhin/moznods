@@ -268,6 +268,23 @@ User A ──► TURN Server ──► User B
 
 ### coturn Setup
 
+> For MVP you may run without TURN. Most home networks succeed with STUN-only; corporate/symmetric NAT may fail.
+
+#### Running Without TURN (MVP)
+
+- Client `iceServers` can include only STUN:
+  - `{ urls: 'stun:stun.l.google.com:19302' }`
+- Keep signaling over WebSocket at `ws://host/ws/call/{room_id}/?token=...`
+- Log ICE candidate types (`host`, `srflx`, `relay`) to measure how often relay would be needed.
+- When adding TURN later:
+  - Use `turn:` URLs with credentials (prefer short‑lived creds via REST API).
+  - Open UDP 3478 and a restricted relay port range; enable TCP/TLS (5349) fallback for corporate networks.
+
+#### WebSocket Endpoints (ASGI)
+
+- Chat: `ws://host/ws/chat/{room_id}/?token=...`
+- Calls: `ws://host/ws/call/{room_id}/?token=...`
+
 ```bash
 # Install coturn
 sudo apt install coturn
