@@ -142,6 +142,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 "type": "signaling_relay",
                 "message_type": message_type,
                 "from_user_id": self.user_id,
+                "from_username": self._username,
                 "target_user_id": target_user_id,
                 "data": data,
             },
@@ -181,6 +182,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             "type": event["message_type"],
             "data": {
                 "from_user_id": event["from_user_id"],
+                "from_username": event.get("from_username", ""),
                 **event["data"],
             },
         })

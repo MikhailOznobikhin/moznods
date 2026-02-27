@@ -167,7 +167,20 @@ export const useCallStore = create<CallState>((set, get) => ({
           }
           else if (type === 'offer') {
             // Received offer, we answer
-            const { from_user_id, sdp } = data;
+            const { from_user_id, from_username, sdp } = data;
+            // Ensure participant username is known
+            set((state: CallState) => {
+              const newParticipants = new Map(state.participants);
+              const existing = newParticipants.get(from_user_id);
+              if (!existing || !existing.username) {
+                newParticipants.set(from_user_id, {
+                  id: from_user_id,
+                  username: from_username || existing?.username || '',
+                  state: 'active',
+                });
+              }
+              return { participants: newParticipants };
+            });
             const peer = await createPeerConnection(from_user_id, stream, ws, false, set, get);
             await peer.setRemoteDescription(new RTCSessionDescription(sdp));
             const answer = await peer.createAnswer();
