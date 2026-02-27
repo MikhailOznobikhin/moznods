@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { FileText, User } from 'lucide-react';
+import { FileText } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
 
 export const MessageList = () => {
   const { messages, isLoading } = useChatStore();
@@ -40,9 +41,7 @@ export const MessageList = () => {
               } gap-3`}
             >
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white text-xs font-bold">
-                  {message.author.username[0]?.toUpperCase()}
-                </div>
+                <Avatar user={message.author} size="sm" />
               </div>
 
               <div

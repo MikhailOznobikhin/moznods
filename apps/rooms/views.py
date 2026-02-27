@@ -36,9 +36,9 @@ class RoomListCreateView(APIView):
             pass
         page = paginator.paginate_queryset(rooms, request)
         if page is not None:
-            serializer = RoomSerializer(page, many=True)
+            serializer = RoomSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)
-        serializer = RoomSerializer(rooms, many=True)
+        serializer = RoomSerializer(rooms, many=True, context={"request": request})
         return Response(serializer.data)
 
     def post(self, request):
@@ -50,7 +50,7 @@ class RoomListCreateView(APIView):
             name=serializer.validated_data["name"],
         )
         return Response(
-            RoomSerializer(room).data,
+            RoomSerializer(room, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -64,7 +64,7 @@ class RoomDetailView(APIView):
     def get(self, request, pk):
         room = self.get_object()
         self.check_object_permissions(request, room)
-        return Response(RoomSerializer(room).data)
+        return Response(RoomSerializer(room, context={"request": request}).data)
 
     def patch(self, request, pk):
         room = self.get_object()
@@ -78,7 +78,7 @@ class RoomDetailView(APIView):
         if "name" in serializer.validated_data:
             room.name = serializer.validated_data["name"]
             room.save()
-        return Response(RoomSerializer(room).data)
+        return Response(RoomSerializer(room, context={"request": request}).data)
 
     def delete(self, request, pk):
         room = self.get_object()
@@ -135,7 +135,7 @@ class RoomParticipantListView(APIView):
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
         participants = room.participants.select_related("user").all()
-        serializer = RoomParticipantSerializer(participants, many=True)
+        serializer = RoomParticipantSerializer(participants, many=True, context={"request": request})
         return Response(serializer.data)
 
 class RoomAddParticipantView(APIView):

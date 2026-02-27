@@ -6,6 +6,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RoomPage } from './pages/RoomPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -28,6 +29,7 @@ function App() {
               </div>
             } />
             <Route path="/rooms/:id" element={<RoomPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
 

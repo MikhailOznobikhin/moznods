@@ -39,12 +39,26 @@ class UserSerializer(serializers.ModelSerializer):
     """Current user or public user info."""
 
     display_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "username", "email", "display_name")
+        fields = ("id", "username", "email", "display_name", "avatar_url")
 
     def get_display_name(self, obj: User) -> str:
         if hasattr(obj, "profile"):
             return obj.profile.display_name or obj.username
         return obj.username
+
+    def get_avatar_url(self, obj: User) -> str:
+        request = self.context.get("request")
+        if hasattr(obj, "profile") and obj.profile.avatar:
+            url = obj.profile.avatar.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return ""
+
+class UpdateProfileSerializer(serializers.Serializer):
+    display_name = serializers.CharField(max_length=150, required=False)
+    avatar = serializers.ImageField(required=False)

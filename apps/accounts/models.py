@@ -12,6 +12,7 @@ class Profile(TimestampedModel):
         related_name="profile",
     )
     display_name = models.CharField(max_length=150, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self) -> str:
         return self.display_name or self.user.username

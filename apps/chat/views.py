@@ -44,9 +44,9 @@ class MessageListCreateView(APIView):
             pass
         page = paginator.paginate_queryset(qs, request)
         if page is not None:
-            serializer = MessageSerializer(page, many=True)
+            serializer = MessageSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)
-        serializer = MessageSerializer(qs[:100], many=True)
+        serializer = MessageSerializer(qs[:100], many=True, context={"request": request})
         return Response(serializer.data)
 
     def post(self, request, room_id):
@@ -69,6 +69,6 @@ class MessageListCreateView(APIView):
                 return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
             raise
         return Response(
-            MessageSerializer(message).data,
+            MessageSerializer(message, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )

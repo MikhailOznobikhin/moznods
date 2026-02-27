@@ -12,6 +12,7 @@ interface AuthState {
   register: (data: RegisterPayload) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  updateProfile: (payload: FormData) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -77,6 +78,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       localStorage.removeItem('token');
       set({ user: null, token: null, isAuthenticated: false });
+    }
+  },
+
+  updateProfile: async (payload) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.patch<User>('/api/auth/profile/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      set({ user: response.data, isLoading: false });
+    } catch (error: any) {
+      let message = 'Update failed';
+      const data = error.response?.data;
+      if (data) {
+        if (typeof data === 'object') {
+          message = Object.values(data).flat().join(' ');
+        } else {
+          message = data;
+        }
+      }
+      set({ isLoading: false, error: message });
+      throw error;
     }
   },
 }));

@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
+from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, UpdateProfileSerializer
 from .services import UserService
 
 User = get_user_model()
@@ -21,7 +21,7 @@ class RegisterView(APIView):
         user = UserService.register(**data)
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
-            {"token": token.key, "user": UserSerializer(user).data},
+            {"token": token.key, "user": UserSerializer(user, context={"request": request}).data},
             status=status.HTTP_201_CREATED,
         )
 
@@ -51,7 +51,7 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user": UserSerializer(user).data})
+        return Response({"token": token.key, "user": UserSerializer(user, context={"request": request}).data})
 
 
 class LogoutView(APIView):
@@ -66,4 +66,21 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
+
+
+class ProfileUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = UpdateProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user = request.user
+        profile = user.profile
+        if "display_name" in data:
+            profile.display_name = data["display_name"].strip()
+        if "avatar" in request.FILES:
+            profile.avatar = request.FILES["avatar"]
+        profile.save()
+        return Response(UserSerializer(user, context={"request": request}).data)

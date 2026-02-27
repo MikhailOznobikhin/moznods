@@ -1,8 +1,8 @@
 import React from 'react';
-import { X, Trash2, User as UserIcon } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import { useRoomStore } from '../../store/useRoomStore';
 import { type RoomParticipant } from '../../types/room';
-import { type User } from '../../types/auth';
+import { Avatar } from '../ui/Avatar';
 
 interface ParticipantsModalProps {
   isOpen: boolean;
@@ -26,20 +26,6 @@ export const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
   }, [isOpen, roomId, fetchParticipants]);
 
   if (!isOpen) return null;
-
-  const renderAvatar = (user: User) => {
-    const initials = (user.display_name || user.username || '')
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    return (
-      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white">
-        {initials || <UserIcon className="w-5 h-5" />}
-      </div>
-    );
-  };
 
   const handleRemove = async (p: RoomParticipant) => {
     try {
@@ -75,7 +61,7 @@ export const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
               className="flex items-center justify-between px-3 py-2 bg-gray-900 rounded-md border border-gray-700"
             >
               <div className="flex items-center gap-3">
-                {renderAvatar(p.user)}
+                <Avatar user={p.user} size="sm" />
                 <div className="flex flex-col">
                   <span className="text-white text-sm">{p.user.display_name || p.user.username}</span>
                   <span className="text-gray-400 text-xs">{p.user.email}</span>
