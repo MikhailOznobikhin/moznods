@@ -62,9 +62,8 @@ export const RegisterPage = () => {
             required
             placeholder="Choose a password (min 8 chars)"
             minLength={8}
+            showPasswordToggle
           />
-
-          
 
           {error && (
             <div className="p-3 bg-red-900/50 border border-red-900 rounded text-red-200 text-sm">

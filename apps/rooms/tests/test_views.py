@@ -175,3 +175,49 @@ class TestRoomAPI:
         api_client.force_authenticate(user=other)
         response = api_client.get(reverse("rooms:call-state", kwargs={"pk": room.pk}))
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_add_participant_by_id_owner_201(self, api_client: APIClient):
+        owner = create_user(username="owner", email="o@example.com")
+        target = create_user(username="user1", email="u1@example.com")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=owner)
+        url = reverse("rooms:add-participant", kwargs={"pk": room.pk})
+        response = api_client.post(url, {"id": target.id})
+        assert response.status_code == status.HTTP_201_CREATED
+        assert room.participants.filter(user=target).exists()
+
+    def test_add_participant_non_owner_403(self, api_client: APIClient):
+        owner = create_user(username="owner", email="o@example.com")
+        other = create_user(username="other", email="other@example.com")
+        target = create_user(username="user2", email="u2@example.com")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.services import RoomService
+        RoomService.add_participant(room, other)
+        api_client.force_authenticate(user=other)
+        url = reverse("rooms:add-participant", kwargs={"pk": room.pk})
+        response = api_client.post(url, {"username": target.username})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_remove_participant_by_id_owner_204(self, api_client: APIClient):
+        owner = create_user(username="owner", email="o@example.com")
+        target = create_user(username="user1", email="u1@example.com")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.services import RoomService
+        RoomService.add_participant(room, target)
+        api_client.force_authenticate(user=owner)
+        url = reverse("rooms:remove-participant", kwargs={"pk": room.pk})
+        response = api_client.post(url, {"id": target.id})
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not room.participants.filter(user=target).exists()
+
+    def test_remove_participant_non_owner_403(self, api_client: APIClient):
+        owner = create_user(username="owner", email="o@example.com")
+        other = create_user(username="other", email="other@example.com")
+        target = create_user(username="user2", email="u2@example.com")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.services import RoomService
+        RoomService.add_participant(room, target)
+        api_client.force_authenticate(user=other)
+        url = reverse("rooms:remove-participant", kwargs={"pk": room.pk})
+        response = api_client.post(url, {"id": target.id})
+        assert response.status_code == status.HTTP_403_FORBIDDEN

@@ -53,3 +53,29 @@ class UpdateRoomSerializer(serializers.Serializer):
         if value is not None and not value.strip():
             raise serializers.ValidationError("Room name cannot be blank.")
         return value.strip() if value is not None else value
+
+
+class AddParticipantSerializer(serializers.Serializer):
+    """Input for adding a participant to a room by id, username or email."""
+
+    id = serializers.IntegerField(required=False)
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+
+    def validate(self, attrs):
+        if not attrs.get("id") and not attrs.get("username") and not attrs.get("email"):
+            raise serializers.ValidationError("Provide id, username, or email.")
+        return attrs
+
+
+class RemoveParticipantSerializer(serializers.Serializer):
+    """Input for removing a participant from a room by id, username or email."""
+
+    id = serializers.IntegerField(required=False)
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+
+    def validate(self, attrs):
+        if not attrs.get("id") and not attrs.get("username") and not attrs.get("email"):
+            raise serializers.ValidationError("Provide id, username, or email.")
+        return attrs

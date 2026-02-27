@@ -51,6 +51,7 @@ export const LoginPage = () => {
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             required
             placeholder="Enter your password"
+            showPasswordToggle
           />
 
           {error && (

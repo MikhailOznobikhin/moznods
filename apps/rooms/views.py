@@ -10,6 +10,8 @@ from .models import Room
 from .permissions import IsRoomOwner, IsRoomParticipant
 from .serializers import (
     CreateRoomSerializer,
+    AddParticipantSerializer,
+    RemoveParticipantSerializer,
     RoomParticipantSerializer,
     RoomSerializer,
     UpdateRoomSerializer,
@@ -135,6 +137,93 @@ class RoomParticipantListView(APIView):
         participants = room.participants.select_related("user").all()
         serializer = RoomParticipantSerializer(participants, many=True)
         return Response(serializer.data)
+
+class RoomAddParticipantView(APIView):
+    """Add a participant to the room by id, username or email. Owner only."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        if not IsRoomOwner().has_object_permission(request, self, room):
+            return Response(
+                {"detail": "Only the room owner can add participants."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = AddParticipantSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        target = None
+        data = serializer.validated_data
+        try:
+            if data.get("id") is not None:
+                target = User.objects.get(pk=data["id"])
+            elif data.get("email"):
+                target = User.objects.get(email=data["email"])
+            elif data.get("username"):
+                target = User.objects.get(username=data["username"])
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            participant = RoomService.add_participant(room, target)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+        return Response(
+            RoomParticipantSerializer(participant).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+class RoomRemoveParticipantView(APIView):
+    """Remove a participant from the room by id, username or email. Owner only."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        if not IsRoomOwner().has_object_permission(request, self, room):
+            return Response(
+                {"detail": "Only the room owner can remove participants."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = RemoveParticipantSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        target = None
+        data = serializer.validated_data
+        try:
+            if data.get("id") is not None:
+                target = User.objects.get(pk=data["id"])
+            elif data.get("email"):
+                target = User.objects.get(email=data["email"])
+            elif data.get("username"):
+                target = User.objects.get(username=data["username"])
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            RoomService.remove_participant(room, target)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RoomCallStateView(APIView):

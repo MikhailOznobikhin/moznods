@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { MessageList } from '../components/chat/MessageList';
 import { MessageInput } from '../components/chat/MessageInput';
@@ -6,7 +6,9 @@ import { useRoomStore } from '../store/useRoomStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCallStore } from '../store/useCallStore';
-import { Hash, Phone, Video, Mic } from 'lucide-react';
+import { Hash, Phone, Video, Users, Plus } from 'lucide-react';
+import { ParticipantsModal } from '../components/rooms/ParticipantsModal';
+import { AddParticipantModal } from '../components/rooms/AddParticipantModal';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +36,10 @@ export const RoomPage = () => {
     }
   };
 
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const canManageParticipants = !!user && !!currentRoom && user.id === currentRoom.owner.id;
+
   if (!currentRoom) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -49,9 +55,24 @@ export const RoomPage = () => {
           <div className="flex items-center gap-3">
             <Hash className="w-5 h-5 text-gray-400" />
             <h2 className="text-lg font-bold text-white">{currentRoom.name}</h2>
-            <span className="text-sm text-gray-500">
-              {currentRoom.participant_count} participants
-            </span>
+            <button
+              className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+              title="Просмотреть участников"
+              onClick={() => setIsParticipantsOpen(true)}
+            >
+              <Users className="w-4 h-4" />
+              <span>{currentRoom.participant_count} participants</span>
+            </button>
+            {canManageParticipants && (
+              <button
+                className="flex items-center gap-2 px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                title="Добавить участника"
+                onClick={() => setIsAddOpen(true)}
+              >
+                <Plus className="w-4 h-4" />
+                <Users className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {!isActive && (
@@ -83,10 +104,23 @@ export const RoomPage = () => {
         )}
 
         {/* Messages Area */}
+      
+
       <MessageList />
 
       {/* Input Area */}
       <MessageInput />
+      <ParticipantsModal
+        isOpen={isParticipantsOpen}
+        onClose={() => setIsParticipantsOpen(false)}
+        roomId={roomId}
+        isOwner={canManageParticipants}
+      />
+      <AddParticipantModal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        roomId={roomId}
+      />
     </div>
   );
 };
