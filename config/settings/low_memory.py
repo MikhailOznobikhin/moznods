@@ -41,7 +41,11 @@ CSRF_TRUSTED_ORIGINS = [
     'http://193.124.117.231', 
     'https://193.124.117.231',  # Добавили HTTPS!
     'http://localhost', 
-    'http://127.0.0.1'
+    'http://127.0.0.1',
+    'https://moznods.dpdns.org',
+    'https://193.124.117.231',
+    'http://2270d82fc058d4.lhr.life',
+    'https://2270d82fc058d4.lhr.life'
 ]
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
