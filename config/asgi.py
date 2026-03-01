@@ -17,12 +17,14 @@ from django.urls import path
 # Import consumers after setup
 from apps.chat.consumers import ChatConsumer
 from apps.calls.consumers import SignalingConsumer
+from core.consumers import NotificationConsumer
 
 print("ASGI: Loading websocket patterns...")
 
 websocket_urlpatterns = [
     path("ws/chat/<int:room_id>/", ChatConsumer.as_asgi()),
     path("ws/call/<int:room_id>/", SignalingConsumer.as_asgi()),
+    path("ws/notifications/", NotificationConsumer.as_asgi()),
 ]
 
 print(f"ASGI: Loaded patterns: {websocket_urlpatterns}")

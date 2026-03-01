@@ -16,16 +16,17 @@ export const CallOverlay = () => {
     toggleVideo,
     isAudioEnabled,
     isVideoEnabled,
+    isExpanded,
+    toggleExpanded,
   } = useCallStore();
   const { currentRoom } = useRoomStore();
-  const [isExpanded, setIsExpanded] = useState(true);
 
   if (!isActive) return null;
 
   return (
-    <div className={`fixed bottom-0 right-0 left-0 bg-gray-900 border-t border-gray-800 transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'h-[400px]' : 'h-16'}`}>
+    <div className={`fixed bottom-0 right-0 left-0 bg-gray-900 border-t border-gray-800 transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'h-[400px]' : 'h-20'}`}>
       {/* Header / Controls Bar */}
-      <div className="flex items-center justify-between px-6 h-16 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
+      <div className="flex items-center justify-between px-6 h-20 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
         <div className="flex items-center gap-4">
           <span className="text-green-400 font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -59,7 +60,7 @@ export const CallOverlay = () => {
           </button>
 
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={toggleExpanded}
             className="p-2 text-gray-400 hover:text-white ml-2"
           >
             {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
@@ -69,7 +70,7 @@ export const CallOverlay = () => {
 
       {/* Video Grid */}
       {isExpanded && (
-        <div className="p-4 h-[calc(400px-64px)] overflow-y-auto">
+        <div className="p-4 h-[calc(400px-80px)] overflow-y-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 h-full">
             {/* Local Video */}
             {localStream && (
@@ -91,6 +92,7 @@ export const CallOverlay = () => {
               return (
                 <VideoPlayer 
                   key={userId} 
+                  userId={userId}
                   stream={stream} 
                   username={username}
                 />

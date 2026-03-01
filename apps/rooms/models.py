@@ -12,6 +12,7 @@ class Room(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="owned_rooms",
     )
+    is_direct = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

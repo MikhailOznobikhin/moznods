@@ -240,3 +240,28 @@ class RoomCallStateView(APIView):
             "participants": participants,
             "room_state": room_state,
         })
+
+
+class DirectRoomCreateView(APIView):
+    """Create or get a direct room (DM) with another user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        target_user = get_object_or_404(User, pk=user_id)
+        
+        try:
+            room = RoomService.get_or_create_direct_room(request.user, target_user)
+            return Response(RoomSerializer(room, context={"request": request}).data)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise

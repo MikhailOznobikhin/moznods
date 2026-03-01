@@ -16,7 +16,7 @@ export const RoomPage = () => {
   const { currentRoom, getRoom } = useRoomStore();
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
-  const { joinCall, isActive, error: callError } = useCallStore();
+  const { joinCall, isActive, isExpanded, error: callError } = useCallStore();
 
   useEffect(() => {
     if (roomId && token) {
@@ -49,7 +49,7 @@ export const RoomPage = () => {
   }
 
   return (
-      <div className="flex-1 flex flex-col h-full bg-gray-900">
+      <div className={`flex-1 flex flex-col h-full bg-gray-900 transition-all duration-300 ${isActive ? (isExpanded ? 'pb-[400px]' : 'pb-20') : ''}`}>
         {/* Room Header */}
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
           <div className="flex items-center gap-3">

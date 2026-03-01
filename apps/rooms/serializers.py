@@ -13,10 +13,14 @@ class RoomParticipantSerializer(serializers.ModelSerializer):
 
     user = UserSerializer(read_only=True)
     joined_at = serializers.DateTimeField(source="created_at", read_only=True)
+    is_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = RoomParticipant
-        fields = ("id", "user", "joined_at")
+        fields = ("id", "user", "joined_at", "is_admin")
+
+    def get_is_admin(self, obj: RoomParticipant) -> bool:
+        return obj.room.owner_id == obj.user_id
 
 
 class RoomSerializer(serializers.ModelSerializer):

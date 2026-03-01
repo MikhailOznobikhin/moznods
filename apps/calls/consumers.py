@@ -82,10 +82,39 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             await self._broadcast_user_joined()
         elif message_type == "leave_call":
             await self._broadcast_user_left()
+        elif message_type == "request_mic":
+            # AICODE-NOTE: Handle admin request to unmute (#15)
+            await self._handle_request_mic(data)
         elif message_type in ("offer", "answer", "ice_candidate"):
             await self._relay_signaling(message_type, data)
         else:
             await self.send_json({"type": "error", "detail": "Unknown message type."})
+
+    async def _handle_request_mic(self, data):
+        """Admin requests a user to unmute."""
+        # 1. Check if requester is admin (owner)
+        is_owner = await database_sync_to_async(lambda: Room.objects.filter(pk=self.room_id, owner=self.user).exists())()
+        if not is_owner:
+            await self.send_json({"type": "error", "detail": "Only admin can request microphone."})
+            return
+
+        target_user_id = data.get("target_user_id")
+        if not target_user_id:
+            await self.send_json({"type": "error", "detail": "target_user_id required."})
+            return
+
+        # 2. Relay request to target user
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "signaling_relay",
+                "message_type": "request_mic",
+                "from_user_id": self.user_id,
+                "from_username": self._username,
+                "target_user_id": target_user_id,
+                "data": {},
+            },
+        )
 
     async def _broadcast_user_joined(self):
         """Notify other participants that this user joined the call; update Redis state to active."""

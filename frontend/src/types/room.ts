@@ -17,4 +17,5 @@ export interface RoomParticipant {
   id: number;
   user: User;
   joined_at: string;
+  is_admin: boolean;
 }

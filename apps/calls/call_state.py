@@ -19,71 +19,46 @@ STATE_ACTIVE = "active"
 STATE_ENDED = "ended"
 
 
-def _get_redis():
-    """Return Redis client. Uses CALL_STATE_REDIS_URL or CELERY_BROKER_URL with db 3."""
-    import redis
-    url = getattr(
-        settings,
-        "CALL_STATE_REDIS_URL",
-        getattr(settings, "CELERY_BROKER_URL", "redis://127.0.0.1:6379/1").replace("/1", "/3"),
-    )
-    return redis.from_url(url, decode_responses=True)
+# AICODE-NOTE: Using Django cache as a fallback for Redis-less environments (SQLite/Low Memory)
+from django.core.cache import cache
 
-
-def _redis_available() -> bool:
-    """Return True if Redis is reachable (e.g. False in tests without Redis)."""
-    try:
-        r = _get_redis()
-        r.ping()
-        return True
-    except Exception:
-        return False
-
+def _get_cache_key(room_id: int) -> str:
+    return f"{CALL_STATE_KEY_PREFIX}{room_id}"
 
 def set_user_state(room_id: int, user_id: int, username: str, state: str) -> None:
-    """Set one user's call state in a room. Creates or updates the room key with TTL."""
-    if not _redis_available():
-        return
-    r = _get_redis()
-    key = f"{CALL_STATE_KEY_PREFIX}{room_id}"
-    payload = json.dumps({"state": state, "username": username})
-    r.hset(key, str(user_id), payload)
-    r.expire(key, CALL_STATE_TTL_SECONDS)
+    """Set one user's call state in a room."""
+    key = _get_cache_key(room_id)
+    # Get current room state or empty dict
+    room_data = cache.get(key, {})
+    # Update user data
+    room_data[str(user_id)] = {"state": state, "username": username}
+    # Save back to cache with TTL
+    cache.set(key, room_data, CALL_STATE_TTL_SECONDS)
 
 
 def remove_user(room_id: int, user_id: int) -> None:
-    """Remove user from room call state. Key is deleted if no users left."""
-    if not _redis_available():
-        return
-    r = _get_redis()
-    key = f"{CALL_STATE_KEY_PREFIX}{room_id}"
-    r.hdel(key, str(user_id))
-    if r.hlen(key) == 0:
-        r.delete(key)
+    """Remove user from room call state."""
+    key = _get_cache_key(room_id)
+    room_data = cache.get(key, {})
+    if str(user_id) in room_data:
+        del room_data[str(user_id)]
+        if not room_data:
+            cache.delete(key)
+        else:
+            cache.set(key, room_data, CALL_STATE_TTL_SECONDS)
 
 
 def get_room_state(room_id: int) -> list[dict[str, Any]]:
-    """
-    Return list of participants in call for the room.
-    Each item: {"user_id": int, "username": str, "state": str}.
-    Returns [] if Redis is unavailable.
-    """
-    if not _redis_available():
-        return []
-    r = _get_redis()
-    key = f"{CALL_STATE_KEY_PREFIX}{room_id}"
-    raw = r.hgetall(key) or {}
+    """Return list of participants in call for the room."""
+    key = _get_cache_key(room_id)
+    room_data = cache.get(key, {})
     result = []
-    for uid, val in raw.items():
-        try:
-            data = json.loads(val)
-            result.append({
-                "user_id": int(uid),
-                "username": data.get("username", ""),
-                "state": data.get("state", STATE_IDLE),
-            })
-        except (json.JSONDecodeError, ValueError):
-            continue
+    for uid, data in room_data.items():
+        result.append({
+            "user_id": int(uid),
+            "username": data.get("username", ""),
+            "state": data.get("state", STATE_IDLE),
+        })
     return result
 
 

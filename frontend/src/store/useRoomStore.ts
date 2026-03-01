@@ -23,6 +23,7 @@ interface RoomState {
   addParticipant: (roomId: number, query: string) => Promise<void>;
   fetchParticipants: (roomId: number) => Promise<void>;
   removeParticipant: (roomId: number, userIdOrQuery: string | number) => Promise<void>;
+  getOrCreateDirectRoom: (userId: number) => Promise<Room>;
 }
 
 export const useRoomStore = create<RoomState>((set, get) => ({
@@ -152,6 +153,31 @@ export const useRoomStore = create<RoomState>((set, get) => ({
         }
       }
       set({ isLoading: false, error: message });
+      throw error;
+    }
+  },
+
+  getOrCreateDirectRoom: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.post<Room>('/api/rooms/direct/', { user_id: userId });
+      const room = response.data;
+      
+      // Update rooms list if it's new
+      set((state) => {
+        const exists = state.rooms.find(r => r.id === room.id);
+        if (!exists) {
+          return { rooms: [room, ...state.rooms], isLoading: false };
+        }
+        return { isLoading: false };
+      });
+      
+      return room;
+    } catch (error: any) {
+      set({
+        isLoading: false,
+        error: error.response?.data?.detail || 'Failed to create direct room',
+      });
       throw error;
     }
   },

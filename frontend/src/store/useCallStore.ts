@@ -17,12 +17,15 @@ interface CallState {
   roomId: number | null;
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
+  isExpanded: boolean;
   error: string | null;
 
   joinCall: (roomId: number, token: string, user: { id: number; username: string }, withVideo?: boolean) => Promise<void>;
   leaveCall: () => void;
   toggleAudio: () => void;
   toggleVideo: () => void;
+  toggleExpanded: () => void;
+  requestMic: (targetUserId: number) => void;
 }
 
 const STUN_SERVERS = {
@@ -42,7 +45,10 @@ export const useCallStore = create<CallState>((set, get) => ({
   roomId: null,
   isAudioEnabled: true,
   isVideoEnabled: true,
+  isExpanded: true,
   error: null,
+
+  toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
 
   joinCall: async (roomId, token, _user, withVideo = true) => {
     try {
@@ -216,6 +222,16 @@ export const useCallStore = create<CallState>((set, get) => ({
               await peer.addIceCandidate(new RTCIceCandidate(candidate));
             }
           }
+          else if (type === 'request_mic') {
+            // AICODE-NOTE: Admin requested us to unmute (#15)
+            const { isAudioEnabled } = get();
+            if (!isAudioEnabled) {
+              // Show a system notification or alert (could be improved with a custom UI)
+              if (confirm('Администратор просит вас включить микрофон. Включить?')) {
+                get().toggleAudio();
+              }
+            }
+          }
         } catch (err) {
           console.error('Error handling signaling message:', err);
         }
@@ -275,6 +291,16 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (localStream) {
       localStream.getVideoTracks().forEach(track => track.enabled = !isVideoEnabled);
       set({ isVideoEnabled: !isVideoEnabled });
+    }
+  },
+
+  requestMic: (targetUserId: number) => {
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'request_mic',
+        data: { target_user_id: targetUserId }
+      }));
     }
   },
 }));
