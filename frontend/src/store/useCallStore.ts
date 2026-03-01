@@ -13,6 +13,7 @@ interface CallState {
   remoteStreams: Map<number, MediaStream>; // userId -> stream
   peers: Map<number, RTCPeerConnection>; // userId -> peer connection
   participants: Map<number, CallParticipant>; // userId -> participant details
+  volumes: Map<number, number>; // userId -> volume (0.0 to 2.0)
   ws: WebSocket | null;
   roomId: number | null;
   isAudioEnabled: boolean;
@@ -26,6 +27,7 @@ interface CallState {
   toggleVideo: () => void;
   toggleExpanded: () => void;
   requestMic: (targetUserId: number) => void;
+  setVolume: (userId: number, volume: number) => void;
 }
 
 const STUN_SERVERS = {
@@ -41,6 +43,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   remoteStreams: new Map(),
   peers: new Map(),
   participants: new Map(),
+  volumes: new Map(),
   ws: null,
   roomId: null,
   isAudioEnabled: true,
@@ -302,6 +305,14 @@ export const useCallStore = create<CallState>((set, get) => ({
         data: { target_user_id: targetUserId }
       }));
     }
+  },
+
+  setVolume: (userId: number, volume: number) => {
+    set((state) => {
+      const newVolumes = new Map(state.volumes);
+      newVolumes.set(userId, volume);
+      return { volumes: newVolumes };
+    });
   },
 }));
 

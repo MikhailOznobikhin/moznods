@@ -16,8 +16,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
   const [hasVideo, setHasVideo] = useState(true);
   const [hasAudio, setHasAudio] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isVolumeVisible, setIsVolumeVisible] = useState(false);
 
-  const { requestMic } = useCallStore();
+  const { requestMic, volumes, setVolume } = useCallStore();
   const { currentRoom } = useRoomStore();
   const { user: currentUser } = useAuthStore();
 
@@ -33,6 +34,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
     let audioContext: AudioContext | null = null;
     let analyser: AnalyserNode | null = null;
     let microphone: MediaStreamAudioSourceNode | null = null;
+    let gainNode: GainNode | null = null;
     let animationFrame: number | null = null;
 
     const audioTracks = stream.getAudioTracks();
@@ -41,7 +43,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         analyser = audioContext.createAnalyser();
         microphone = audioContext.createMediaStreamSource(stream);
+
+        // Connect microphone to analyser directly so speaking detection works even when muted locally
         microphone.connect(analyser);
+        
+        // AICODE-NOTE: GainNode for local volume control (#14)
+        gainNode = audioContext.createGain();
+        const currentVolume = userId !== undefined ? (volumes.get(userId) ?? 1.0) : 1.0;
+        gainNode.gain.value = isLocal ? 0 : currentVolume;
+
+        microphone.connect(gainNode);
+        
+        // Connect to output only for remote users
+        if (!isLocal) {
+          gainNode.connect(audioContext.destination);
+        }
         analyser.fftSize = 512;
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
@@ -90,15 +106,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
       if (animationFrame) cancelAnimationFrame(animationFrame);
       if (audioContext && audioContext.state !== 'closed') audioContext.close();
     };
-  }, [stream]);
+  }, [stream, userId, volumes, isLocal]); // Re-run when volume changes
 
   return (
-    <div className={`relative bg-gray-900 rounded-lg overflow-hidden aspect-video border-2 transition-colors duration-200 ${isSpeaking ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-gray-800'}`}>
+    <div 
+      className={`relative bg-gray-900 rounded-lg overflow-hidden aspect-video border-2 transition-colors duration-200 ${isSpeaking ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-gray-800'}`}
+      onMouseEnter={() => !isLocal && setIsVolumeVisible(true)}
+      onMouseLeave={() => setIsVolumeVisible(false)}
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isLocal} // Mute local video to prevent feedback
+        muted={true} // ALWAYS mute the video element, as we handle audio via AudioContext for volume control
         className={`w-full h-full object-cover ${isLocal ? 'scale-x-[-1]' : ''} ${!hasVideo ? 'hidden' : ''}`}
         {...props}
       />
@@ -111,6 +131,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
             </div>
             {username && <span className="text-white font-medium">{username}</span>}
           </div>
+        </div>
+      )}
+
+      {/* Volume Control Overlay */}
+      {isVolumeVisible && userId !== undefined && (
+        <div className="absolute top-2 right-2 left-2 bg-black/60 backdrop-blur-sm p-2 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-1">
+          <Mic className="w-4 h-4 text-gray-300" />
+          <input
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            value={volumes.get(userId) ?? 1.0}
+            onChange={(e) => setVolume(userId, parseFloat(e.target.value))}
+            className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+          <span className="text-xs text-white min-w-[24px]">
+            {Math.round((volumes.get(userId) ?? 1.0) * 100)}%
+          </span>
         </div>
       )}
 
