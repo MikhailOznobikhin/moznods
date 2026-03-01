@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { WS_URL, ICE_SERVERS } from '../config';
 
 interface CallParticipant {
   id: number;
@@ -30,7 +31,7 @@ interface CallState {
   setVolume: (userId: number, volume: number) => void;
 }
 
-const STUN_SERVERS = {
+const ICE_SERVERS_DEFAULT = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
   ],
@@ -104,8 +105,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       });
 
       // 2. Connect Signaling WebSocket
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-      const ws = new WebSocket(`${wsUrl}/ws/call/${roomId}/?token=${token}`);
+      const ws = new WebSocket(`${WS_URL}/ws/call/${roomId}/?token=${token}`);
 
       ws.onopen = () => {
         console.log('Connected to signaling server');
@@ -366,7 +366,7 @@ async function createPeerConnection(
   isInitiator: boolean,
   set: any
 ): Promise<RTCPeerConnection> {
-  const peer = new RTCPeerConnection(STUN_SERVERS);
+  const peer = new RTCPeerConnection(ICE_SERVERS || ICE_SERVERS_DEFAULT);
 
   // Add local tracks
   localStream.getTracks().forEach(track => {
@@ -383,6 +383,14 @@ async function createPeerConnection(
           candidate: event.candidate,
         },
       }));
+    }
+  };
+
+  // AICODE-NOTE: TURN Monitoring (#TURN)
+  peer.oniceconnectionstatechange = () => {
+    console.log(`ICE Connection State with ${targetUserId}:`, peer.iceConnectionState);
+    if (peer.iceConnectionState === 'disconnected' || peer.iceConnectionState === 'failed') {
+      console.warn(`Connection with ${targetUserId} failed/disconnected. Possible TURN issue or network block.`);
     }
   };
 

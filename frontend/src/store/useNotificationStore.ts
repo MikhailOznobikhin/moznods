@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useRoomStore } from './useRoomStore';
+import { WS_URL } from '../config';
 import { type Room } from '../types/room';
 
 interface NotificationState {
@@ -19,8 +20,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   connect: (token) => {
     if (get().ws) return;
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-    const ws = new WebSocket(`${wsUrl}/ws/notifications/?token=${token}`);
+    const ws = new WebSocket(`${WS_URL}/ws/notifications/?token=${token}`);
 
     ws.onopen = () => {
       console.log('Connected to notifications');

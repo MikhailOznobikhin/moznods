@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../api/client';
+import { WS_URL } from '../config';
 import { type Message, type SendMessagePayload, type FileData } from '../types/chat';
 
 interface ChatState {
@@ -61,9 +62,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ ws: null, isConnected: false });
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
     // Ensure correct path
-    const url = `${wsUrl}/ws/chat/${roomId}/?token=${token}`;
+    const url = `${WS_URL}/ws/chat/${roomId}/?token=${token}`;
     console.log('Connecting to WebSocket:', url);
     
     const ws = new WebSocket(url);
