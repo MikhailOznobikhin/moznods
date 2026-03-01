@@ -44,7 +44,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   isVideoEnabled: true,
   error: null,
 
-  joinCall: async (roomId, token, user, withVideo = true) => {
+  joinCall: async (roomId, token, _user, withVideo = true) => {
     try {
       console.log('Joining call...', roomId, { withVideo });
       
@@ -53,7 +53,11 @@ export const useCallStore = create<CallState>((set, get) => ({
         // 1. Try to Get Local Stream
         stream = await navigator.mediaDevices.getUserMedia({
           video: withVideo,
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
       } catch (err: any) {
         console.error('Initial getUserMedia failed:', err.name, err.message);
@@ -66,7 +70,11 @@ export const useCallStore = create<CallState>((set, get) => ({
           try {
              stream = await navigator.mediaDevices.getUserMedia({
               video: false,
-              audio: true,
+              audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                },
             });
             withVideo = false; // Successfully fell back to audio only
           } catch (audioErr) {
@@ -143,7 +151,7 @@ export const useCallStore = create<CallState>((set, get) => ({
               return { participants: newParticipants };
             });
 
-            await createPeerConnection(targetUserId, stream, ws, true, set, get);
+            await createPeerConnection(targetUserId, stream, ws, true, set);
           } 
           else if (type === 'user_left') {
             const targetUserId = data.user_id;
@@ -162,7 +170,7 @@ export const useCallStore = create<CallState>((set, get) => ({
              const { users } = data;
              for (const user of users) {
                // Don't connect to self
-               await createPeerConnection(user.id, stream, ws, true, set, get);
+               await createPeerConnection(user.id, stream, ws, true, set);
              }
           }
           else if (type === 'offer') {
@@ -181,7 +189,7 @@ export const useCallStore = create<CallState>((set, get) => ({
               }
               return { participants: newParticipants };
             });
-            const peer = await createPeerConnection(from_user_id, stream, ws, false, set, get);
+            const peer = await createPeerConnection(from_user_id, stream, ws, false, set);
             await peer.setRemoteDescription(new RTCSessionDescription(sdp));
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
@@ -229,7 +237,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   leaveCall: () => {
-    const { localStream, peers, ws, roomId } = get();
+    const { localStream, peers, ws } = get();
 
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -277,8 +285,7 @@ async function createPeerConnection(
   localStream: MediaStream,
   ws: WebSocket,
   isInitiator: boolean,
-  set: any,
-  get: any
+  set: any
 ): Promise<RTCPeerConnection> {
   const peer = new RTCPeerConnection(STUN_SERVERS);
 
@@ -337,7 +344,7 @@ async function createPeerConnection(
 }
 
 function closePeerConnection(userId: number, set: any, get: any) {
-  const { peers, remoteStreams } = get();
+  const { peers } = get();
   
   const peer = peers.get(userId);
   if (peer) {

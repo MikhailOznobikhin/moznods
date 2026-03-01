@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, Mic, MicOff } from 'lucide-react';
+import { User, MicOff } from 'lucide-react';
 
 interface VideoPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   stream: MediaStream;

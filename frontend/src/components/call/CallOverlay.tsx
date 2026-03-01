@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useCallStore } from '../../store/useCallStore';
 import { useRoomStore } from '../../store/useRoomStore';
 import { VideoPlayer } from './VideoPlayer';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { type User } from '../../types/auth';
 
 export const CallOverlay = () => {
   const {
@@ -82,8 +83,10 @@ export const CallOverlay = () => {
             {/* Remote Videos */}
             {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
               const participant = participants?.get(userId);
-              const roomParticipant = currentRoom?.participants?.find(p => p.id === userId);
-              const username = participant?.username || roomParticipant?.username || `User ${userId}`;
+              // @ts-ignore - participants property is missing on Room type but may be present in API response
+              const roomParticipants = (currentRoom as any)?.participants as any[];
+              const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
+              const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
               
               return (
                 <VideoPlayer 

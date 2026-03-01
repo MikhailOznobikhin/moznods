@@ -50,30 +50,46 @@ LOGGING = {
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key")
 
-# Database: PostgreSQL via DATABASE_URL (e.g. docker-compose); fallback SQLite
-# Set USE_SQLITE=1 to force SQLite (e.g. when PostgreSQL is not running)
-if os.environ.get("USE_SQLITE"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
     }
-elif os.environ.get("DATABASE_URL"):
-    import dj_database_url
-    DATABASES = {"default": dj_database_url.config(conn_max_age=60)}
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
-        }
-    }
+}
+
+
+# REST Framework: локально отключаем SessionAuthentication, чтобы избежать CSRF 403
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+}
 
 # Optional: CORS for local frontend
 INSTALLED_APPS = [*INSTALLED_APPS, "corsheaders"]  # noqa: F405
 MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", *MIDDLEWARE]  # noqa: F405
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Ваш фронтенд
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# CSRF настройки для локальной разработки
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Redis defaults for local
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")

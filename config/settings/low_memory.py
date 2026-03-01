@@ -39,7 +39,7 @@ MIDDLEWARE = [
 # CSRF настройки - РАБОЧИЙ ВАРИАНТ!
 CSRF_TRUSTED_ORIGINS = [
     'http://193.124.117.231', 
-    'https://193.124.117.231',  # Добавили HTTPS!
+    'https://193.124.117.231',
     'http://localhost', 
     'http://127.0.0.1'
 ]
