@@ -12,11 +12,16 @@ else
     exit 1
 fi
 
-# Если DOMAIN задан, используем его для формирования URL, если они не заданы явно
+# Если DOMAIN задан, используем его для формирования параметров, если они не заданы явно
 if [ ! -z "$DOMAIN" ]; then
     VITE_API_URL=${VITE_API_URL:-https://${DOMAIN}}
     VITE_WS_URL=${VITE_WS_URL:-wss://${DOMAIN}}
     VITE_TURN_URL=${VITE_TURN_URL:-turn:${DOMAIN}:3478}
+    
+    # Автоматически добавляем домен в список доверенных для Django
+    # (Это поможет избежать 403 Forbidden при POST запросах)
+    ALLOWED_HOSTS=${ALLOWED_HOSTS:-${DOMAIN},localhost,127.0.0.1}
+    CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://${DOMAIN},http://${DOMAIN}}
     
     # Используем TURN_SECRET если он задан
     if [ ! -z "$TURN_SECRET" ]; then

@@ -50,11 +50,15 @@ MOznoDS спроектирован как легковесное решение,
 ## 3. Советы по развертыванию (Self-hosted)
 
 1. **Docker**: Рекомендуется использовать Docker Compose для изоляции компонентов.
-2. **Reverse Proxy**: Используйте **Nginx** или **Caddy** для обработки HTTPS/WSS и отдачи статики.
-3. **Безопасность**:
-   - Используйте `UFW` или `iptables` для ограничения доступа.
-   - Настройте `fail2ban` для защиты от перебора паролей.
-   - Для TURN используйте `lt-cred-mech` (Long-term credential mechanism).
+2. **Reverse Proxy (Nginx/Caddy)**: 
+   - Настройте HTTPS (через Let's Encrypt).
+   - Убедитесь, что заголовки `X-Forwarded-Proto` и `X-Forwarded-For` передаются в Django.
+3. **Безопасность Django**:
+   - При использовании HTTPS установите `CSRF_COOKIE_SECURE=True` и `SESSION_COOKIE_SECURE=True` в `.env`.
+   - Не забудьте добавить все используемые домены в `ALLOWED_HOSTS` и `CSRF_TRUSTED_ORIGINS`.
+4. **Статика**: 
+   - Запустите `python manage.py collectstatic` перед запуском.
+   - Nginx должен сам отдавать файлы из папки `STATIC_ROOT`.
 
 ---
 
