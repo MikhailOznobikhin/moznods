@@ -19,7 +19,9 @@ This document describes the technologies, dependencies, and version requirements
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | WebRTC API | Native | P2P voice/video |
+| Web Audio API | Native | Audio processing (GainNode, AnalyserNode) |
 | JavaScript/TypeScript | ES2022+ | Client-side logic |
+| Tailwind CSS | 3.4+ | Styling and Mobile-first layout |
 
 ## Infrastructure
 

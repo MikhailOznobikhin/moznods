@@ -64,6 +64,17 @@ User A                     Server                     User B
 
 ## Client Implementation
 
+### Audio Processing Pipeline
+
+MOznoDS uses the **Web Audio API** to process incoming streams:
+
+1.  **MediaStreamSource**: Ingests audio from the `RTCPeerConnection`.
+2.  **GainNode**: Controls the local volume of the participant (0.0 to 2.0).
+3.  **AnalyserNode**: Performs real-time frequency analysis for "is speaking" detection (threshold > 15).
+4.  **Destination**: Outputs the processed audio to the user's speakers/headphones.
+
+Note: Local video elements are kept `muted`, and audio is played exclusively through the `AudioContext` for precise control.
+
 ### Basic WebRTC Setup
 
 ```javascript
@@ -74,16 +85,22 @@ class CallManager {
         this.peerConnections = new Map(); // userId -> RTCPeerConnection
         this.localStream = null;
         this.ws = null;
+        this.volumes = new Map(); // userId -> volume (0-2)
     }
 
-    async init() {
-        // Get local audio stream
+    async init(withVideo = true) {
+        // 1. Get local stream (audio/video)
         this.localStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: false
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: withVideo
         });
 
-        // Connect to signaling server (use /ws/call/ for WebRTC signaling)
+        // 2. Audio Processing (#1, #14)
+        this.audioContext = new AudioContext();
+        // Setup GainNode for each remote stream to allow local volume control
+        // Setup AnalyserNode for speaking detection (visual feedback)
+
+        // 3. Connect to signaling server (use /ws/call/ for WebRTC signaling)
         this.ws = new WebSocket(`ws://server/ws/call/${this.roomId}/?token=YOUR_AUTH_TOKEN`);
         this.ws.onmessage = (event) => this.handleSignalingMessage(JSON.parse(event.data));
     }

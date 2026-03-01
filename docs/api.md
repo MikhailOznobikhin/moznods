@@ -77,6 +77,7 @@ User payload includes `avatar_url` (may be empty string if no avatar).
 |--------|----------|-------------|
 | GET | `/api/rooms/` | List user's rooms |
 | POST | `/api/rooms/` | Create new room |
+| POST | `/api/rooms/direct/` | Create or get a direct room (DM) with another user |
 | GET | `/api/rooms/{id}/` | Get room details |
 | PATCH | `/api/rooms/{id}/` | Update room |
 | DELETE | `/api/rooms/{id}/` | Delete room |
@@ -167,39 +168,51 @@ All WebSocket messages follow this format:
 }
 ```
 
-### WebRTC Signaling
+### Signaling Consumer (Calls)
 
-Use the **call** WebSocket URL (`/ws/call/{room_id}/`) for signaling. Only room participants can connect.
+WebSocket: `ws://host/ws/call/{room_id}/?token={auth_token}`
 
-#### Join Call
+#### Message Types (Receive)
 
-```json
-{
-    "type": "join_call",
-    "data": {}
-}
-```
+| Type | Data Payload | Description |
+|------|--------------|-------------|
+| `join_call` | `{}` | Join active call |
+| `leave_call` | `{}` | Leave active call |
+| `request_mic` | `{"target_user_id": int}` | Admin requests user to unmute (#15) |
+| `offer` | `{"target_user_id": int, "sdp": str}` | WebRTC offer |
+| `answer` | `{"target_user_id": int, "sdp": str}` | WebRTC answer |
+| `ice_candidate`| `{"target_user_id": int, "candidate": obj}` | ICE candidate |
 
-#### Leave Call
+#### Message Types (Send to Client)
 
-```json
-{
-    "type": "leave_call",
-    "data": {}
-}
-```
+| Type | Data Payload | Description |
+|------|--------------|-------------|
+| `call_state` | `{"participants": list, "room_state": str}` | Current call members |
+| `user_joined` | `{"user": {"id": int, "username": str}}` | User entered the call |
+| `user_left` | `{"user_id": int}` | User left the call |
+| `request_mic` | `{"from_user_id": int, "from_username": str}` | Unmute request from admin |
+| `signaling_relay`| `{"message_type": str, "data": obj, ...}` | Forwarded WebRTC payload |
 
-#### Send Offer
+### Chat Consumer (Messages & Presence)
 
-```json
-{
-    "type": "offer",
-    "data": {
-        "target_user_id": 2,
-        "sdp": "v=0\r\no=- ..."
-    }
-}
-```
+WebSocket: `ws://host/ws/chat/{room_id}/?token={auth_token}`
+
+#### Message Types (Send to Client)
+
+| Type | Data Payload | Description |
+|------|--------------|-------------|
+| `chat_message` | `Message object` | New message in room |
+| `room_presence_update` | `{"room_id": int, "active_participants": list[str]}` | Update for sidebar (#UI_Presence) |
+
+### Notification Consumer
+
+WebSocket: `ws://host/ws/notifications/?token={auth_token}`
+
+#### Message Types (Send to Client)
+
+| Type | Data Payload | Description |
+|------|--------------|-------------|
+| `room_added` | `{"room": Room object}` | Notifies user they were added to a room (#2) |
 
 #### Send Answer
 
