@@ -49,48 +49,50 @@ export const RoomPage = () => {
   }
 
   return (
-      <div className={`flex-1 flex flex-col h-full bg-gray-900 transition-all duration-300 ${isActive ? (isExpanded ? 'pb-[400px]' : 'pb-20') : ''}`}>
+      <div className={`flex-1 flex flex-col h-full bg-gray-900 transition-all duration-300 ${isActive ? (isExpanded ? 'pb-[50vh] lg:pb-[400px]' : 'pb-20') : ''}`}>
         {/* Room Header */}
-        <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
-          <div className="flex items-center gap-3">
-            <Hash className="w-5 h-5 text-gray-400" />
-            <h2 className="text-lg font-bold text-white">{currentRoom.name}</h2>
+        <div className="h-14 lg:h-16 px-4 lg:px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
+          <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+            <Hash className="w-5 h-5 text-gray-400 hidden lg:block" />
+            <h2 className="text-lg font-bold text-white hidden lg:block truncate">{currentRoom.name}</h2>
+            
             <button
-              className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+              className="flex items-center gap-1 lg:gap-2 text-sm text-blue-400 hover:text-blue-300 whitespace-nowrap"
               title="Просмотреть участников"
               onClick={() => setIsParticipantsOpen(true)}
             >
-              <Users className="w-4 h-4" />
-              <span>{currentRoom.participant_count} participants</span>
+              <Users className="w-4 h-4 lg:w-5 lg:h-5" />
+              <span className="text-xs lg:text-sm">{currentRoom.participant_count} <span className="hidden xs:inline">participants</span></span>
             </button>
+
             {canManageParticipants && (
               <button
-                className="flex items-center gap-2 px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                className="flex items-center p-1.5 lg:px-2 lg:py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
                 title="Добавить участника"
                 onClick={() => setIsAddOpen(true)}
               >
                 <Plus className="w-4 h-4" />
-                <Users className="w-4 h-4" />
+                <Users className="w-4 h-4 hidden xs:block" />
               </button>
             )}
           </div>
 
           {!isActive && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 lg:gap-2">
               <button
                 onClick={() => handleJoinCall(false)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
+                className="flex items-center gap-2 p-2 lg:px-3 lg:py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
                 title="Join Voice Call"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-4 h-4 lg:w-5 lg:h-5" />
                 <span className="hidden sm:inline">Voice</span>
               </button>
               <button
                 onClick={() => handleJoinCall(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                className="flex items-center gap-2 p-2 lg:px-3 lg:py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
                 title="Join Video Call"
               >
-                <Video className="w-4 h-4" />
+                <Video className="w-4 h-4 lg:w-5 lg:h-5" />
                 <span className="hidden sm:inline">Video</span>
               </button>
             </div>

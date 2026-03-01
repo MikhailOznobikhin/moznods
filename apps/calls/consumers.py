@@ -150,6 +150,8 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         """Send call_state to all in group so UI can show presence (idle/connecting/active/ended)."""
         participants = await sync_to_async(get_room_state)(self.room_id)
         room_state = await sync_to_async(get_room_aggregate_state)(self.room_id)
+        
+        # 1. Notify participants in the call
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -158,6 +160,30 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 "room_state": room_state,
             },
         )
+
+        # 2. Notify all room members for sidebar update (#UI_Presence)
+        room_members_group = f"room_{self.room_id}"
+        active_usernames = [p["username"] for p in participants if p.get("state") in (STATE_ACTIVE, STATE_CONNECTING)]
+        
+        # Broadcast to all users in the room (via their personal user_{id} groups)
+        # We need to fetch all participant IDs for this room
+        participant_ids = await database_sync_to_async(
+            lambda: list(Room.objects.get(pk=self.room_id).participants.values_list('user_id', flat=True))
+        )()
+
+        for user_id in participant_ids:
+            user_group = f"user_{user_id}"
+            await self.channel_layer.group_send(
+                user_group,
+                {
+                    "type": "notification",
+                    "data": {
+                        "type": "room_presence_update",
+                        "room_id": int(self.room_id),
+                        "active_participants": active_usernames,
+                    }
+                }
+            )
 
     async def _relay_signaling(self, message_type, data):
         """Relay offer/answer/ice_candidate to target_user_id."""

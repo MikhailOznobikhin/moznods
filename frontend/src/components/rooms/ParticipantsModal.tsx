@@ -50,8 +50,8 @@ export const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-4 lg:p-6 relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"

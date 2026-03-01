@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { useCallStore } from '../../store/useCallStore';
 import { useRoomStore } from '../../store/useRoomStore';
 import { VideoPlayer } from './VideoPlayer';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
-import { type User } from '../../types/auth';
 
 export const CallOverlay = () => {
   const {
@@ -24,20 +22,20 @@ export const CallOverlay = () => {
   if (!isActive) return null;
 
   return (
-    <div className={`fixed bottom-0 right-0 left-0 bg-gray-900 border-t border-gray-800 transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'h-[400px]' : 'h-20'}`}>
+    <div className={`fixed bottom-0 right-0 left-0 bg-gray-900 border-t border-gray-800 transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'h-[50vh] lg:h-[400px]' : 'h-20'}`}>
       {/* Header / Controls Bar */}
-      <div className="flex items-center justify-between px-6 h-20 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between px-4 lg:px-6 h-20 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
+        <div className="flex items-center gap-3 lg:gap-4">
           <span className="text-green-400 font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Active Call
+            <span className="hidden xs:inline">Active Call</span>
           </span>
-          <span className="text-gray-400 text-sm">
-            {remoteStreams.size + 1} participant{remoteStreams.size + 1 !== 1 ? 's' : ''}
+          <span className="text-gray-400 text-xs lg:text-sm">
+            {remoteStreams.size + 1} <span className="hidden xs:inline">participant{remoteStreams.size + 1 !== 1 ? 's' : ''}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 lg:gap-3">
           <button
             onClick={toggleAudio}
             className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
@@ -70,8 +68,8 @@ export const CallOverlay = () => {
 
       {/* Video Grid */}
       {isExpanded && (
-        <div className="p-4 h-[calc(400px-80px)] overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 h-full">
+        <div className="p-4 h-[calc(50vh-80px)] lg:h-[calc(400px-80px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
+          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {/* Local Video */}
             {localStream && (
               <VideoPlayer 

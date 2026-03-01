@@ -5,6 +5,8 @@ export interface Room {
   name: string;
   owner: User;
   participant_count: number;
+  active_call_participants: string[];
+  is_direct: boolean;
   created_at: string;
   updated_at: string;
 }

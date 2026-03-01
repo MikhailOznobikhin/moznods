@@ -198,7 +198,10 @@ export const useCallStore = create<CallState>((set, get) => ({
               }
               return { participants: newParticipants };
             });
-            const peer = await createPeerConnection(from_user_id, stream, ws, false, set);
+            let peer = get().peers.get(from_user_id);
+            if (!peer) {
+              peer = await createPeerConnection(from_user_id, stream, ws, false, set);
+            }
             await peer.setRemoteDescription(new RTCSessionDescription(sdp));
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
@@ -289,11 +292,50 @@ export const useCallStore = create<CallState>((set, get) => ({
     }
   },
 
-  toggleVideo: () => {
-    const { localStream, isVideoEnabled } = get();
+  toggleVideo: async () => {
+     const { localStream, isVideoEnabled, peers, ws } = get();
     if (localStream) {
-      localStream.getVideoTracks().forEach(track => track.enabled = !isVideoEnabled);
-      set({ isVideoEnabled: !isVideoEnabled });
+      const videoTrack = localStream.getVideoTracks()[0];
+      
+      if (videoTrack) {
+        // Track exists, just toggle enabled
+        videoTrack.enabled = !isVideoEnabled;
+        set({ isVideoEnabled: !isVideoEnabled });
+      } else if (!isVideoEnabled) {
+        // No video track, but trying to enable video
+        try {
+          const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          
+          if (newVideoTrack) {
+            localStream.addTrack(newVideoTrack);
+            
+            // Add track to all existing peer connections
+            peers.forEach(pc => {
+              pc.addTrack(newVideoTrack, localStream);
+            });
+
+            // Renegotiate with all peers
+            for (const [targetUserId, pc] of peers.entries()) {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'offer',
+                  data: {
+                    target_user_id: targetUserId,
+                    sdp: pc.localDescription,
+                  },
+                }));
+              }
+            }
+            
+            set({ isVideoEnabled: true });
+          }
+        } catch (err) {
+          console.error('Failed to enable video track:', err);
+        }
+      }
     }
   },
 
