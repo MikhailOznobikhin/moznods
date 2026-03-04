@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useRoomStore } from './useRoomStore';
 import { WS_URL } from '../config';
 import { type Room } from '../types/room';
+import { type Message } from '../types/chat';
 
 interface NotificationSettings {
   browserNotifications: boolean;
@@ -20,6 +21,7 @@ interface NotificationState {
   updateSettings: (settings: Partial<NotificationSettings>) => void;
   requestPermission: () => Promise<boolean>;
   notify: (title: string, body?: string) => void;
+  receiveChatMessage: (message: Message) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -63,6 +65,30 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 
+  receiveChatMessage: (message) => {
+    const { settings, notify } = get();
+    const { currentRoom } = useRoomStore.getState();
+
+    // Don't notify if in the same room and tab is active
+    if (currentRoom?.id === message.room && !document.hidden) {
+      return;
+    }
+
+    // Don't notify if notifications are disabled
+    if (!settings.browserNotifications) {
+      return;
+    }
+
+    // Play sound if enabled
+    if (settings.soundEnabled) {
+      const audio = new Audio('/notification.mp3'); // Assuming you have a notification sound
+      audio.play().catch(e => console.warn("Failed to play notification sound:", e));
+    }
+
+    // Show browser notification
+    notify(`Новое сообщение в ${currentRoom?.name || 'чате'}`, message.content);
+  },
+
   connect: (token) => {
     if (get().ws) return;
 
@@ -83,6 +109,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       
       if (data.type === 'room_presence_update') {
         const { room_id, active_participants } = data;
+        const { notify, settings } = get();
+        const { rooms } = useRoomStore.getState();
+
+        // Determine if a user joined or left
+        const previousRoom = rooms.find(r => r.id === room_id);
+        const previousParticipants = previousRoom?.active_call_participants || 0;
+        const currentParticipants = active_participants || 0;
+
+        let notificationMessage = '';
+        if (currentParticipants > previousParticipants) {
+          notificationMessage = `Кто-то присоединился к звонку в комнате ${previousRoom?.name || room_id}`;
+        } else if (currentParticipants < previousParticipants) {
+          notificationMessage = `Кто-то покинул звонок в комнате ${previousRoom?.name || room_id}`;
+        }
+
+        // Send notification if tab is inactive and notifications are enabled
+        if (document.hidden && settings.browserNotifications && notificationMessage) {
+          notify('Обновление звонка', notificationMessage);
+        }
+
         useRoomStore.setState((state) => {
           const updatedRooms = state.rooms.map((r: Room) => 
             r.id === room_id 

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import api from '../api/client';
 import { WS_URL } from '../config';
 import { type Message, type SendMessagePayload, type FileData } from '../types/chat';
+import { useNotificationStore } from './useNotificationStore';
+import { useAuthStore } from './useAuthStore';
 
 interface ChatState {
   messages: Message[];
@@ -96,11 +98,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      const { notify, settings } = useNotificationStore.getState();
+      const { user } = useAuthStore.getState();
+
       if (data.type === 'chat_message') {
         const newMessage = data.data;
         set((state) => ({
           messages: [...state.messages, newMessage],
         }));
+
+        // Send notification if tab is inactive and notifications are enabled
+        if (document.hidden && settings.browserNotifications && user && newMessage.author.id !== user.id) {
+          notify(`Новое сообщение от ${newMessage.author.username}`, newMessage.content);
+        }
       } else if (data.type === 'message_read') {
         const { message_id, user_id } = data.data;
         set((state) => ({

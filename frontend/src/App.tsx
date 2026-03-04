@@ -15,26 +15,11 @@ function App() {
   const { 
     connect: connectNotifications, 
     disconnect: disconnectNotifications,
-    settings,
-    notify
   } = useNotificationStore();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden && settings.notifyOnTabSwitch) {
-        notify('MOznoDS', 'Вы переключились на другую вкладку. Не пропускайте важные сообщения!');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [settings.notifyOnTabSwitch, notify]);
 
   useEffect(() => {
     if (isAuthenticated && token) {
