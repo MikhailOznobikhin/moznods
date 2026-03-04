@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { MessageList } from '../components/chat/MessageList';
 import { MessageInput } from '../components/chat/MessageInput';
 import { useRoomStore } from '../store/useRoomStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCallStore } from '../store/useCallStore';
-import { Hash, Phone, Video, Users, Plus } from 'lucide-react';
+import { Hash, Phone, Video, Users, Plus, Share2 } from 'lucide-react';
 import { ParticipantsModal } from '../components/rooms/ParticipantsModal';
 import { AddParticipantModal } from '../components/rooms/AddParticipantModal';
+import { ShareRoomModal } from '../components/rooms/ShareRoomModal';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,11 @@ export const RoomPage = () => {
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
   const { joinCall, isActive, isExpanded, error: callError } = useCallStore();
+
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const canManageParticipants = !!user && !!currentRoom && user.id === currentRoom.owner.id;
 
   useEffect(() => {
     if (roomId && token) {
@@ -35,10 +41,6 @@ export const RoomPage = () => {
       joinCall(roomId, token, user, withVideo);
     }
   };
-
-  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const canManageParticipants = !!user && !!currentRoom && user.id === currentRoom.owner.id;
 
   if (!currentRoom) {
     return (
@@ -63,6 +65,14 @@ export const RoomPage = () => {
             >
               <Users className="w-4 h-4 lg:w-5 lg:h-5" />
               <span className="text-xs lg:text-sm">{currentRoom.participant_count} <span className="hidden xs:inline">participants</span></span>
+            </button>
+
+            <button
+              className="flex items-center p-1.5 lg:px-2 lg:py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-md transition-colors border border-blue-600/30"
+              title="Поделиться ссылкой"
+              onClick={() => setIsShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4" />
             </button>
 
             {canManageParticipants && (
@@ -118,11 +128,17 @@ export const RoomPage = () => {
         roomId={roomId}
         isOwner={canManageParticipants}
       />
-      <AddParticipantModal
-        isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        roomId={roomId}
-      />
-    </div>
+      <AddParticipantModal 
+          isOpen={isAddOpen} 
+          onClose={() => setIsAddOpen(false)} 
+          roomId={roomId} 
+        />
+
+        <ShareRoomModal
+          isOpen={isShareOpen}
+          onClose={() => setIsShareOpen(false)}
+          roomId={roomId}
+        />
+      </div>
   );
 };

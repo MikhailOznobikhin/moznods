@@ -21,6 +21,7 @@ export interface Message {
   content: string;
   attachments: Attachment[];
   created_at: string;
+  read_by_ids?: number[];
 }
 
 export interface SendMessagePayload {

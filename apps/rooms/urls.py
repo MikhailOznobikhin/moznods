@@ -14,5 +14,7 @@ urlpatterns = [
     path("<int:pk>/add-participant/", views.RoomAddParticipantView.as_view(), name="add-participant"),
     path("<int:pk>/remove-participant/", views.RoomRemoveParticipantView.as_view(), name="remove-participant"),
     path("<int:pk>/call-state/", views.RoomCallStateView.as_view(), name="call-state"),
+    path("<int:pk>/invite/", views.RoomInviteCreateView.as_view(), name="invite-create"),
+    path("join/<uuid:token>/", views.RoomInviteJoinView.as_view(), name="invite-join"),
     path("<int:room_id>/messages/", include("apps.chat.urls")),
 ]

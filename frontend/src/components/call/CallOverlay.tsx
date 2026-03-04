@@ -1,7 +1,8 @@
 import { useCallStore } from '../../store/useCallStore';
 import { useRoomStore } from '../../store/useRoomStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { VideoPlayer } from './VideoPlayer';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown, Monitor, MonitorOff } from 'lucide-react';
 
 export const CallOverlay = () => {
   const {
@@ -12,12 +13,15 @@ export const CallOverlay = () => {
     leaveCall,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
     isAudioEnabled,
     isVideoEnabled,
+    isScreenSharing,
     isExpanded,
     toggleExpanded,
   } = useCallStore();
   const { currentRoom } = useRoomStore();
+  const { user } = useAuthStore();
 
   if (!isActive) return null;
 
@@ -38,6 +42,7 @@ export const CallOverlay = () => {
         <div className="flex items-center gap-2 lg:gap-3">
           <button
             onClick={toggleAudio}
+            title={isAudioEnabled ? "Mute" : "Unmute"}
             className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
           >
             {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
@@ -45,13 +50,23 @@ export const CallOverlay = () => {
           
           <button
             onClick={toggleVideo}
+            title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
             className={`p-2 rounded-full transition-colors ${isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
           >
             {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
 
           <button
+            onClick={toggleScreenShare}
+            title={isScreenSharing ? "Stop sharing screen" : "Share screen"}
+            className={`p-2 rounded-full transition-colors ${isScreenSharing ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
+          >
+            {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+          </button>
+
+          <button
             onClick={leaveCall}
+            title="Leave call"
             className="p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors ml-2"
           >
             <PhoneOff className="w-5 h-5" />
@@ -67,38 +82,36 @@ export const CallOverlay = () => {
       </div>
 
       {/* Video Grid */}
-      {isExpanded && (
-        <div className="p-4 h-[calc(50vh-80px)] lg:h-[calc(400px-80px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
-          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Local Video */}
-            {localStream && (
-              <VideoPlayer 
-                stream={localStream} 
-                isLocal 
-                username="You"
-              />
-            )}
+      <div className={`p-4 h-[calc(50vh-80px)] lg:h-[calc(400px-80px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 ${!isExpanded ? 'hidden' : ''}`}>
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* Local Video */}
+          {localStream && (
+            <VideoPlayer 
+              stream={localStream} 
+              isLocal 
+              username={user ? `${user.username} (You)` : 'You'}
+            />
+          )}
 
-            {/* Remote Videos */}
-            {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
-              const participant = participants?.get(userId);
-              // @ts-ignore - participants property is missing on Room type but may be present in API response
-              const roomParticipants = (currentRoom as any)?.participants as any[];
-              const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
-              const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
-              
-              return (
-                <VideoPlayer 
-                  key={userId} 
-                  userId={userId}
-                  stream={stream} 
-                  username={username}
-                />
-              );
-            })}
-          </div>
+          {/* Remote Videos */}
+          {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
+            const participant = participants?.get(userId);
+            // @ts-ignore - participants property is missing on Room type but may be present in API response
+            const roomParticipants = (currentRoom as any)?.participants as any[];
+            const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
+            const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
+            
+            return (
+              <VideoPlayer 
+                key={userId} 
+                userId={userId}
+                stream={stream} 
+                username={username}
+              />
+            );
+          })}
         </div>
-      )}
+      </div>
     </div>
   );
 };
