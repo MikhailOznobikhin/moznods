@@ -296,7 +296,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   toggleVideo: async () => {
-     const { localStream, isVideoEnabled, peers, ws } = get();
+     const { localStream, isVideoEnabled, peers } = get();
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
       
