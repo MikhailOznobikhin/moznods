@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, MicOff, Mic } from 'lucide-react';
+import { User, MicOff, Mic, Maximize2, Minimize2 } from 'lucide-react';
 import { useCallStore } from '../../store/useCallStore';
 import { useRoomStore } from '../../store/useRoomStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -13,10 +13,12 @@ interface VideoPlayerProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLocal, username, ...props }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hasVideo, setHasVideo] = useState(true);
   const [hasAudio, setHasAudio] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isVolumeVisible, setIsVolumeVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { requestMic, volumes, setVolume } = useCallStore();
   const { currentRoom } = useRoomStore();
@@ -24,6 +26,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
 
   const isOwner = currentUser && currentRoom && currentUser.id === currentRoom.owner.id;
   const isTargetNotOwner = userId && currentRoom && userId !== currentRoom.owner.id;
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -110,7 +135,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
 
   return (
     <div 
-      className={`relative bg-gray-900 rounded-lg overflow-hidden aspect-video border-2 transition-colors duration-200 ${isSpeaking ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-gray-800'}`}
+      ref={containerRef}
+      className={`relative bg-gray-900 rounded-lg overflow-hidden aspect-video border-2 transition-colors duration-200 ${isSpeaking ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-gray-800'} ${isFullscreen ? 'fixed inset-0 z-[100] rounded-none border-0' : ''}`}
       onMouseEnter={() => !isLocal && setIsVolumeVisible(true)}
       onMouseLeave={() => setIsVolumeVisible(false)}
     >
@@ -135,7 +161,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
       )}
 
       {/* Volume Control Overlay */}
-      {isVolumeVisible && userId !== undefined && (
+      {isVolumeVisible && userId !== undefined && !isFullscreen && (
         <div className="absolute top-2 right-2 left-2 bg-black/60 backdrop-blur-sm p-2 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-1">
           <Mic className="w-4 h-4 text-gray-300" />
           <input
@@ -159,15 +185,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ userId, stream, isLoca
           {!hasAudio && <MicOff className="w-3 h-3 text-red-400" />}
         </div>
         
-        {isOwner && isTargetNotOwner && !hasAudio && (
+        <div className="flex items-center gap-2">
+          {isOwner && isTargetNotOwner && !hasAudio && (
+            <button
+              onClick={() => userId && requestMic(userId)}
+              className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              title="Попросить включить микрофон"
+            >
+              <Mic className="w-3 h-3" />
+            </button>
+          )}
+
           <button
-            onClick={() => userId && requestMic(userId)}
-            className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-            title="Попросить включить микрофон"
+            onClick={toggleFullscreen}
+            className="p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-md transition-colors"
+            title={isFullscreen ? "Свернуть" : "Развернуть на весь экран"}
           >
-            <Mic className="w-3 h-3" />
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
