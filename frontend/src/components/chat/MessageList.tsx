@@ -1,11 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { FileText } from 'lucide-react';
+import { FileText, Check, CheckCheck } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 
+const linkify = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline text-blue-200 hover:text-white break-all">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export const MessageList = () => {
-  const { messages, isLoading } = useChatStore();
+  const { messages, isLoading, markAsRead } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -16,6 +30,18 @@ export const MessageList = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Mark messages as read when they appear
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    messages.forEach((message) => {
+      const isReadByMe = message.read_by_ids?.includes(currentUser.id);
+      if (!isReadByMe && message.author.id !== currentUser.id) {
+        markAsRead(message.id);
+      }
+    });
+  }, [messages, currentUser, markAsRead]);
 
   if (isLoading && messages.length === 0) {
     return (
@@ -29,6 +55,7 @@ export const MessageList = () => {
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       {messages.map((message) => {
         const isOwn = message.author.id === currentUser?.id;
+        const isReadByOthers = (message.read_by_ids?.length || 0) > (isOwn ? 0 : 1);
 
         return (
           <div
@@ -62,13 +89,23 @@ export const MessageList = () => {
                 </div>
 
                 <div
-                  className={`px-4 py-2 rounded-lg ${
+                  className={`px-4 py-2 rounded-lg relative ${
                     isOwn
                       ? 'bg-blue-600 text-white rounded-tr-none'
                       : 'bg-gray-800 text-gray-100 rounded-tl-none'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{linkify(message.content)}</p>
+                  
+                  {isOwn && (
+                    <div className="absolute bottom-1 right-1 flex items-center">
+                      {isReadByOthers ? (
+                        <CheckCheck className="w-3 h-3 text-blue-200" />
+                      ) : (
+                        <Check className="w-3 h-3 text-blue-300/70" />
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {message.attachments && message.attachments.length > 0 && (

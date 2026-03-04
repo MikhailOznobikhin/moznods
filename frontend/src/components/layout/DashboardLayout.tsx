@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { CallOverlay } from '../call/CallOverlay';
 import { Menu, Hash } from 'lucide-react';
@@ -9,9 +9,18 @@ import { useAuthStore } from '../../store/useAuthStore';
 
 export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
   const { currentRoom } = useRoomStore();
   const { connect: connectNotifications, disconnect: disconnectNotifications } = useNotificationStore();
   const { token } = useAuthStore();
+
+  useEffect(() => {
+    const pendingToken = localStorage.getItem('pending_invite_token');
+    if (pendingToken) {
+      localStorage.removeItem('pending_invite_token');
+      navigate(`/invite/${pendingToken}`);
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (token) {

@@ -16,7 +16,45 @@ from .serializers import (
     RoomSerializer,
     UpdateRoomSerializer,
 )
-from .services import RoomService
+from .services import RoomService, InvitationService
+
+
+class RoomInviteCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsRoomParticipant]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        expires_in = request.data.get("expires_in_hours")
+        if expires_in:
+            try:
+                expires_in = int(expires_in)
+            except ValueError:
+                expires_in = None
+
+        invitation = InvitationService.create_invitation(room, request.user, expires_in)
+        return Response(
+            {
+                "token": str(invitation.token),
+                "expires_at": invitation.expires_at,
+                "room_name": room.name,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RoomInviteJoinView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, token):
+        try:
+            room = InvitationService.join_room_via_invitation(request.user, token)
+            return Response(RoomSerializer(room, context={"request": request}).data)
+        except Exception as e:
+            from core.exceptions import ValidationError
+
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
 
 
 class RoomListCreateView(APIView):

@@ -12,6 +12,22 @@ from .serializers import CreateMessageSerializer, MessageSerializer
 from .services import MessageService
 
 
+class MessageReadView(APIView):
+    """Mark a message as read by the current user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, message_id):
+        message = get_object_or_404(Message, pk=message_id)
+        if not RoomService.is_participant(message.room, request.user):
+            return Response(
+                {"detail": "You are not a participant in this room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        message.read_by.add(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class MessageListCreateView(APIView):
     """List and create messages in a room. Requires room participation."""
 

@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useNotificationStore } from './store/useNotificationStore';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { InvitePage } from './pages/InvitePage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RoomPage } from './pages/RoomPage';
@@ -11,11 +12,29 @@ import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
   const { checkAuth, token, isAuthenticated } = useAuthStore();
-  const { connect: connectNotifications, disconnect: disconnectNotifications } = useNotificationStore();
+  const { 
+    connect: connectNotifications, 
+    disconnect: disconnectNotifications,
+    settings,
+    notify
+  } = useNotificationStore();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && settings.notifyOnTabSwitch) {
+        notify('MOznoDS', 'Вы переключились на другую вкладку. Не пропускайте важные сообщения!');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [settings.notifyOnTabSwitch, notify]);
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -34,6 +53,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         
         <Route element={<PrivateRoute />}>
           <Route element={<DashboardLayout />}>

@@ -19,6 +19,7 @@ interface CallState {
   roomId: number | null;
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
+  isScreenSharing: boolean;
   isExpanded: boolean;
   error: string | null;
 
@@ -26,6 +27,7 @@ interface CallState {
   leaveCall: () => void;
   toggleAudio: () => void;
   toggleVideo: () => void;
+  toggleScreenShare: () => Promise<void>;
   toggleExpanded: () => void;
   requestMic: (targetUserId: number) => void;
   setVolume: (userId: number, volume: number) => void;
@@ -49,6 +51,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   roomId: null,
   isAudioEnabled: true,
   isVideoEnabled: true,
+  isScreenSharing: false,
   isExpanded: true,
   error: null,
 
@@ -312,23 +315,18 @@ export const useCallStore = create<CallState>((set, get) => ({
             
             // Add track to all existing peer connections
             peers.forEach(pc => {
-              pc.addTrack(newVideoTrack, localStream);
+              pc.getSenders().forEach(sender => {
+                if (sender.track?.kind === 'video') {
+                  sender.replaceTrack(newVideoTrack);
+                }
+              });
+              if (!pc.getSenders().some(s => s.track?.kind === 'video')) {
+                pc.addTrack(newVideoTrack, localStream);
+              }
             });
 
-            // Renegotiate with all peers
-            for (const [targetUserId, pc] of peers.entries()) {
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'offer',
-                  data: {
-                    target_user_id: targetUserId,
-                    sdp: pc.localDescription,
-                  },
-                }));
-              }
-            }
+            // Renegotiate with all peers if needed
+            // (Most browsers handle replaceTrack without renegotiation)
             
             set({ isVideoEnabled: true });
           }
@@ -336,6 +334,72 @@ export const useCallStore = create<CallState>((set, get) => ({
           console.error('Failed to enable video track:', err);
         }
       }
+    }
+  },
+
+  toggleScreenShare: async () => {
+    const { localStream, isScreenSharing, peers, isVideoEnabled } = get();
+    if (!localStream) return;
+
+    if (!isScreenSharing) {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        // Replace current video track in all peer connections
+        peers.forEach(pc => {
+          pc.getSenders().forEach(sender => {
+            if (sender.track?.kind === 'video') {
+              sender.replaceTrack(screenTrack);
+            }
+          });
+        });
+
+        // Replace track in localStream for UI update
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+        if (oldVideoTrack) {
+          localStream.removeTrack(oldVideoTrack);
+        }
+        localStream.addTrack(screenTrack);
+
+        // Listen for when the user stops sharing via browser UI
+        screenTrack.onended = () => {
+          get().toggleScreenShare();
+        };
+
+        set({ isScreenSharing: true });
+      } catch (err) {
+        console.error('Error starting screen share:', err);
+      }
+    } else {
+      // Stopping screen share
+      const screenTrack = localStream.getVideoTracks()[0];
+      if (screenTrack) {
+        screenTrack.stop();
+        localStream.removeTrack(screenTrack);
+      }
+
+      // Re-enable camera if it was enabled
+      if (isVideoEnabled) {
+        try {
+          const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const cameraTrack = cameraStream.getVideoTracks()[0];
+          localStream.addTrack(cameraTrack);
+          
+          peers.forEach(pc => {
+            pc.getSenders().forEach(sender => {
+              if (sender.track?.kind === 'video') {
+                sender.replaceTrack(cameraTrack);
+              }
+            });
+          });
+        } catch (err) {
+          console.error('Error re-enabling camera after screen share:', err);
+          set({ isVideoEnabled: false });
+        }
+      }
+      
+      set({ isScreenSharing: false });
     }
   },
 

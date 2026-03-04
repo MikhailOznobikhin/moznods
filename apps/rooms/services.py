@@ -1,13 +1,46 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from datetime import timedelta
+from django.utils import timezone
 
 from core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
-from .models import Room, RoomParticipant
+from .models import Room, RoomParticipant, RoomInvitation
 from .serializers import RoomSerializer
 
 User = get_user_model()
+
+
+class InvitationService:
+    """Room invitation management."""
+
+    @staticmethod
+    def create_invitation(
+        room: Room, user: User, expires_in_hours: int = None
+    ) -> RoomInvitation:
+        """Create a new invitation link."""
+        expires_at = None
+        if expires_in_hours:
+            expires_at = timezone.now() + timedelta(hours=expires_in_hours)
+        return RoomInvitation.objects.create(
+            room=room, created_by=user, expires_at=expires_at
+        )
+
+    @staticmethod
+    def join_room_via_invitation(user: User, token: str) -> Room:
+        """Join a room using an invitation token."""
+        try:
+            invitation = RoomInvitation.objects.get(token=token)
+            if invitation.is_expired:
+                raise ValidationError(detail={"invitation": ["Invitation has expired."]})
+
+            if not RoomService.is_participant(invitation.room, user):
+                RoomService.add_participant(invitation.room, user)
+
+            return invitation.room
+        except (RoomInvitation.DoesNotExist, ValueError):
+            raise ValidationError(detail={"invitation": ["Invalid invitation link."]})
 
 
 class RoomService:
