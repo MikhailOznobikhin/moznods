@@ -33,6 +33,17 @@ def save_and_broadcast_message(room, user, content, attachment_ids):
     return MessageSerializer(message).data
 
 
+@database_sync_to_async
+def mark_message_as_read(message_id, user):
+    try:
+        from .models import Message
+        message = Message.objects.get(pk=message_id)
+        message.read_by.add(user)
+        return True
+    except Exception:
+        return False
+
+
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for room chat. Join room group, receive chat_message, persist and broadcast."""
 
@@ -79,45 +90,60 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def receive_json(self, content):
         print(f"Received WebSocket message: {content}")
         msg_type = content.get("type")
-        if msg_type != "chat_message":
+        
+        if msg_type == "chat_message":
+            data = content.get("data", {})
+            content_text = data.get("content", "")
+            attachment_ids = data.get("attachment_ids", [])
+            print(f"Processing message from {self.user}: {content_text}")
+            try:
+                payload = await save_and_broadcast_message(
+                    self.room,
+                    self.user,
+                    content_text,
+                    attachment_ids,
+                )
+                print(f"Message saved: {payload['id']}")
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "chat_message_broadcast",
+                        "payload": payload,
+                    },
+                )
+            except Exception as e:
+                print(f"Error saving message: {e}")
+                await self.send_json({"type": "error", "detail": str(e)})
+
+        elif msg_type == "message_read":
+            message_id = content.get("data", {}).get("message_id")
+            if message_id:
+                ok = await mark_message_as_read(message_id, self.user)
+                if ok:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            "type": "chat_message_read_broadcast",
+                            "data": {
+                                "message_id": message_id,
+                                "user_id": self.user.id,
+                            },
+                        },
+                    )
+
+        else:
             print(f"Unknown message type: {msg_type}")
             await self.send_json({"type": "error", "detail": "Unknown message type."})
-            return
-        data = content.get("data", {})
-        content_text = data.get("content", "")
-        attachment_ids = data.get("attachment_ids", [])
-        print(f"Processing message from {self.user}: {content_text}")
-        try:
-            payload = await save_and_broadcast_message(
-                self.room,
-                self.user,
-                content_text,
-                attachment_ids,
-            )
-            print(f"Message saved: {payload['id']}")
-        except Exception as e:
-            print(f"Error saving message: {e}")
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                await self.send_json(
-                    {"type": "error", "detail": e.detail}
-                )
-            else:
-                await self.send_json(
-                    {"type": "error", "detail": ["Failed to send message."]}
-                )
-            return
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "chat_message_broadcast",
-                "payload": payload,
-            },
-        )
 
     async def chat_message_broadcast(self, event):
         """Send broadcasted message to this client."""
         await self.send_json({
             "type": "chat_message",
             "data": event["payload"],
+        })
+
+    async def chat_message_read_broadcast(self, event):
+        await self.send_json({
+            "type": "message_read",
+            "data": event["data"],
         })

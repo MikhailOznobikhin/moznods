@@ -21,10 +21,21 @@ class MessageSerializer(serializers.ModelSerializer):
 
     author = UserSerializer(read_only=True)
     attachments = MessageAttachmentSerializer(many=True, read_only=True)
+    read_by_ids = serializers.PrimaryKeyRelatedField(
+        source="read_by", many=True, read_only=True
+    )
 
     class Meta:
         model = Message
-        fields = ("id", "room", "author", "content", "attachments", "created_at")
+        fields = (
+            "id",
+            "room",
+            "author",
+            "content",
+            "attachments",
+            "created_at",
+            "read_by_ids",
+        )
 
 
 class CreateMessageSerializer(serializers.Serializer):

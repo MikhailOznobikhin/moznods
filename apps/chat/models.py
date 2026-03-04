@@ -20,6 +20,11 @@ class Message(TimestampedModel):
         related_name="messages",
     )
     content = models.TextField(blank=True)
+    read_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="read_messages",
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]

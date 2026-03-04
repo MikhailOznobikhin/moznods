@@ -14,6 +14,7 @@ interface ChatState {
   connect: (roomId: number, token: string) => void;
   disconnect: () => void;
   sendMessage: (payload: SendMessagePayload) => void;
+  markAsRead: (messageId: number) => void;
   uploadFile: (file: File) => Promise<FileData>;
 }
 
@@ -23,6 +24,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   ws: null,
   isConnected: false,
+
+  markAsRead: (messageId) => {
+    const { ws, isConnected } = get();
+    if (ws && isConnected) {
+      ws.send(JSON.stringify({
+        type: 'message_read',
+        data: { message_id: messageId }
+      }));
+    }
+  },
 
   fetchMessages: async (roomId) => {
     set({ isLoading: true, error: null });
@@ -89,6 +100,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const newMessage = data.data;
         set((state) => ({
           messages: [...state.messages, newMessage],
+        }));
+      } else if (data.type === 'message_read') {
+        const { message_id, user_id } = data.data;
+        set((state) => ({
+          messages: state.messages.map((m) => 
+            m.id === message_id 
+              ? { ...m, read_by_ids: Array.from(new Set([...(m.read_by_ids || []), user_id])) } 
+              : m
+          ),
         }));
       } else if (data.type === 'error') {
         set({ error: data.detail });
