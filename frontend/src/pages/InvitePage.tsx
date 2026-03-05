@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/ui/Button';
+import { useTranslation } from 'react-i18next';
 
 export const InvitePage = () => {
   const { token } = useParams<{ token: string }>();
@@ -10,6 +11,7 @@ export const InvitePage = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!token) {
@@ -31,21 +33,21 @@ export const InvitePage = () => {
         navigate(`/rooms/${room.id}`);
       } catch (err: any) {
         console.error('Failed to join room via invite:', err);
-        setError(err.response?.data?.invitation?.[0] || 'Не удалось войти в комнату по ссылке. Возможно, ссылка истекла или недействительна.');
+        setError(err.response?.data?.invitation?.[0] || t('failed_to_join_room'));
       } finally {
         setLoading(false);
       }
     };
 
     joinRoom();
-  }, [token, isAuthenticated, navigate]);
+  }, [token, isAuthenticated, navigate, t]);
 
   if (loading && !error) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400">Входим в комнату...</p>
+          <p className="text-gray-400">{t('joining_room')}</p>
         </div>
       </div>
     );
@@ -60,10 +62,10 @@ export const InvitePage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-white">Ошибка приглашения</h2>
+          <h2 className="text-xl font-bold text-white">{t('error_invitation')}</h2>
           <p className="text-gray-400">{error}</p>
           <Button onClick={() => navigate('/')} className="w-full">
-            На главную
+            {t('go_to_home')}
           </Button>
         </div>
       </div>

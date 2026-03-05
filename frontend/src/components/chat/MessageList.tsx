@@ -3,6 +3,7 @@ import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { FileText, Check, CheckCheck } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
+ 
 
 const linkify = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -22,6 +23,7 @@ export const MessageList = () => {
   const { messages, isLoading, markAsRead } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

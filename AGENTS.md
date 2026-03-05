@@ -38,9 +38,7 @@ Each app follows: `models.py`, `services.py`, `views.py`, `serializers.py`, `url
 
 1. **Research** – Start with `docs/index.md` and related docs.
 2. **Complexity** – If a task touches multiple apps, draft a plan in `plans/###-desc.md`.
-3. **Pipeline** – `ruff check . --fix`, `ruff format .`, `pytest -q`. Для изменений фронтенда обязательно: `npm run build` в папке `frontend/` после завершения работы над пулом задач
-4. **Git** – Conventional Commits (`feat:`, `fix:`). Branch: `type/description`.
-5. **Memory** – Use `AICODE-NOTE:`, `AICODE-TODO:`, `AICODE-QUESTION:`.
+3. **Memory** – Use `AICODE-NOTE:`, `AICODE-TODO:`, `AICODE-QUESTION:`.
 
 ---
 

@@ -6,6 +6,7 @@ import { Menu, Hash } from 'lucide-react';
 import { useRoomStore } from '../../store/useRoomStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -13,6 +14,7 @@ export const DashboardLayout = () => {
   const { currentRoom } = useRoomStore();
   const { connect: connectNotifications, disconnect: disconnectNotifications } = useNotificationStore();
   const { token } = useAuthStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const pendingToken = localStorage.getItem('pending_invite_token');
@@ -59,7 +61,7 @@ export const DashboardLayout = () => {
             <Menu className="w-6 h-6" />
           </button>
           <div className="ml-4 flex items-center gap-2 min-w-0">
-            <span className="font-bold text-lg whitespace-nowrap">MOznoDS</span>
+            <span className="font-bold text-lg whitespace-nowrap">{t('app_name')}</span>
             {currentRoom && (
               <>
                 <span className="text-gray-600">|</span>

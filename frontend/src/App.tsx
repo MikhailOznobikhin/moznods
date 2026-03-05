@@ -9,6 +9,7 @@ import { PrivateRoute } from './components/PrivateRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RoomPage } from './pages/RoomPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { useTranslation } from 'react-i18next';
 
 function App() {
   const { checkAuth, token, isAuthenticated } = useAuthStore();
@@ -16,6 +17,7 @@ function App() {
     connect: connectNotifications, 
     disconnect: disconnectNotifications,
   } = useNotificationStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     checkAuth();
@@ -44,7 +46,7 @@ function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/" element={
               <div className="flex-1 flex items-center justify-center text-gray-400">
-                Select a room to start chatting
+                {t('select_a_room_to_start_chatting')}
               </div>
             } />
             <Route path="/rooms/:id" element={<RoomPage />} />

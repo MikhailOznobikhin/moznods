@@ -3,6 +3,7 @@ import { useRoomStore } from '../../store/useRoomStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { VideoPlayer } from './VideoPlayer';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, ChevronUp, ChevronDown, Monitor, MonitorOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export const CallOverlay = () => {
   const {
@@ -22,6 +23,7 @@ export const CallOverlay = () => {
   } = useCallStore();
   const { currentRoom } = useRoomStore();
   const { user } = useAuthStore();
+  const { t } = useTranslation();
 
   if (!isActive) return null;
 
@@ -32,17 +34,17 @@ export const CallOverlay = () => {
         <div className="flex items-center gap-3 lg:gap-4">
           <span className="text-green-400 font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="hidden xs:inline">Active Call</span>
+            <span className="hidden xs:inline">{t('call_active')}</span>
           </span>
           <span className="text-gray-400 text-xs lg:text-sm">
-            {remoteStreams.size + 1} <span className="hidden xs:inline">participant{remoteStreams.size + 1 !== 1 ? 's' : ''}</span>
+            {remoteStreams.size + 1} <span className="hidden xs:inline">{t('participants')}</span>
           </span>
         </div>
 
         <div className="flex items-center gap-2 lg:gap-3">
           <button
             onClick={toggleAudio}
-            title={isAudioEnabled ? "Mute" : "Unmute"}
+            title={isAudioEnabled ? t('mute_mic') : t('unmute_mic')}
             className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
           >
             {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
@@ -50,7 +52,7 @@ export const CallOverlay = () => {
           
           <button
             onClick={toggleVideo}
-            title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
+            title={isVideoEnabled ? t('disable_video') : t('enable_video')}
             className={`p-2 rounded-full transition-colors ${isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
           >
             {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
@@ -58,7 +60,7 @@ export const CallOverlay = () => {
 
           <button
             onClick={toggleScreenShare}
-            title={isScreenSharing ? "Stop sharing screen" : "Share screen"}
+            title={isScreenSharing ? t('stop_sharing_screen') : t('share_screen')}
             className={`p-2 rounded-full transition-colors ${isScreenSharing ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
           >
             {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
@@ -66,7 +68,7 @@ export const CallOverlay = () => {
 
           <button
             onClick={leaveCall}
-            title="Leave call"
+            title={t('end_call')}
             className="p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors ml-2"
           >
             <PhoneOff className="w-5 h-5" />
@@ -89,7 +91,7 @@ export const CallOverlay = () => {
             <VideoPlayer 
               stream={localStream} 
               isLocal 
-              username={user ? `${user.username} (You)` : 'You'}
+              username={user ? `${user.username} (${t('you')})` : t('you')}
             />
           )}
 

@@ -4,7 +4,8 @@ import { useNotificationStore } from '../store/useNotificationStore';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
-import { Bell, Shield, User as UserIcon, Download } from 'lucide-react';
+import { Bell, Shield, User as UserIcon, Download} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export const SettingsPage = () => {
   const { user, updateProfile, isLoading, error } = useAuthStore();
@@ -13,6 +14,7 @@ export const SettingsPage = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>(user?.avatar_url || '');
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const { t, i18n } = useTranslation();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -56,6 +58,12 @@ export const SettingsPage = () => {
       }
       setInstallPrompt(null);
     });
+  };
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value;
+    i18n.changeLanguage(newLang);
+    localStorage.setItem('language', newLang); // Save selected language
   };
 
   return (
@@ -166,18 +174,39 @@ export const SettingsPage = () => {
             </div>
           </div>
 
+          {/* Language Section */}
+          <div className="bg-gray-800 rounded-lg shadow-xl p-6 lg:p-8">
+            <h2 className="text-xl font-bold text-white mb-6">{t('language_settings')}</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-700">
+                <div>
+                  <h4 className="text-sm font-medium text-white">{t('select_language')}</h4>
+                  <p className="text-xs text-gray-400">{t('choose_app_language')}</p>
+                </div>
+                <select
+                  value={i18n.language}
+                  onChange={handleLanguageChange}
+                  className="w-auto bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ru">Русский</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* PWA Section */}
           {installPrompt && (
             <div className="bg-gray-800 rounded-lg shadow-xl p-6 lg:p-8">
-              <h2 className="text-xl font-bold text-white mb-6">Приложение</h2>
+              <h2 className="text-xl font-bold text-white mb-6">{t('app_settings')}</h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-700">
                   <div>
-                    <h4 className="text-sm font-medium text-white">Установить приложение</h4>
-                    <p className="text-xs text-gray-400">Добавьте MOznoDS на ваш рабочий стол или домашний экран для быстрого доступа.</p>
+                    <h4 className="text-sm font-medium text-white">{t('install_app')}</h4>
+                    <p className="text-xs text-gray-400">{t('add_to_desktop')}</p>
                   </div>
                   <Button onClick={handleInstallClick} className="flex items-center gap-2">
-                    <Download className="w-4 h-4" /> Установить
+                    <Download className="w-4 h-4" /> {t('install')}
                   </Button>
                 </div>
               </div>

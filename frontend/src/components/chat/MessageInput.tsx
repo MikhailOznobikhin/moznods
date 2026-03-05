@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { useChatStore } from '../../store/useChatStore';
+import { useTranslation } from 'react-i18next';
 
 export const MessageInput = () => {
   const { sendMessage, isConnected } = useChatStore();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const { t } = useTranslation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +49,7 @@ export const MessageInput = () => {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isConnected ? "Type a message..." : "Connecting..."}
+            placeholder={isConnected ? t('type_message') : t('connecting')}
             className="w-full p-3 bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none max-h-32 min-h-[44px]"
             rows={1}
             disabled={!isConnected}

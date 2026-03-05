@@ -10,6 +10,7 @@ import { Hash, Phone, Video, Users, Plus, Share2 } from 'lucide-react';
 import { ParticipantsModal } from '../components/rooms/ParticipantsModal';
 import { AddParticipantModal } from '../components/rooms/AddParticipantModal';
 import { ShareRoomModal } from '../components/rooms/ShareRoomModal';
+import { useTranslation } from 'react-i18next';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ export const RoomPage = () => {
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
   const { joinCall, isActive, isExpanded, error: callError } = useCallStore();
+  const { t } = useTranslation();
 
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -60,16 +62,16 @@ export const RoomPage = () => {
             
             <button
               className="flex items-center gap-1 lg:gap-2 text-sm text-blue-400 hover:text-blue-300 whitespace-nowrap"
-              title="Просмотреть участников"
+              title={t('view_participants')}
               onClick={() => setIsParticipantsOpen(true)}
             >
               <Users className="w-4 h-4 lg:w-5 lg:h-5" />
-              <span className="text-xs lg:text-sm">{currentRoom.participant_count} <span className="hidden xs:inline">participants</span></span>
+              <span className="text-xs lg:text-sm">{currentRoom.participant_count} <span className="hidden xs:inline">{t('participants')}</span></span>
             </button>
 
             <button
               className="flex items-center p-1.5 lg:px-2 lg:py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-md transition-colors border border-blue-600/30"
-              title="Поделиться ссылкой"
+              title={t('share_link')}
               onClick={() => setIsShareOpen(true)}
             >
               <Share2 className="w-4 h-4" />
@@ -78,7 +80,7 @@ export const RoomPage = () => {
             {canManageParticipants && (
               <button
                 className="flex items-center p-1.5 lg:px-2 lg:py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
-                title="Добавить участника"
+                title={t('add_participant')}
                 onClick={() => setIsAddOpen(true)}
               >
                 <Plus className="w-4 h-4" />
@@ -92,18 +94,18 @@ export const RoomPage = () => {
               <button
                 onClick={() => handleJoinCall(false)}
                 className="flex items-center gap-2 p-2 lg:px-3 lg:py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
-                title="Join Voice Call"
+                title={t('join_voice_call')}
               >
                 <Phone className="w-4 h-4 lg:w-5 lg:h-5" />
-                <span className="hidden sm:inline">Voice</span>
+                <span className="hidden sm:inline">{t('voice')}</span>
               </button>
               <button
                 onClick={() => handleJoinCall(true)}
                 className="flex items-center gap-2 p-2 lg:px-3 lg:py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
-                title="Join Video Call"
+                title={t('join_video_call')}
               >
                 <Video className="w-4 h-4 lg:w-5 lg:h-5" />
-                <span className="hidden sm:inline">Video</span>
+                <span className="hidden sm:inline">{t('video')}</span>
               </button>
             </div>
           )}
