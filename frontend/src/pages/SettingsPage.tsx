@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNotificationStore } from '../store/useNotificationStore';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
-import { Bell, Shield, User as UserIcon } from 'lucide-react';
+import { Bell, Shield, User as UserIcon, Download } from 'lucide-react';
 
 export const SettingsPage = () => {
   const { user, updateProfile, isLoading, error } = useAuthStore();
@@ -12,6 +12,7 @@ export const SettingsPage = () => {
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>(user?.avatar_url || '');
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -31,6 +32,30 @@ export const SettingsPage = () => {
       await updateProfile(form);
     } catch {
     }
+  };
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!installPrompt) {
+      return;
+    }
+    (installPrompt as any).prompt();
+    (installPrompt as any).userChoice.then((choiceResult: any) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted the A2HS prompt');
+      } else {
+        console.log('User dismissed the A2HS prompt');
+      }
+      setInstallPrompt(null);
+    });
   };
 
   return (
@@ -128,19 +153,6 @@ export const SettingsPage = () => {
 
               <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-700">
                 <div>
-                  <h4 className="text-sm font-medium text-white">Уведомлять при смене вкладки</h4>
-                  <p className="text-xs text-gray-400">Посылать уведомление, если вы ушли на другую вкладку</p>
-                </div>
-                <div 
-                  onClick={() => updateSettings({ notifyOnTabSwitch: !settings.notifyOnTabSwitch })}
-                  className={`w-10 h-5 rounded-full transition-colors cursor-pointer relative ${settings.notifyOnTabSwitch ? 'bg-blue-600' : 'bg-gray-600'}`}
-                >
-                  <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.notifyOnTabSwitch ? 'translate-x-5' : ''}`} />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-700">
-                <div>
                   <h4 className="text-sm font-medium text-white">Звуковые эффекты</h4>
                   <p className="text-xs text-gray-400">Проигрывать звуки входящих сообщений</p>
                 </div>
@@ -153,6 +165,24 @@ export const SettingsPage = () => {
               </div>
             </div>
           </div>
+
+          {/* PWA Section */}
+          {installPrompt && (
+            <div className="bg-gray-800 rounded-lg shadow-xl p-6 lg:p-8">
+              <h2 className="text-xl font-bold text-white mb-6">Приложение</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-700">
+                  <div>
+                    <h4 className="text-sm font-medium text-white">Установить приложение</h4>
+                    <p className="text-xs text-gray-400">Добавьте MOznoDS на ваш рабочий стол или домашний экран для быстрого доступа.</p>
+                  </div>
+                  <Button onClick={handleInstallClick} className="flex items-center gap-2">
+                    <Download className="w-4 h-4" /> Установить
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

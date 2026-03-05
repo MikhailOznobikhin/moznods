@@ -59,25 +59,4 @@ Each app follows: `models.py`, `services.py`, `views.py`, `serializers.py`, `url
 - **Message Types** – `join_room`, `leave_room`, `offer`, `answer`, `ice_candidate`.
 - **Call State** – Managed in-memory or via models (small-scale). `idle`, `connecting`, `active`, `ended`.
 
----
-
-## 7. Quick Reference
-
-```bash
-# Docker (Local)
-docker compose up -d
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py createsuperuser
-
-# Django (Prod/Local)
-python manage.py runserver
-python manage.py makemigrations
-python manage.py migrate
-python manage.py collectstatic
-
-# Channels
-daphne -b 0.0.0.0 -p 8001 config.asgi:application
-
-# Tests
-pytest apps/rooms/tests/ -v
-```
+Не пытайся запустить проект, я сделаю это сам

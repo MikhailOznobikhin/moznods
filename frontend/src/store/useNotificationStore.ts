@@ -6,7 +6,6 @@ import { type Message } from '../types/chat';
 
 interface NotificationSettings {
   browserNotifications: boolean;
-  notifyOnTabSwitch: boolean;
   soundEnabled: boolean;
 }
 
@@ -30,7 +29,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   error: null,
   settings: {
     browserNotifications: localStorage.getItem('browserNotifications') === 'true',
-    notifyOnTabSwitch: localStorage.getItem('notifyOnTabSwitch') === 'true',
     soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // Default to true
   },
 
