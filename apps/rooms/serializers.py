@@ -63,12 +63,12 @@ class RoomSerializer(serializers.ModelSerializer):
     def get_participant_users(self, obj: Room) -> list[dict]:
         """Return basic info about participants for search purposes."""
         # Limit to first 10 participants to keep payload small, or all if it's a direct chat
-        participants = obj.participants.select_related("user").all()
+        participants = obj.participants.select_related("user", "user__profile").all()
         return [
             {
                 "id": p.user.id,
                 "username": p.user.username,
-                "display_name": p.user.display_name,
+                "display_name": p.user.profile.display_name if hasattr(p.user, "profile") else p.user.username,
             }
             for p in participants
         ]
