@@ -1,29 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { FileText, Check, CheckCheck } from 'lucide-react';
-import { Avatar } from '../ui/Avatar';
- 
-
-const linkify = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, i) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline text-blue-200 hover:text-white break-all">
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
-};
+import { MessageItem } from './MessageItem'; // Import the new component
 
 export const MessageList = () => {
   const { messages, isLoading, markAsRead } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+  const readMessagesRef = useRef(new Set<number>());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,16 +17,17 @@ export const MessageList = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Mark messages as read when they appear
-  useEffect(() => {
+  const handleMessageVisible = useCallback((messageId: number) => {
     if (!currentUser) return;
-    
-    messages.forEach((message) => {
-      const isReadByMe = message.read_by_ids?.includes(currentUser.id);
-      if (!isReadByMe && message.author.id !== currentUser.id) {
-        markAsRead(message.id);
-      }
-    });
+
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
+    const isReadByMe = message.read_by_ids?.includes(currentUser.id);
+    if (!isReadByMe && message.author.id !== currentUser.id && !readMessagesRef.current.has(messageId)) {
+      markAsRead(messageId);
+      readMessagesRef.current.add(messageId); // Mark as sent for reading
+    }
   }, [messages, currentUser, markAsRead]);
 
   if (isLoading && messages.length === 0) {
@@ -60,79 +45,13 @@ export const MessageList = () => {
         const isReadByOthers = (message.read_by_ids?.length || 0) > (isOwn ? 0 : 1);
 
         return (
-          <div
-            key={message.id}
-            className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`flex max-w-[70%] ${
-                isOwn ? 'flex-row-reverse' : 'flex-row'
-              } gap-3`}
-            >
-              <div className="flex-shrink-0">
-                <Avatar user={message.author} size="sm" />
-              </div>
-
-              <div
-                className={`flex flex-col ${
-                  isOwn ? 'items-end' : 'items-start'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium text-white">
-                    {message.author.display_name || message.author.username}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(message.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-
-                <div
-                  className={`px-4 py-2 rounded-lg relative ${
-                    isOwn
-                      ? 'bg-blue-600 text-white rounded-tr-none'
-                      : 'bg-gray-800 text-gray-100 rounded-tl-none'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words">{linkify(message.content)}</p>
-                  
-                  {isOwn && (
-                    <div className="absolute bottom-1 right-1 flex items-center">
-                      {isReadByOthers ? (
-                        <CheckCheck className="w-3 h-3 text-blue-200" />
-                      ) : (
-                        <Check className="w-3 h-3 text-blue-300/70" />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {message.attachments && message.attachments.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {message.attachments.map((att) => (
-                      <a
-                        key={att.id}
-                        href={att.file.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex items-center gap-2 p-2 rounded bg-gray-900/50 hover:bg-gray-900 transition-colors text-sm ${
-                          isOwn ? 'text-blue-100' : 'text-gray-300'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="truncate max-w-[200px]">
-                          {att.file.name}
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <MessageItem 
+            key={message.id} 
+            message={message} 
+            isOwn={isOwn} 
+            isReadByOthers={isReadByOthers} 
+            onVisible={handleMessageVisible}
+          />
         );
       })}
       <div ref={messagesEndRef} />
