@@ -32,6 +32,7 @@ interface CallState {
   toggleExpanded: () => void;
   requestMic: (targetUserId: number) => void;
   setVolume: (userId: number, volume: number) => void;
+  updateVideoQuality: () => Promise<void>;
   addLog: (msg: string) => void;
 }
 
@@ -39,6 +40,22 @@ const ICE_SERVERS_DEFAULT = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
   ],
+};
+
+// AICODE-NOTE: Dynamic Quality Presets for WebRTC Mesh (#Mesh_Optimization)
+const QUALITY_PRESETS = {
+  high: { // 1-2 participants
+    constraints: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+    bitrate: 1500 * 1000
+  },
+  medium: { // 3-4 participants
+    constraints: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
+    bitrate: 800 * 1000
+  },
+  low: { // 5+ participants
+    constraints: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15 } },
+    bitrate: 400 * 1000
+  }
 };
 
 export const useCallStore = create<CallState>((set, get) => ({
@@ -78,10 +95,13 @@ export const useCallStore = create<CallState>((set, get) => ({
       }
 
       let stream: MediaStream;
+      const initialCount = get().participants.size + 1;
+      const initialQuality = initialCount <= 2 ? QUALITY_PRESETS.high : (initialCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
+
       try {
-        // 1. Try to Get Local Stream
+        // 1. Try to Get Local Stream with optimized constraints
         stream = await navigator.mediaDevices.getUserMedia({
-          video: withVideo,
+          video: withVideo ? initialQuality.constraints : false,
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -175,6 +195,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             }
             
             set({ participants: participantsMap });
+            get().updateVideoQuality();
           }
           else if (type === 'user_joined') {
             // New user joined, we (existing user) initiate connection
@@ -193,6 +214,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             });
 
             await createPeerConnection(targetUserId, stream, ws, true, set, get);
+            get().updateVideoQuality();
           } 
           else if (type === 'user_left') {
             const targetUserId = data.user_id;
@@ -206,6 +228,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             });
 
             closePeerConnection(targetUserId, set, get);
+            get().updateVideoQuality();
           } 
           else if (type === 'existing_participants') {
              // Connect to existing users in the room
@@ -215,6 +238,7 @@ export const useCallStore = create<CallState>((set, get) => ({
                // Don't connect to self
                await createPeerConnection(user.id, stream, ws, true, set, get);
              }
+             get().updateVideoQuality();
           }
           else if (type === 'offer') {
             // Received offer, we answer
@@ -344,7 +368,9 @@ export const useCallStore = create<CallState>((set, get) => ({
       } else if (!isVideoEnabled) {
         // No video track, but trying to enable video
         try {
-          const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const totalCount = get().participants.size + 1;
+          const quality = totalCount <= 2 ? QUALITY_PRESETS.high : (totalCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
+          const newStream = await navigator.mediaDevices.getUserMedia({ video: quality.constraints });
           const newVideoTrack = newStream.getVideoTracks()[0];
           
           if (newVideoTrack) {
@@ -352,20 +378,29 @@ export const useCallStore = create<CallState>((set, get) => ({
             
             // Add track to all existing peer connections
             peers.forEach(pc => {
-              pc.getSenders().forEach(sender => {
-                if (sender.track?.kind === 'video') {
-                  sender.replaceTrack(newVideoTrack);
-                }
-              });
-              if (!pc.getSenders().some(s => s.track?.kind === 'video')) {
-                pc.addTrack(newVideoTrack, localStream);
+              const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+              if (videoSender) {
+                videoSender.replaceTrack(newVideoTrack);
+                // Update bitrate limit for the replaced track
+                const params = videoSender.getParameters();
+                if (!params.encodings) params.encodings = [{}];
+                params.encodings[0].maxBitrate = quality.bitrate;
+                videoSender.setParameters(params).catch(console.warn);
+              } else {
+                const sender = pc.addTrack(newVideoTrack, localStream);
+                // Set bitrate limit for the new sender
+                const params = sender.getParameters();
+                if (!params.encodings) params.encodings = [{}];
+                params.encodings[0].maxBitrate = quality.bitrate;
+                sender.setParameters(params).catch(console.warn);
               }
             });
 
-            // Renegotiate with all peers if needed
-            // (Most browsers handle replaceTrack without renegotiation)
-            
-            set({ isVideoEnabled: true });
+            // Trigger re-render of localStream and update state
+            set({ 
+              localStream: new MediaStream(localStream.getTracks()),
+              isVideoEnabled: true 
+            });
           }
         } catch (err) {
           console.error('Failed to enable video track:', err);
@@ -404,7 +439,10 @@ export const useCallStore = create<CallState>((set, get) => ({
           get().toggleScreenShare();
         };
 
-        set({ isScreenSharing: true });
+        set({ 
+          localStream: new MediaStream(localStream.getTracks()),
+          isScreenSharing: true 
+        });
       } catch (err) {
         console.error('Error starting screen share:', err);
       }
@@ -419,7 +457,9 @@ export const useCallStore = create<CallState>((set, get) => ({
       // Re-enable camera if it was enabled
       if (isVideoEnabled) {
         try {
-          const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const totalCount = get().participants.size + 1;
+          const quality = totalCount <= 2 ? QUALITY_PRESETS.high : (totalCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
+          const cameraStream = await navigator.mediaDevices.getUserMedia({ video: quality.constraints });
           const cameraTrack = cameraStream.getVideoTracks()[0];
           localStream.addTrack(cameraTrack);
           
@@ -427,6 +467,11 @@ export const useCallStore = create<CallState>((set, get) => ({
             pc.getSenders().forEach(sender => {
               if (sender.track?.kind === 'video') {
                 sender.replaceTrack(cameraTrack);
+                // Update bitrate limit for the replaced track
+                const params = sender.getParameters();
+                if (!params.encodings) params.encodings = [{}];
+                params.encodings[0].maxBitrate = quality.bitrate;
+                sender.setParameters(params).catch(console.warn);
               }
             });
           });
@@ -436,7 +481,10 @@ export const useCallStore = create<CallState>((set, get) => ({
         }
       }
       
-      set({ isScreenSharing: false });
+      set({ 
+        localStream: new MediaStream(localStream.getTracks()),
+        isScreenSharing: false 
+      });
     }
   },
 
@@ -455,6 +503,38 @@ export const useCallStore = create<CallState>((set, get) => ({
       const newVolumes = new Map(state.volumes);
       newVolumes.set(userId, volume);
       return { volumes: newVolumes };
+    });
+  },
+
+  updateVideoQuality: async () => {
+    const { localStream, peers, participants } = get();
+    if (!localStream) return;
+
+    const totalCount = participants.size + 1;
+    const quality = totalCount <= 2 ? QUALITY_PRESETS.high : (totalCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
+    
+    get().addLog(`Updating quality for ${totalCount} users: ${totalCount <= 2 ? 'High' : (totalCount <= 4 ? 'Med' : 'Low')}`);
+
+    // Update local track constraints
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        await videoTrack.applyConstraints(quality.constraints);
+      } catch (e) {
+        console.warn('Failed to apply video constraints:', e);
+      }
+    }
+
+    // Update bitrates for all outgoing streams
+    peers.forEach(pc => {
+      pc.getSenders().forEach(sender => {
+        if (sender.track?.kind === 'video') {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = quality.bitrate;
+          sender.setParameters(params).catch(console.warn);
+        }
+      });
     });
   },
 }));
@@ -513,6 +593,28 @@ async function createPeerConnection(
     get().addLog(`Signaling State with ${targetUserId}: ${peer.signalingState}`);
   };
 
+  // Handle negotiation
+  peer.onnegotiationneeded = async () => {
+    try {
+      get().addLog(`Negotiation needed with ${targetUserId}`);
+      // Only negotiate if the signaling state is stable
+      if (peer.signalingState !== 'stable') return;
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      
+      ws.send(JSON.stringify({
+        type: 'offer',
+        data: {
+          target_user_id: targetUserId,
+          sdp: peer.localDescription,
+        },
+      }));
+    } catch (err) {
+      console.error('Error during negotiation:', err);
+    }
+  };
+
   // Handle remote stream
   peer.ontrack = (event) => {
     get().addLog(`Received track from ${targetUserId}: ${event.track.kind}`);
@@ -537,6 +639,23 @@ async function createPeerConnection(
     const newPeers = new Map(state.peers);
     newPeers.set(targetUserId, peer);
     return { peers: newPeers };
+  });
+
+  // Apply bitrate limits after storing the peer
+  peer.getSenders().forEach(sender => {
+    if (sender.track?.kind === 'video') {
+      const totalCount = get().participants.size + 1;
+      const quality = totalCount <= 2 ? QUALITY_PRESETS.high : (totalCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
+      
+      const parameters = sender.getParameters();
+      if (!parameters.encodings) {
+        parameters.encodings = [{}];
+      }
+      parameters.encodings[0].maxBitrate = quality.bitrate;
+      sender.setParameters(parameters).catch(e => 
+        console.warn('Failed to set bitrate parameters:', e)
+      );
+    }
   });
 
   if (isInitiator) {
