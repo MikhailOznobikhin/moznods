@@ -36,10 +36,11 @@ class RoomParticipant(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="room_participations",
     )
+    is_pinned = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [["room", "user"]]
-        ordering = ["created_at"]
+        ordering = ["-is_pinned", "created_at"]
 
     def __str__(self) -> str:
         return f"{self.user} in {self.room}"

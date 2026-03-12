@@ -18,7 +18,7 @@ export const RoomPage = () => {
   const { currentRoom, getRoom } = useRoomStore();
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
-  const { joinCall, isActive, isExpanded, error: callError } = useCallStore();
+  const { joinCall, isActive, error: callError } = useCallStore();
   const { t } = useTranslation();
 
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
@@ -53,7 +53,7 @@ export const RoomPage = () => {
   }
 
   return (
-      <div className={`flex-1 flex flex-col h-full bg-gray-900 transition-all duration-300 ${isActive ? (isExpanded ? 'pb-[50vh] lg:pb-[400px]' : 'pb-20') : ''}`}>
+      <div className="flex-1 flex flex-col h-full bg-gray-900 transition-all duration-300">
         {/* Room Header */}
         <div className="h-14 lg:h-16 px-4 lg:px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900">
           <div className="flex items-center gap-2 lg:gap-3 min-w-0">

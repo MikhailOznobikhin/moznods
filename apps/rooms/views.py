@@ -19,6 +19,26 @@ from .serializers import (
 from .services import RoomService, InvitationService
 
 
+class RoomPinView(APIView):
+    permission_classes = [IsAuthenticated, IsRoomParticipant]
+
+    def post(self, request, pk):
+        """Pin a room for the user."""
+        room = get_object_or_404(Room, pk=pk)
+        participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
+        participant.is_pinned = True
+        participant.save()
+        return Response(RoomSerializer(room, context={"request": request}).data)
+
+    def delete(self, request, pk):
+        """Unpin a room for the user."""
+        room = get_object_or_404(Room, pk=pk)
+        participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
+        participant.is_pinned = False
+        participant.save()
+        return Response(RoomSerializer(room, context={"request": request}).data)
+
+
 class RoomInviteCreateView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 

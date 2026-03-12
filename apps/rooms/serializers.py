@@ -30,10 +30,12 @@ class RoomSerializer(serializers.ModelSerializer):
     participant_count = serializers.SerializerMethodField()
     active_call_participants = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    is_pinned = serializers.SerializerMethodField()
+    participant_users = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
-        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "unread_count", "is_direct", "created_at", "updated_at")
+        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "unread_count", "is_pinned", "participant_users", "is_direct", "created_at", "updated_at")
 
     def get_participant_count(self, obj: Room) -> int:
         return obj.participants.count()
@@ -50,6 +52,26 @@ class RoomSerializer(serializers.ModelSerializer):
             return 0
         # Count messages that are NOT from the current user and that the user has NOT read.
         return obj.messages.exclude(author=user).exclude(read_by=user).count()
+
+    def get_is_pinned(self, obj: Room) -> bool:
+        user = self.context.get("request") and self.context["request"].user
+        if not user or not user.is_authenticated:
+            return False
+        participant = obj.participants.filter(user=user).first()
+        return participant.is_pinned if participant else False
+
+    def get_participant_users(self, obj: Room) -> list[dict]:
+        """Return basic info about participants for search purposes."""
+        # Limit to first 10 participants to keep payload small, or all if it's a direct chat
+        participants = obj.participants.select_related("user").all()
+        return [
+            {
+                "id": p.user.id,
+                "username": p.user.username,
+                "display_name": p.user.display_name,
+            }
+            for p in participants
+        ]
 
 
 class CreateRoomSerializer(serializers.Serializer):

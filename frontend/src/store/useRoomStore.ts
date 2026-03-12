@@ -24,6 +24,7 @@ interface RoomState {
   fetchParticipants: (roomId: number) => Promise<void>;
   removeParticipant: (roomId: number, userIdOrQuery: string | number) => Promise<void>;
   getOrCreateDirectRoom: (userId: number) => Promise<Room>;
+  togglePinRoom: (roomId: number, isPinned: boolean) => Promise<void>;
 }
 
 export const useRoomStore = create<RoomState>((set, get) => ({
@@ -32,6 +33,25 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   participants: [],
   isLoading: false,
   error: null,
+
+  togglePinRoom: async (roomId, isPinned) => {
+    try {
+      const response = await (isPinned 
+        ? api.delete(`/rooms/${roomId}/pin/`)
+        : api.post(`/rooms/${roomId}/pin/`)
+      );
+
+      if (response.status === 200) {
+        const updatedRoom = response.data;
+        set((state) => ({
+          rooms: state.rooms.map((r) => (r.id === roomId ? updatedRoom : r)),
+          currentRoom: state.currentRoom?.id === roomId ? updatedRoom : state.currentRoom,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle pin:', err);
+    }
+  },
 
   fetchRooms: async () => {
     set({ isLoading: true, error: null });

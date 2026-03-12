@@ -7,6 +7,12 @@ export interface Room {
   participant_count: number;
   active_call_participants: string[];
   unread_count?: number;
+  is_pinned?: boolean;
+  participant_users?: Array<{
+    id: number;
+    username: string;
+    display_name: string | null;
+  }>;
   is_direct: boolean;
   created_at: string;
   updated_at: string;

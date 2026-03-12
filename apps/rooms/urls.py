@@ -10,6 +10,7 @@ urlpatterns = [
     path("<int:pk>/", views.RoomDetailView.as_view(), name="detail"),
     path("<int:pk>/join/", views.RoomJoinView.as_view(), name="join"),
     path("<int:pk>/leave/", views.RoomLeaveView.as_view(), name="leave"),
+    path("<int:pk>/pin/", views.RoomPinView.as_view(), name="pin"),
     path("<int:pk>/participants/", views.RoomParticipantListView.as_view(), name="participants"),
     path("<int:pk>/add-participant/", views.RoomAddParticipantView.as_view(), name="add-participant"),
     path("<int:pk>/remove-participant/", views.RoomRemoveParticipantView.as_view(), name="remove-participant"),
