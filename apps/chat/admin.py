@@ -7,6 +7,7 @@ from .models import Message, MessageAttachment
 class MessageAdmin(admin.ModelAdmin):
     list_display = ("id", "room", "author", "content_preview", "created_at")
     list_filter = ("room", "created_at")
+    raw_id_fields = ("read_by", )
 
     def content_preview(self, obj):
         return (obj.content or "")[:50] + "..." if len(obj.content or "") > 50 else (obj.content or "")

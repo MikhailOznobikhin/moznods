@@ -44,6 +44,24 @@ def mark_message_as_read(message_id, user):
         return False
 
 
+@database_sync_to_async
+def mark_room_messages_as_read(room, user):
+    """Mark all messages in a room as read by the user, except their own."""
+    from .models import Message
+    unread_messages = Message.objects.filter(room=room).exclude(author=user).exclude(read_by=user)
+    if unread_messages.exists():
+        # Bulk add user to read_by of all unread messages
+        # Using .through model to bulk_create relationships
+        MessageReadBy = Message.read_by.through
+        links = [
+            MessageReadBy(message_id=m_id, user_id=user.id)
+            for m_id in unread_messages.values_list('id', flat=True)
+        ]
+        MessageReadBy.objects.bulk_create(links, ignore_conflicts=True)
+        return list(unread_messages.values_list('id', flat=True))
+    return []
+
+
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for room chat. Join room group, receive chat_message, persist and broadcast."""
 
@@ -126,6 +144,22 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                             "type": "chat_message_read_broadcast",
                             "data": {
                                 "message_id": message_id,
+                                "user_id": self.user.id,
+                            },
+                        },
+                    )
+
+        elif msg_type == "mark_room_as_read":
+            read_message_ids = await mark_room_messages_as_read(self.room, self.user)
+            if read_message_ids:
+                # Broadcast that messages were read to update UI (checkmark)
+                for m_id in read_message_ids:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            "type": "chat_message_read_broadcast",
+                            "data": {
+                                "message_id": m_id,
                                 "user_id": self.user.id,
                             },
                         },

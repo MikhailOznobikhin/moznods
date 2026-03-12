@@ -22,6 +22,7 @@ interface CallState {
   isScreenSharing: boolean;
   isExpanded: boolean;
   error: string | null;
+  logs: string[];
 
   joinCall: (roomId: number, token: string, user: { id: number; username: string }, withVideo?: boolean) => Promise<void>;
   leaveCall: () => void;
@@ -31,6 +32,7 @@ interface CallState {
   toggleExpanded: () => void;
   requestMic: (targetUserId: number) => void;
   setVolume: (userId: number, volume: number) => void;
+  addLog: (msg: string) => void;
 }
 
 const ICE_SERVERS_DEFAULT = {
@@ -54,12 +56,20 @@ export const useCallStore = create<CallState>((set, get) => ({
   isScreenSharing: false,
   isExpanded: true,
   error: null,
+  logs: [],
+
+  addLog: (msg) => {
+    const timestamp = new Date().toLocaleTimeString();
+    set((state) => ({
+      logs: [`[${timestamp}] ${msg}`, ...state.logs.slice(0, 49)] // Keep last 50 logs
+    }));
+  },
 
   toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
 
   joinCall: async (roomId, token, _user, withVideo = true) => {
     try {
-      console.log('Joining call...', roomId, { withVideo });
+      get().addLog(`Joining call ${roomId}...`);
       
       // Cleanup any previous heartbeat
       const currentWs = get().ws;
@@ -117,7 +127,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       const ws = new WebSocket(`${WS_URL}/ws/call/${roomId}/?token=${token}`);
 
       ws.onopen = () => {
-        console.log('Connected to signaling server');
+        get().addLog('Connected to signaling server');
         ws.send(JSON.stringify({ type: 'join_call' }));
         
         // Start heartbeat to keep connection alive and detect ghosting
@@ -132,7 +142,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       };
 
       ws.onclose = () => {
-        console.log('Signaling server disconnected');
+        get().addLog('Signaling server disconnected');
         if ((ws as any)._pingInterval) {
           clearInterval((ws as any)._pingInterval);
         }
@@ -140,7 +150,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       };
 
       ws.onerror = (e) => {
-        console.error('Signaling error:', e);
+        get().addLog(`Signaling error: ${JSON.stringify(e)}`);
         set({ error: 'Connection error' });
       };
 
@@ -169,6 +179,7 @@ export const useCallStore = create<CallState>((set, get) => ({
           else if (type === 'user_joined') {
             // New user joined, we (existing user) initiate connection
             const targetUserId = data.user.id;
+            get().addLog(`User joined: ${data.user.username} (${targetUserId})`);
             
             // Add to participants
             set((state: CallState) => {
@@ -181,10 +192,11 @@ export const useCallStore = create<CallState>((set, get) => ({
               return { participants: newParticipants };
             });
 
-            await createPeerConnection(targetUserId, stream, ws, true, set);
+            await createPeerConnection(targetUserId, stream, ws, true, set, get);
           } 
           else if (type === 'user_left') {
             const targetUserId = data.user_id;
+            get().addLog(`User left: ${targetUserId}`);
             
             // Remove from participants
             set((state: CallState) => {
@@ -198,14 +210,16 @@ export const useCallStore = create<CallState>((set, get) => ({
           else if (type === 'existing_participants') {
              // Connect to existing users in the room
              const { users } = data;
+             get().addLog(`Existing users in call: ${users.map((u: any) => u.username).join(', ')}`);
              for (const user of users) {
                // Don't connect to self
-               await createPeerConnection(user.id, stream, ws, true, set);
+               await createPeerConnection(user.id, stream, ws, true, set, get);
              }
           }
           else if (type === 'offer') {
             // Received offer, we answer
             const { from_user_id, from_username, sdp } = data;
+            get().addLog(`Received offer from ${from_username || from_user_id}`);
             // Ensure participant username is known
             set((state: CallState) => {
               const newParticipants = new Map(state.participants);
@@ -221,7 +235,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             });
             let peer = get().peers.get(from_user_id);
             if (!peer) {
-              peer = await createPeerConnection(from_user_id, stream, ws, false, set);
+              peer = await createPeerConnection(from_user_id, stream, ws, false, set, get);
             }
             await peer.setRemoteDescription(new RTCSessionDescription(sdp));
             const answer = await peer.createAnswer();
@@ -237,6 +251,7 @@ export const useCallStore = create<CallState>((set, get) => ({
           } 
           else if (type === 'answer') {
             const { from_user_id, sdp } = data;
+            get().addLog(`Received answer from ${from_user_id}`);
             const peer = get().peers.get(from_user_id);
             if (peer) {
               await peer.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -250,6 +265,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             }
           }
           else if (type === 'request_mic') {
+            get().addLog('Admin requested mic unmute');
             // AICODE-NOTE: Admin requested us to unmute (#15)
             const { isAudioEnabled } = get();
             if (!isAudioEnabled) {
@@ -260,6 +276,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             }
           }
         } catch (err) {
+          get().addLog(`Error signaling: ${err}`);
           console.error('Error handling signaling message:', err);
         }
       };
@@ -267,6 +284,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       set({ ws });
 
     } catch (error: any) {
+      get().addLog(`Join call FAILED: ${error.name} - ${error.message}`);
       console.error('Failed to join call:', error);
       let errorMessage = 'Failed to access camera/microphone';
       if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
@@ -280,6 +298,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   leaveCall: () => {
+    get().addLog('Leaving call...');
     const { localStream, peers, ws } = get();
 
     if (localStream) {
@@ -446,9 +465,11 @@ async function createPeerConnection(
   localStream: MediaStream,
   ws: WebSocket,
   isInitiator: boolean,
-  set: any
+  set: any,
+  get: any
 ): Promise<RTCPeerConnection> {
   const peer = new RTCPeerConnection(ICE_SERVERS || ICE_SERVERS_DEFAULT);
+  get().addLog(`Creating PeerConnection with ${targetUserId} (initiator: ${isInitiator})`);
 
   // Add local tracks
   localStream.getTracks().forEach(track => {
@@ -458,7 +479,7 @@ async function createPeerConnection(
   // Handle ICE candidates
   peer.onicecandidate = (event) => {
     if (event.candidate) {
-      console.log(`[WebRTC] Sending ICE candidate to ${targetUserId}:`, event.candidate.candidate.substring(0, 50) + '...');
+      get().addLog(`ICE candidate for ${targetUserId}: ${event.candidate.candidate.substring(0, 30)}...`);
       ws.send(JSON.stringify({
         type: 'ice_candidate',
         data: {
@@ -472,7 +493,7 @@ async function createPeerConnection(
   // AICODE-NOTE: WebRTC Logging (#Logging)
   peer.oniceconnectionstatechange = () => {
     const state = peer.iceConnectionState;
-    console.log(`[WebRTC] ICE Connection State with ${targetUserId}:`, state);
+    get().addLog(`ICE State with ${targetUserId}: ${state}`);
     
     if (state === 'disconnected' || state === 'failed') {
       console.error(`[WebRTC] Connection with ${targetUserId} FAILED/DISCONNECTED. Check STUN/TURN servers or firewall.`);
@@ -482,26 +503,26 @@ async function createPeerConnection(
   };
 
   peer.onconnectionstatechange = () => {
-    console.log(`[WebRTC] Peer Connection State with ${targetUserId}:`, peer.connectionState);
+    get().addLog(`Conn State with ${targetUserId}: ${peer.connectionState}`);
     if (peer.connectionState === 'failed') {
       console.error(`[WebRTC] Peer connection with ${targetUserId} failed completely.`);
     }
   };
 
   peer.onsignalingstatechange = () => {
-    console.log(`[WebRTC] Signaling State with ${targetUserId}:`, peer.signalingState);
+    get().addLog(`Signaling State with ${targetUserId}: ${peer.signalingState}`);
   };
 
   // Handle remote stream
   peer.ontrack = (event) => {
-    console.log(`[WebRTC] Received remote track from ${targetUserId}. Kind: ${event.track.kind}`);
+    get().addLog(`Received track from ${targetUserId}: ${event.track.kind}`);
     
     const [remoteStream] = event.streams;
     
     // Add listener for track errors/mute
-    event.track.onmute = () => console.warn(`[WebRTC] Remote track from ${targetUserId} muted (stream interrupted)`);
-    event.track.onunmute = () => console.log(`[WebRTC] Remote track from ${targetUserId} unmuted`);
-    event.track.onended = () => console.log(`[WebRTC] Remote track from ${targetUserId} ended`);
+    event.track.onmute = () => get().addLog(`Track from ${targetUserId} MUTED`);
+    event.track.onunmute = () => get().addLog(`Track from ${targetUserId} UNMUTED`);
+    event.track.onended = () => get().addLog(`Track from ${targetUserId} ENDED`);
     
     // Update state safely
     set((state: CallState) => {

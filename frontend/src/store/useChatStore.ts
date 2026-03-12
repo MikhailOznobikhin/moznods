@@ -19,6 +19,7 @@ interface ChatState {
   disconnect: () => void;
   sendMessage: (payload: SendMessagePayload) => void;
   markAsRead: (messageId: number) => void;
+  markRoomAsRead: () => void;
   uploadFile: (file: File) => Promise<FileData>;
 }
 
@@ -28,6 +29,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   ws: null,
   isConnected: false,
+
+  markRoomAsRead: () => {
+    const { ws, isConnected } = get();
+    if (ws && isConnected) {
+      ws.send(JSON.stringify({
+        type: 'mark_room_as_read'
+      }));
+    }
+  },
 
   markAsRead: (messageId) => {
     const { ws, isConnected, messages } = get();
@@ -94,6 +104,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     ws.onopen = () => {
       set({ isConnected: true, error: null });
       console.log('Connected to chat');
+      // Mark all messages in room as read when connected
+      get().markRoomAsRead();
     };
 
     ws.onclose = (event) => {
@@ -135,13 +147,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       } else if (data.type === 'message_read') {
         const { message_id, user_id } = data.data;
-        set((state) => ({
-          messages: state.messages.map((m) => 
-            m.id === message_id 
-              ? { ...m, read_by_ids: Array.from(new Set([...(m.read_by_ids || []), user_id])) } 
-              : m
-          ),
-        }));
+        const currentUser = useAuthStore.getState().user;
+        
+        set((state) => {
+          const message = state.messages.find(m => m.id === message_id);
+          const isReadByMe = currentUser && user_id === currentUser.id;
+
+          // If current user read a message, decrement unread count for the room
+          if (isReadByMe && message) {
+            useRoomStore.setState((roomState) => ({
+              rooms: roomState.rooms.map(r => 
+                r.id === message.room && typeof r.unread_count === 'number' && r.unread_count > 0
+                  ? { ...r, unread_count: r.unread_count - 1 }
+                  : r
+              )
+            }));
+          }
+
+          return {
+            messages: state.messages.map((m) => 
+              m.id === message_id 
+                ? { ...m, read_by_ids: Array.from(new Set([...(m.read_by_ids || []), user_id])) } 
+                : m
+            ),
+          };
+        });
       } else if (data.type === 'error') {
         set({ error: data.detail });
       }
