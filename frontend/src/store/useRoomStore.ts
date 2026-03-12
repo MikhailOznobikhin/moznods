@@ -37,8 +37,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   togglePinRoom: async (roomId, isPinned) => {
     try {
       const response = await (isPinned 
-        ? api.delete(`/rooms/${roomId}/pin/`)
-        : api.post(`/rooms/${roomId}/pin/`)
+        ? api.delete(`/api/rooms/${roomId}/pin/`)
+        : api.post(`/api/rooms/${roomId}/pin/`)
       );
 
       if (response.status === 200) {

@@ -6,7 +6,7 @@ axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 axios.defaults.withCredentials = true;
 
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
