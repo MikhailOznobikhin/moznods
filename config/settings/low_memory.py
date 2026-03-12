@@ -3,6 +3,22 @@ Low memory server settings (375MB RAM)
 """
 import os
 from .base import *
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from logtail import LogtailHandler
+import logging
+
+# Sentry initialization for Better Stack Error tracking
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    integrations=[DjangoIntegration()],
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production.
+    traces_sample_rate=1.0,
+    # If you wish to associate users to errors (highly recommended)
+    send_default_pii=True,
+)
 
 # Загружаем .env
 from dotenv import load_dotenv
@@ -69,7 +85,16 @@ CHANNEL_LAYERS = {
 
 # Убираем Celery
 CELERY_BROKER_URL = None
-CELERY_RESULT_BACKEND = None#ование для продакшена
+CELERY_RESULT_BACKEND = None
+
+# ... (другие импорты)
+
+# Получаем токен из переменных окружения
+LOGTAIL_SOURCE_TOKEN = os.environ.get("LOGTAIL_SOURCE_TOKEN")
+
+# ... (остальные настройки)
+
+# Логирование для продакшена
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -80,27 +105,32 @@ LOGGING = {
         },
     },
     "handlers": {
-        "file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/django.log",  # noqa: F405
-            "formatter": "verbose",
+        # Отправляем логи в Better Stack
+        "logtail": {
+            "level": "INFO",
+            "class": "logtail.LogtailHandler",
+            "source_token": LOGTAIL_SOURCE_TOKEN,
         },
+        # Оставляем вывод в консоль для отладки на сервере
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
         },
     },
     "loggers": {
         "django": {
-            "handlers": ["file", "console"],
+            "handlers": ["logtail", "console"],
             "level": "INFO",
             "propagate": True,
         },
-        "django.request": {
-            "handlers": ["file"],
-            "level": "ERROR",
-            "propagate": False,
+        "apps": { # Логи из твоих приложений
+            "handlers": ["logtail", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "core": { # Логи из папки core
+            "handlers": ["logtail", "console"],
+            "level": "INFO",
+            "propagate": True,
         },
     },
 }
