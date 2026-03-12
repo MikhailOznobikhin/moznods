@@ -83,18 +83,11 @@ CHANNEL_LAYERS = {
     }
 }
 
-# Убираем Celery
 CELERY_BROKER_URL = None
 CELERY_RESULT_BACKEND = None
 
-# ... (другие импорты)
-
-# Получаем токен из переменных окружения
 LOGTAIL_SOURCE_TOKEN = os.environ.get("LOGTAIL_SOURCE_TOKEN")
 
-# ... (остальные настройки)
-
-# Логирование для продакшена
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -105,12 +98,6 @@ LOGGING = {
         },
     },
     "handlers": {
-        # Отправляем логи в Better Stack
-        "logtail": {
-            "level": "INFO",
-            "class": "logtail.LogtailHandler",
-            "source_token": LOGTAIL_SOURCE_TOKEN,
-        },
         # Оставляем вывод в консоль для отладки на сервере
         "console": {
             "class": "logging.StreamHandler",
@@ -118,19 +105,31 @@ LOGGING = {
     },
     "loggers": {
         "django": {
-            "handlers": ["logtail", "console"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
         "apps": { # Логи из твоих приложений
-            "handlers": ["logtail", "console"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
         "core": { # Логи из папки core
-            "handlers": ["logtail", "console"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
     },
 }
+
+# Если токен для Logtail есть, добавляем его обработчик
+if LOGTAIL_SOURCE_TOKEN:
+    LOGGING["handlers"]["logtail"] = {
+        "level": "INFO",
+        "class": "logtail.LogtailHandler",
+        "source_token": LOGTAIL_SOURCE_TOKEN,
+        "host": "https://s2293411.eu-nbg-2.betterstackdata.com",
+    }
+    LOGGING["loggers"]["django"]["handlers"].append("logtail")
+    LOGGING["loggers"]["apps"]["handlers"].append("logtail")
+    LOGGING["loggers"]["core"]["handlers"].append("logtail")
