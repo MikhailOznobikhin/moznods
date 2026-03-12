@@ -29,10 +29,11 @@ class RoomSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     participant_count = serializers.SerializerMethodField()
     active_call_participants = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
-        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "is_direct", "created_at", "updated_at")
+        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "unread_count", "is_direct", "created_at", "updated_at")
 
     def get_participant_count(self, obj: Room) -> int:
         return obj.participants.count()
@@ -42,6 +43,12 @@ class RoomSerializer(serializers.ModelSerializer):
         participants = get_room_state(obj.id)
         # Return list of usernames for simplicity
         return [p["username"] for p in participants if p.get("state") in ("active", "connecting")]
+
+    def get_unread_count(self, obj: Room) -> int:
+        user = self.context.get("request") and self.context["request"].user
+        if not user or not user.is_authenticated:
+            return 0
+        return obj.messages.exclude(read_by=user).count()
 
 
 class CreateRoomSerializer(serializers.Serializer):

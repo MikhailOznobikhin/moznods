@@ -100,6 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               >
                 <Hash className="w-4 h-4 mr-3 text-gray-500 group-hover:text-gray-300 flex-shrink-0" />
                 <span className="truncate flex-1">{room.name}</span>
+                {room.unread_count && room.unread_count > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ml-2">
+                    {room.unread_count > 99 ? '99+' : room.unread_count}
+                  </span>
+                )}
                 {room.active_call_participants?.length > 0 && (
                   <button 
                     onClick={(e) => handleJoinActiveCall(e, room.id)}

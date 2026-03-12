@@ -4,6 +4,8 @@ import { WS_URL } from '../config';
 import { type Message, type SendMessagePayload, type FileData } from '../types/chat';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
+import { useRoomStore } from './useRoomStore';
+import { type Room } from '../types/room';
 
 interface ChatState {
   messages: Message[];
@@ -106,6 +108,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => ({
           messages: [...state.messages, newMessage],
         }));
+
+        // Update unread count in useRoomStore if it's not the current room or tab is hidden
+        const { currentRoom } = useRoomStore.getState();
+        if (currentRoom?.id !== newMessage.room || document.hidden) {
+          useRoomStore.setState((state) => ({
+            rooms: state.rooms.map((r: Room) => 
+              r.id === newMessage.room 
+                ? { ...r, unread_count: (r.unread_count || 0) + 1 } 
+                : r
+            )
+          }));
+        }
 
         // Send notification if tab is inactive and notifications are enabled
         if (document.hidden && settings.browserNotifications && user && newMessage.author.id !== user.id) {

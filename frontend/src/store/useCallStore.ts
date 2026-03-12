@@ -61,6 +61,12 @@ export const useCallStore = create<CallState>((set, get) => ({
     try {
       console.log('Joining call...', roomId, { withVideo });
       
+      // Cleanup any previous heartbeat
+      const currentWs = get().ws;
+      if (currentWs) {
+        (currentWs as any)._pingInterval && clearInterval((currentWs as any)._pingInterval);
+      }
+
       let stream: MediaStream;
       try {
         // 1. Try to Get Local Stream
@@ -113,11 +119,23 @@ export const useCallStore = create<CallState>((set, get) => ({
       ws.onopen = () => {
         console.log('Connected to signaling server');
         ws.send(JSON.stringify({ type: 'join_call' }));
+        
+        // Start heartbeat to keep connection alive and detect ghosting
+        const interval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000); // Ping every 30s
+        (ws as any)._pingInterval = interval;
+
         set({ isJoined: true });
       };
 
       ws.onclose = () => {
         console.log('Signaling server disconnected');
+        if ((ws as any)._pingInterval) {
+          clearInterval((ws as any)._pingInterval);
+        }
         get().leaveCall();
       };
 
@@ -440,6 +458,7 @@ async function createPeerConnection(
   // Handle ICE candidates
   peer.onicecandidate = (event) => {
     if (event.candidate) {
+      console.log(`[WebRTC] Sending ICE candidate to ${targetUserId}:`, event.candidate.candidate.substring(0, 50) + '...');
       ws.send(JSON.stringify({
         type: 'ice_candidate',
         data: {
@@ -450,18 +469,39 @@ async function createPeerConnection(
     }
   };
 
-  // AICODE-NOTE: TURN Monitoring (#TURN)
+  // AICODE-NOTE: WebRTC Logging (#Logging)
   peer.oniceconnectionstatechange = () => {
-    console.log(`ICE Connection State with ${targetUserId}:`, peer.iceConnectionState);
-    if (peer.iceConnectionState === 'disconnected' || peer.iceConnectionState === 'failed') {
-      console.warn(`Connection with ${targetUserId} failed/disconnected. Possible TURN issue or network block.`);
+    const state = peer.iceConnectionState;
+    console.log(`[WebRTC] ICE Connection State with ${targetUserId}:`, state);
+    
+    if (state === 'disconnected' || state === 'failed') {
+      console.error(`[WebRTC] Connection with ${targetUserId} FAILED/DISCONNECTED. Check STUN/TURN servers or firewall.`);
+    } else if (state === 'connected' || state === 'completed') {
+      console.log(`[WebRTC] Connection with ${targetUserId} ESTABLISHED.`);
     }
+  };
+
+  peer.onconnectionstatechange = () => {
+    console.log(`[WebRTC] Peer Connection State with ${targetUserId}:`, peer.connectionState);
+    if (peer.connectionState === 'failed') {
+      console.error(`[WebRTC] Peer connection with ${targetUserId} failed completely.`);
+    }
+  };
+
+  peer.onsignalingstatechange = () => {
+    console.log(`[WebRTC] Signaling State with ${targetUserId}:`, peer.signalingState);
   };
 
   // Handle remote stream
   peer.ontrack = (event) => {
-    console.log(`Received remote track from ${targetUserId}`);
+    console.log(`[WebRTC] Received remote track from ${targetUserId}. Kind: ${event.track.kind}`);
+    
     const [remoteStream] = event.streams;
+    
+    // Add listener for track errors/mute
+    event.track.onmute = () => console.warn(`[WebRTC] Remote track from ${targetUserId} muted (stream interrupted)`);
+    event.track.onunmute = () => console.log(`[WebRTC] Remote track from ${targetUserId} unmuted`);
+    event.track.onended = () => console.log(`[WebRTC] Remote track from ${targetUserId} ended`);
     
     // Update state safely
     set((state: CallState) => {

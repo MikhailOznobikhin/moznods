@@ -64,7 +64,17 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   setCurrentRoom: (room) => {
-    set({ currentRoom: room });
+    if (room) {
+      // Clear unread count for this room
+      set((state) => ({
+        rooms: state.rooms.map(r => 
+          r.id === room.id ? { ...r, unread_count: 0 } : r
+        ),
+        currentRoom: { ...room, unread_count: 0 }
+      }));
+    } else {
+      set({ currentRoom: null });
+    }
   },
 
   getRoom: async (id) => {

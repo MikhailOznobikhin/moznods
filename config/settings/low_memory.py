@@ -32,9 +32,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Whitenoise для статики
+_base_middleware = MIDDLEWARE  # Сохраняем исходный список
 MIDDLEWARE = [
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-] + MIDDLEWARE
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Whitenoise должен быть здесь
+]
+# Добавляем остальные middleware, кроме SecurityMiddleware, который мы уже добавили
+MIDDLEWARE.extend([m for m in _base_middleware if m != 'django.middleware.security.SecurityMiddleware'])
 
 # CSRF настройки - РАБОЧИЙ ВАРИАНТ!
 CSRF_TRUSTED_ORIGINS = [
@@ -42,13 +46,15 @@ CSRF_TRUSTED_ORIGINS = [
     'https://193.124.117.231',
     'http://localhost', 
     'http://127.0.0.1',
-    'https://moznods.dpdns.org',
-    'https://193.124.117.231',
-    'http://2270d82fc058d4.lhr.life',
-    'https://2270d82fc058d4.lhr.life'
+    "https://myservice2025.ru",
+    "https://www.myservice2025.ru",
 ]
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
 CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_SAMESITE = 'Lax'

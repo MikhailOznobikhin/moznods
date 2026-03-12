@@ -78,6 +78,10 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         message_type = content.get("type")
         data = content.get("data", {})
 
+        if message_type == "ping":
+            await self.send_json({"type": "pong"})
+            return
+
         if message_type == "join_call":
             await self._broadcast_user_joined()
         elif message_type == "leave_call":
