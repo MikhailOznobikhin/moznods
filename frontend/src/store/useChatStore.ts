@@ -30,7 +30,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isConnected: false,
 
   markAsRead: (messageId) => {
-    const { ws, isConnected } = get();
+    const { ws, isConnected, messages } = get();
+    const { user } = useAuthStore.getState();
+
+    // Do not mark own messages as read
+    const message = messages.find(m => m.id === messageId);
+    if (message && user && message.author.id === user.id) {
+      return;
+    }
+
     if (ws && isConnected) {
       ws.send(JSON.stringify({
         type: 'message_read',

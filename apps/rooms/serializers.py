@@ -48,7 +48,8 @@ class RoomSerializer(serializers.ModelSerializer):
         user = self.context.get("request") and self.context["request"].user
         if not user or not user.is_authenticated:
             return 0
-        return obj.messages.exclude(read_by=user).count()
+        # Count messages that are NOT from the current user and that the user has NOT read.
+        return obj.messages.exclude(author=user).exclude(read_by=user).count()
 
 
 class CreateRoomSerializer(serializers.Serializer):
