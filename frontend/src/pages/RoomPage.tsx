@@ -6,16 +6,19 @@ import { useRoomStore } from '../store/useRoomStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCallStore } from '../store/useCallStore';
-import { Hash, Phone, Video, Users, Plus, Share2 } from 'lucide-react';
+import { Hash, Phone, Video, Users, Plus, Share2, Edit2, LogOut } from 'lucide-react';
 import { ParticipantsModal } from '../components/rooms/ParticipantsModal';
 import { AddParticipantModal } from '../components/rooms/AddParticipantModal';
 import { ShareRoomModal } from '../components/rooms/ShareRoomModal';
+import { EditRoomModal } from '../components/rooms/EditRoomModal';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 export const RoomPage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const roomId = parseInt(id || '0');
-  const { currentRoom, getRoom } = useRoomStore();
+  const { currentRoom, getRoom, leaveRoom } = useRoomStore();
   const { connect, disconnect, fetchMessages } = useChatStore();
   const { token, user } = useAuthStore();
   const { joinCall, isActive, error: callError } = useCallStore();
@@ -24,6 +27,7 @@ export const RoomPage = () => {
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const canManageParticipants = !!user && !!currentRoom && user.id === currentRoom.owner.id;
 
   useEffect(() => {
@@ -44,6 +48,17 @@ export const RoomPage = () => {
     }
   };
 
+  const handleLeaveRoom = async () => {
+    if (window.confirm(t('confirm_leave_room'))) {
+      try {
+        await leaveRoom(roomId);
+        navigate('/');
+      } catch (error) {
+        console.error('Failed to leave room:', error);
+      }
+    }
+  };
+
   if (!currentRoom) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -60,6 +75,16 @@ export const RoomPage = () => {
             <Hash className="w-5 h-5 text-gray-400 hidden lg:block" />
             <h2 className="text-lg font-bold text-white hidden lg:block truncate">{currentRoom.name}</h2>
             
+            {canManageParticipants && (
+              <button
+                className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                title={t('edit_room_name')}
+                onClick={() => setIsEditOpen(true)}
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               className="flex items-center gap-1 lg:gap-2 text-sm text-blue-400 hover:text-blue-300 whitespace-nowrap"
               title={t('view_participants')}
@@ -85,6 +110,17 @@ export const RoomPage = () => {
               >
                 <Plus className="w-4 h-4" />
                 <Users className="w-4 h-4 hidden xs:block" />
+              </button>
+            )}
+
+            {!canManageParticipants && (
+              <button
+                className="flex items-center p-1.5 lg:px-2 lg:py-1 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-md transition-colors border border-red-600/30"
+                title={t('leave_room')}
+                onClick={handleLeaveRoom}
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-xs ml-1 hidden xs:block">{t('leave')}</span>
               </button>
             )}
           </div>
@@ -140,6 +176,13 @@ export const RoomPage = () => {
           isOpen={isShareOpen}
           onClose={() => setIsShareOpen(false)}
           roomId={roomId}
+        />
+
+        <EditRoomModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          roomId={roomId}
+          initialName={currentRoom.name}
         />
       </div>
   );

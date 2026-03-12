@@ -25,6 +25,8 @@ interface RoomState {
   removeParticipant: (roomId: number, userIdOrQuery: string | number) => Promise<void>;
   getOrCreateDirectRoom: (userId: number) => Promise<Room>;
   togglePinRoom: (roomId: number, isPinned: boolean) => Promise<void>;
+  updateRoom: (roomId: number, name: string) => Promise<void>;
+  leaveRoom: (roomId: number) => Promise<void>;
 }
 
 export const useRoomStore = create<RoomState>((set, get) => ({
@@ -33,6 +35,32 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   participants: [],
   isLoading: false,
   error: null,
+
+  updateRoom: async (roomId, name) => {
+    try {
+      const response = await api.patch<Room>(`/api/rooms/${roomId}/`, { name });
+      set((state) => ({
+        rooms: state.rooms.map((r) => (r.id === roomId ? response.data : r)),
+        currentRoom: state.currentRoom?.id === roomId ? response.data : state.currentRoom,
+      }));
+    } catch (error: any) {
+      console.error('Failed to update room:', error);
+      throw error;
+    }
+  },
+
+  leaveRoom: async (roomId) => {
+    try {
+      await api.post(`/api/rooms/${roomId}/leave/`);
+      set((state) => ({
+        rooms: state.rooms.filter((r) => r.id !== roomId),
+        currentRoom: state.currentRoom?.id === roomId ? null : state.currentRoom,
+      }));
+    } catch (error: any) {
+      console.error('Failed to leave room:', error);
+      throw error;
+    }
+  },
 
   togglePinRoom: async (roomId, isPinned) => {
     try {
