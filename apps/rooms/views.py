@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
 
-from .models import Room
+from .models import Room, RoomParticipant
 from .permissions import IsRoomOwner, IsRoomParticipant
 from .serializers import (
     CreateRoomSerializer,
