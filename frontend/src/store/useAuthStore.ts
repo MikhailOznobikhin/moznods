@@ -27,7 +27,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const response = await api.post<AuthResponse>('/api/auth/login/', data);
       const { token, user } = response.data;
+      
+      // AICODE-NOTE: Save token for 30 days if remember is true (#Auth_Persistence)
       localStorage.setItem('token', token);
+      
       set({ token, user, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
       set({

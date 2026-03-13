@@ -39,6 +39,16 @@ export const CallOverlay = () => {
         }`}
       onClick={() => !isExpanded && toggleExpanded()}
     >
+      {/* Invisible layer for VideoPlayers when minimized to keep AudioContext alive */}
+      {!isExpanded && (
+        <div className="hidden">
+          {localStream && <VideoPlayer stream={localStream} isLocal />}
+          {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
+            <VideoPlayer key={userId} userId={userId} stream={stream} />
+          ))}
+        </div>
+      )}
+
       {!isExpanded ? (
         <div className="relative group">
           <Phone className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
@@ -90,34 +100,37 @@ export const CallOverlay = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full content-start">
-                {/* Local Video */}
-                {localStream && (
-                  <div className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
-                    <VideoPlayer 
-                      stream={localStream} 
-                      isLocal 
-                      username={user ? `${user.username} (${t('you')})` : t('you')}
-                    />
-                  </div>
-                )}
-
-                {/* Remote Videos */}
-                {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
-                  const participant = participants?.get(userId);
-                  const roomParticipants = (currentRoom as any)?.participants as any[];
-                  const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
-                  const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
-                  
-                  return (
-                    <div key={userId} className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
+                {/* Always render VideoPlayers but hide them visually if needed to keep AudioContext active */}
+                <div className={showDebug ? 'hidden' : ''}>
+                  {/* Local Video */}
+                  {localStream && (
+                    <div className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
                       <VideoPlayer 
-                        userId={userId}
-                        stream={stream} 
-                        username={username}
+                        stream={localStream} 
+                        isLocal 
+                        username={user ? `${user.username} (${t('you')})` : t('you')}
                       />
                     </div>
-                  );
-                })}
+                  )}
+
+                  {/* Remote Videos */}
+                  {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
+                    const participant = participants?.get(userId);
+                    const roomParticipants = (currentRoom as any)?.participants as any[];
+                    const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
+                    const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
+                    
+                    return (
+                      <div key={userId} className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
+                        <VideoPlayer 
+                          userId={userId}
+                          stream={stream} 
+                          username={username}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

@@ -615,23 +615,43 @@ async function createPeerConnection(
     }
   };
 
-  // Handle remote stream
+  // AICODE-NOTE: Important for dynamic track addition (#WebRTC)
+  // Ensure we handle remote tracks being added after connection
   peer.ontrack = (event) => {
     get().addLog(`Received track from ${targetUserId}: ${event.track.kind}`);
     
-    const [remoteStream] = event.streams;
-    
-    // Add listener for track errors/mute
-    event.track.onmute = () => get().addLog(`Track from ${targetUserId} MUTED`);
-    event.track.onunmute = () => get().addLog(`Track from ${targetUserId} UNMUTED`);
-    event.track.onended = () => get().addLog(`Track from ${targetUserId} ENDED`);
+    // Use the first stream associated with the track
+    const remoteStream = event.streams[0] || new MediaStream([event.track]);
     
     // Update state safely
     set((state: CallState) => {
       const newRemoteStreams = new Map(state.remoteStreams);
-      newRemoteStreams.set(targetUserId, remoteStream);
-      return { remoteStreams: newRemoteStreams };
+      const existingStream = newRemoteStreams.get(targetUserId);
+      
+      if (existingStream) {
+        // If we already have a stream, add the new track to it
+        if (!existingStream.getTracks().find(t => t.id === event.track.id)) {
+          existingStream.addTrack(event.track);
+        }
+        // Return same map to trigger re-render if needed (though stream object is same)
+        return { remoteStreams: new Map(newRemoteStreams) };
+      } else {
+        newRemoteStreams.set(targetUserId, remoteStream);
+        return { remoteStreams: newRemoteStreams };
+      }
     });
+
+    event.track.onmute = () => get().addLog(`Track from ${targetUserId} MUTED`);
+    event.track.onunmute = () => get().addLog(`Track from ${targetUserId} UNMUTED`);
+    event.track.onended = () => {
+      get().addLog(`Track from ${targetUserId} ENDED`);
+      // If a video track ends, we might need to update the UI
+      if (event.track.kind === 'video') {
+        set((state: CallState) => ({
+          remoteStreams: new Map(state.remoteStreams)
+        }));
+      }
+    };
   };
 
   // Store peer
