@@ -23,6 +23,14 @@ interface CallState {
   isExpanded: boolean;
   error: string | null;
   logs: string[];
+  
+  // AICODE-NOTE: Perfect Negotiation flags per peer (#WebRTC)
+  peerFlags: Map<number, { 
+    makingOffer: boolean; 
+    ignoreOffer: boolean; 
+    isSettingRemoteAnswerPending: boolean;
+    polite: boolean;
+  }>;
 
   joinCall: (roomId: number, token: string, user: { id: number; username: string }, withVideo?: boolean) => Promise<void>;
   leaveCall: () => void;
@@ -74,6 +82,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   isExpanded: true,
   error: null,
   logs: [],
+  peerFlags: new Map(),
 
   addLog: (msg) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -200,6 +209,7 @@ export const useCallStore = create<CallState>((set, get) => ({
           else if (type === 'user_joined') {
             // New user joined, we (existing user) initiate connection
             const targetUserId = data.user.id;
+            const myUserId = _user.id;
             get().addLog(`User joined: ${data.user.username} (${targetUserId})`);
             
             // Add to participants
@@ -213,7 +223,7 @@ export const useCallStore = create<CallState>((set, get) => ({
               return { participants: newParticipants };
             });
 
-            await createPeerConnection(targetUserId, stream, ws, true, set, get);
+            await createPeerConnection(targetUserId, stream, ws, true, set, get, myUserId);
             get().updateVideoQuality();
           } 
           else if (type === 'user_left') {
@@ -224,7 +234,11 @@ export const useCallStore = create<CallState>((set, get) => ({
             set((state: CallState) => {
               const newParticipants = new Map(state.participants);
               newParticipants.delete(targetUserId);
-              return { participants: newParticipants };
+              
+              const newPeerFlags = new Map(state.peerFlags);
+              newPeerFlags.delete(targetUserId);
+              
+              return { participants: newParticipants, peerFlags: newPeerFlags };
             });
 
             closePeerConnection(targetUserId, set, get);
@@ -233,52 +247,64 @@ export const useCallStore = create<CallState>((set, get) => ({
           else if (type === 'existing_participants') {
              // Connect to existing users in the room
              const { users } = data;
+             const myUserId = _user.id;
              get().addLog(`Existing users in call: ${users.map((u: any) => u.username).join(', ')}`);
              for (const user of users) {
                // Don't connect to self
-               await createPeerConnection(user.id, stream, ws, true, set, get);
+               await createPeerConnection(user.id, stream, ws, true, set, get, myUserId);
              }
              get().updateVideoQuality();
           }
           else if (type === 'offer') {
-            // Received offer, we answer
             const { from_user_id, from_username, sdp } = data;
-            get().addLog(`Received offer from ${from_username || from_user_id}`);
-            // Ensure participant username is known
-            set((state: CallState) => {
-              const newParticipants = new Map(state.participants);
-              const existing = newParticipants.get(from_user_id);
-              if (!existing || !existing.username) {
-                newParticipants.set(from_user_id, {
-                  id: from_user_id,
-                  username: from_username || existing?.username || '',
-                  state: 'active',
-                });
-              }
-              return { participants: newParticipants };
-            });
+            const myUserId = _user.id;
+            
             let peer = get().peers.get(from_user_id);
             if (!peer) {
-              peer = await createPeerConnection(from_user_id, stream, ws, false, set, get);
+              peer = await createPeerConnection(from_user_id, stream, ws, false, set, get, myUserId);
             }
-            await peer.setRemoteDescription(new RTCSessionDescription(sdp));
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
             
-            ws.send(JSON.stringify({
-              type: 'answer',
-              data: {
-                target_user_id: from_user_id,
-                sdp: peer.localDescription,
-              },
-            }));
+            const flags = get().peerFlags.get(from_user_id);
+            const offerCollision = (type === 'offer') && 
+              (flags?.makingOffer || peer.signalingState !== 'stable');
+
+            const ignoreOffer = !flags?.polite && offerCollision;
+            if (ignoreOffer) {
+              get().addLog(`Ignoring offer from ${from_user_id} (glare)`);
+              return;
+            }
+
+            try {
+              if (offerCollision) {
+                await Promise.all([
+                  peer.setLocalDescription({ type: 'rollback' } as any),
+                  peer.setRemoteDescription(new RTCSessionDescription(sdp))
+                ]);
+              } else {
+                await peer.setRemoteDescription(new RTCSessionDescription(sdp));
+              }
+              
+              await peer.setLocalDescription(await peer.createAnswer());
+              ws.send(JSON.stringify({
+                type: 'answer',
+                data: {
+                  target_user_id: from_user_id,
+                  sdp: peer.localDescription,
+                },
+              }));
+            } catch (err) {
+              console.error('Error handling offer:', err);
+            }
           } 
           else if (type === 'answer') {
             const { from_user_id, sdp } = data;
-            get().addLog(`Received answer from ${from_user_id}`);
             const peer = get().peers.get(from_user_id);
             if (peer) {
-              await peer.setRemoteDescription(new RTCSessionDescription(sdp));
+              try {
+                await peer.setRemoteDescription(new RTCSessionDescription(sdp));
+              } catch (err) {
+                console.error('Error setting remote answer:', err);
+              }
             }
           } 
           else if (type === 'ice_candidate') {
@@ -401,6 +427,7 @@ export const useCallStore = create<CallState>((set, get) => ({
               localStream: new MediaStream(localStream.getTracks()),
               isVideoEnabled: true 
             });
+            get().updateVideoQuality();
           }
         } catch (err) {
           console.error('Failed to enable video track:', err);
@@ -546,10 +573,22 @@ async function createPeerConnection(
   ws: WebSocket,
   isInitiator: boolean,
   set: any,
-  get: any
+  get: any,
+  myUserId: number
 ): Promise<RTCPeerConnection> {
   const peer = new RTCPeerConnection(ICE_SERVERS || ICE_SERVERS_DEFAULT);
-  get().addLog(`Creating PeerConnection with ${targetUserId} (initiator: ${isInitiator})`);
+  
+  // AICODE-NOTE: Set initial Perfect Negotiation flags (#WebRTC)
+  set((state: CallState) => {
+    const newPeerFlags = new Map(state.peerFlags);
+    newPeerFlags.set(targetUserId, {
+      makingOffer: false,
+      ignoreOffer: false,
+      isSettingRemoteAnswerPending: false,
+      polite: myUserId < targetUserId // Define polite peer based on ID
+    });
+    return { peerFlags: newPeerFlags };
+  });
 
   // Add local tracks
   localStream.getTracks().forEach(track => {
@@ -559,7 +598,6 @@ async function createPeerConnection(
   // Handle ICE candidates
   peer.onicecandidate = (event) => {
     if (event.candidate) {
-      get().addLog(`ICE candidate for ${targetUserId}: ${event.candidate.candidate.substring(0, 30)}...`);
       ws.send(JSON.stringify({
         type: 'ice_candidate',
         data: {
@@ -570,38 +608,17 @@ async function createPeerConnection(
     }
   };
 
-  // AICODE-NOTE: WebRTC Logging (#Logging)
-  peer.oniceconnectionstatechange = () => {
-    const state = peer.iceConnectionState;
-    get().addLog(`ICE State with ${targetUserId}: ${state}`);
-    
-    if (state === 'disconnected' || state === 'failed') {
-      console.error(`[WebRTC] Connection with ${targetUserId} FAILED/DISCONNECTED. Check STUN/TURN servers or firewall.`);
-    } else if (state === 'connected' || state === 'completed') {
-      console.log(`[WebRTC] Connection with ${targetUserId} ESTABLISHED.`);
-    }
-  };
-
-  peer.onconnectionstatechange = () => {
-    get().addLog(`Conn State with ${targetUserId}: ${peer.connectionState}`);
-    if (peer.connectionState === 'failed') {
-      console.error(`[WebRTC] Peer connection with ${targetUserId} failed completely.`);
-    }
-  };
-
-  peer.onsignalingstatechange = () => {
-    get().addLog(`Signaling State with ${targetUserId}: ${peer.signalingState}`);
-  };
-
-  // Handle negotiation
+  // AICODE-NOTE: Perfect Negotiation pattern implementation (#WebRTC)
   peer.onnegotiationneeded = async () => {
     try {
-      get().addLog(`Negotiation needed with ${targetUserId}`);
-      // Only negotiate if the signaling state is stable
-      if (peer.signalingState !== 'stable') return;
+      set((state: CallState) => {
+        const newPeerFlags = new Map(state.peerFlags);
+        const flags = newPeerFlags.get(targetUserId);
+        if (flags) newPeerFlags.set(targetUserId, { ...flags, makingOffer: true });
+        return { peerFlags: newPeerFlags };
+      });
 
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
+      await peer.setLocalDescription();
       
       ws.send(JSON.stringify({
         type: 'offer',
@@ -611,47 +628,57 @@ async function createPeerConnection(
         },
       }));
     } catch (err) {
-      console.error('Error during negotiation:', err);
+      console.error('Negotiation error:', err);
+    } finally {
+      set((state: CallState) => {
+        const newPeerFlags = new Map(state.peerFlags);
+        const flags = newPeerFlags.get(targetUserId);
+        if (flags) newPeerFlags.set(targetUserId, { ...flags, makingOffer: false });
+        return { peerFlags: newPeerFlags };
+      });
     }
   };
 
-  // AICODE-NOTE: Important for dynamic track addition (#WebRTC)
-  // Ensure we handle remote tracks being added after connection
+  // AICODE-NOTE: Handle remote tracks with NEW MediaStream reference (#WebRTC)
   peer.ontrack = (event) => {
     get().addLog(`Received track from ${targetUserId}: ${event.track.kind}`);
     
-    // Use the first stream associated with the track
-    const remoteStream = event.streams[0] || new MediaStream([event.track]);
-    
-    // Update state safely
     set((state: CallState) => {
       const newRemoteStreams = new Map(state.remoteStreams);
       const existingStream = newRemoteStreams.get(targetUserId);
       
       if (existingStream) {
-        // If we already have a stream, add the new track to it
+        // Add track to existing stream
         if (!existingStream.getTracks().find(t => t.id === event.track.id)) {
           existingStream.addTrack(event.track);
         }
-        // Return same map to trigger re-render if needed (though stream object is same)
-        return { remoteStreams: new Map(newRemoteStreams) };
+        // CRITICAL: Create a NEW MediaStream reference to force React re-render
+        const updatedStream = new MediaStream(existingStream.getTracks());
+        newRemoteStreams.set(targetUserId, updatedStream);
       } else {
+        const remoteStream = event.streams[0] || new MediaStream([event.track]);
         newRemoteStreams.set(targetUserId, remoteStream);
-        return { remoteStreams: newRemoteStreams };
       }
+      
+      return { remoteStreams: newRemoteStreams };
     });
 
-    event.track.onmute = () => get().addLog(`Track from ${targetUserId} MUTED`);
-    event.track.onunmute = () => get().addLog(`Track from ${targetUserId} UNMUTED`);
     event.track.onended = () => {
-      get().addLog(`Track from ${targetUserId} ENDED`);
-      // If a video track ends, we might need to update the UI
-      if (event.track.kind === 'video') {
-        set((state: CallState) => ({
-          remoteStreams: new Map(state.remoteStreams)
-        }));
-      }
+      get().addLog(`Track from ${targetUserId} ended`);
+      // Force update on track end
+      set((state: CallState) => ({
+        remoteStreams: new Map(state.remoteStreams)
+      }));
     };
+  };
+
+  // AICODE-NOTE: WebRTC Logging
+  peer.oniceconnectionstatechange = () => {
+    get().addLog(`ICE with ${targetUserId}: ${peer.iceConnectionState}`);
+  };
+
+  peer.onconnectionstatechange = () => {
+    get().addLog(`Conn with ${targetUserId}: ${peer.connectionState}`);
   };
 
   // Store peer
@@ -660,36 +687,6 @@ async function createPeerConnection(
     newPeers.set(targetUserId, peer);
     return { peers: newPeers };
   });
-
-  // Apply bitrate limits after storing the peer
-  peer.getSenders().forEach(sender => {
-    if (sender.track?.kind === 'video') {
-      const totalCount = get().participants.size + 1;
-      const quality = totalCount <= 2 ? QUALITY_PRESETS.high : (totalCount <= 4 ? QUALITY_PRESETS.medium : QUALITY_PRESETS.low);
-      
-      const parameters = sender.getParameters();
-      if (!parameters.encodings) {
-        parameters.encodings = [{}];
-      }
-      parameters.encodings[0].maxBitrate = quality.bitrate;
-      sender.setParameters(parameters).catch(e => 
-        console.warn('Failed to set bitrate parameters:', e)
-      );
-    }
-  });
-
-  if (isInitiator) {
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    
-    ws.send(JSON.stringify({
-      type: 'offer',
-      data: {
-        target_user_id: targetUserId,
-        sdp: peer.localDescription,
-      },
-    }));
-  }
 
   return peer;
 }

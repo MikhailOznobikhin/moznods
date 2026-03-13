@@ -85,9 +85,10 @@ export const CallOverlay = () => {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 min-h-0 pt-16 pb-24 px-4 overflow-y-auto scrollbar-none">
-            {showDebug ? (
-              <div className="bg-black/60 p-4 rounded-2xl font-mono text-[10px] text-green-400 h-full border border-white/5 backdrop-blur-md">
+          <div className="flex-1 min-h-0 pt-16 pb-24 px-4 overflow-y-auto scrollbar-none relative">
+            {/* Debug Logs Layer */}
+            {showDebug && (
+              <div className="absolute inset-x-4 inset-y-16 z-20 bg-black/60 p-4 rounded-2xl font-mono text-[10px] text-green-400 border border-white/5 backdrop-blur-md">
                 <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
                   <span className="text-white font-bold tracking-widest">DEBUG_LOGS_V1.0</span>
                   <button onClick={() => useCallStore.setState({ logs: [] })} className="text-red-400 text-[9px] uppercase font-bold">Clear</button>
@@ -98,41 +99,39 @@ export const CallOverlay = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full content-start">
-                {/* Always render VideoPlayers but hide them visually if needed to keep AudioContext active */}
-                <div className={showDebug ? 'hidden' : ''}>
-                  {/* Local Video */}
-                  {localStream && (
-                    <div className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
-                      <VideoPlayer 
-                        stream={localStream} 
-                        isLocal 
-                        username={user ? `${user.username} (${t('you')})` : t('you')}
-                      />
-                    </div>
-                  )}
-
-                  {/* Remote Videos */}
-                  {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
-                    const participant = participants?.get(userId);
-                    const roomParticipants = (currentRoom as any)?.participants as any[];
-                    const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
-                    const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
-                    
-                    return (
-                      <div key={userId} className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
-                        <VideoPlayer 
-                          userId={userId}
-                          stream={stream} 
-                          username={username}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             )}
+
+            {/* Video Grid - ALWAYS rendered to keep AudioContext alive */}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full content-start transition-opacity duration-300 ${showDebug ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+              {/* Local Video */}
+              {localStream && (
+                <div className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
+                  <VideoPlayer 
+                    stream={localStream} 
+                    isLocal 
+                    username={user ? `${user.username} (${t('you')})` : t('you')}
+                  />
+                </div>
+              )}
+
+              {/* Remote Videos */}
+              {Array.from(remoteStreams.entries()).map(([userId, stream]) => {
+                const participant = participants?.get(userId);
+                const roomParticipants = (currentRoom as any)?.participants as any[];
+                const roomParticipant = roomParticipants?.find((p: any) => p.user?.id === userId || p.id === userId);
+                const username = participant?.username || roomParticipant?.user?.username || roomParticipant?.username || `User ${userId}`;
+                
+                return (
+                  <div key={userId} className="aspect-video lg:aspect-square xl:aspect-video rounded-2xl overflow-hidden bg-gray-800 shadow-xl border border-white/5 ring-1 ring-white/10">
+                    <VideoPlayer 
+                      userId={userId}
+                      stream={stream} 
+                      username={username}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Bottom Floating Controls */}
