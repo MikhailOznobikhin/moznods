@@ -223,7 +223,7 @@ export const useCallStore = create<CallState>((set, get) => ({
               return { participants: newParticipants };
             });
 
-            await createPeerConnection(targetUserId, stream, ws, true, set, get, myUserId);
+            await createPeerConnection(targetUserId, stream, ws, set, get, myUserId);
             get().updateVideoQuality();
           } 
           else if (type === 'user_left') {
@@ -251,17 +251,17 @@ export const useCallStore = create<CallState>((set, get) => ({
              get().addLog(`Existing users in call: ${users.map((u: any) => u.username).join(', ')}`);
              for (const user of users) {
                // Don't connect to self
-               await createPeerConnection(user.id, stream, ws, true, set, get, myUserId);
+               await createPeerConnection(user.id, stream, ws, set, get, myUserId);
              }
              get().updateVideoQuality();
           }
           else if (type === 'offer') {
-            const { from_user_id, from_username, sdp } = data;
+            const { from_user_id, sdp } = data;
             const myUserId = _user.id;
             
             let peer = get().peers.get(from_user_id);
             if (!peer) {
-              peer = await createPeerConnection(from_user_id, stream, ws, false, set, get, myUserId);
+              peer = await createPeerConnection(from_user_id, stream, ws, set, get, myUserId);
             }
             
             const flags = get().peerFlags.get(from_user_id);
@@ -571,7 +571,6 @@ async function createPeerConnection(
   targetUserId: number,
   localStream: MediaStream,
   ws: WebSocket,
-  isInitiator: boolean,
   set: any,
   get: any,
   myUserId: number
