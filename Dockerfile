@@ -1,11 +1,24 @@
-# Use Python 3.14 slim image
+# Stage 1: Build Flutter Web
+FROM ghcr.io/cirruslabs/flutter:3.13.0 AS build-env
+
+WORKDIR /app
+COPY moznods_flutter/pubspec.yaml moznods_flutter/pubspec.lock* ./
+RUN flutter pub get
+
+COPY moznods_flutter/ ./
+# Генерируем .g.dart файлы для моделей
+RUN flutter pub run build_runner build --delete-conflicting-outputs
+
+# Собираем Web-версию
+RUN flutter build web --release
+
+# Stage 2: Django App
 FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set work directory
 WORKDIR /app
 
 # Install system dependencies
@@ -21,7 +34,10 @@ RUN pip install --no-cache-dir -r requirements/requirements.txt
 # Copy project
 COPY . .
 
-# Collect static files (will be run during build for production)
+# Copy built Flutter Web files from Stage 1
+COPY --from=build-env /app/build/web /app/moznods_flutter/build/web
+
+# Collect static files (now including Flutter build)
 RUN python manage.py collectstatic --noinput
 
 # Expose port
