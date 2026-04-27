@@ -1,12 +1,12 @@
 # Stage 1: Build Flutter Web
-FROM ghcr.io/cirruslabs/flutter:3.13.0 AS build-flutter
+FROM ghcr.io/cirruslabs/flutter:stable AS build-flutter
 
 WORKDIR /app
 COPY moznods_flutter/pubspec.yaml moznods_flutter/pubspec.lock* ./
 RUN flutter pub get
 
 COPY moznods_flutter/ ./
-RUN flutter pub run build_runner build --delete-conflicting-outputs
+RUN dart run build_runner build --delete-conflicting-outputs
 RUN flutter build web --release
 
 # Stage 2: Python dependencies
@@ -49,4 +49,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["daphne", "--bind", "0.0.0.0:8000", "--workers", "3", "config.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

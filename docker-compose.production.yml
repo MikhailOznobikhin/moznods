@@ -65,21 +65,22 @@ services:
       turnserver
       --verbose
       --lt-cred-mech
+      --fingerprint
       --no-tls
       --no-dtls
-      --realm=moznods
-      --static-auth-secret-file=/tmp/turn_secret
-      --user=moznods:moznods123
+      --realm=${TURN_REALM:-moznods.ru}
+      --external-ip=${TURN_EXTERNAL_IP:-217.197.115.122}
+      --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      --total-quota=100
+      --user-quota=10
       --min-port=49152
       --max-port=65535
-    environment:
-      - TURN_SECRET=${TURN_SECRET:-change_me}
+      --no-multicast-peers
     volumes:
       - coturn_data:/var/lib/coturn
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
-      - "5349:5349/tcp"
       - "49152-65535:49152-65535/udp"
     networks:
       - moznods_network
@@ -93,7 +94,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
     depends_on:
