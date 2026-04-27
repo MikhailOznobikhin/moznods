@@ -1,47 +1,52 @@
 # Stage 1: Build Flutter Web
-FROM ghcr.io/cirruslabs/flutter:3.13.0 AS build-env
+FROM ghcr.io/cirruslabs/flutter:3.13.0 AS build-flutter
 
 WORKDIR /app
 COPY moznods_flutter/pubspec.yaml moznods_flutter/pubspec.lock* ./
 RUN flutter pub get
 
 COPY moznods_flutter/ ./
-# Генерируем .g.dart файлы для моделей
 RUN flutter pub run build_runner build --delete-conflicting-outputs
-
-# Собираем Web-версию
 RUN flutter build web --release
 
-# Stage 2: Django App
-FROM python:3.11-slim
+# Stage 2: Python dependencies
+FROM python:3.11-slim AS build-python
 
-# Set environment variables
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 3: Production Django App
+FROM python:3.11-slim AS production
+
+LABEL maintainer="MOznoDS"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
 
-# Install Python dependencies
-COPY requirements/requirements.txt requirements/requirements.txt
-RUN pip install --no-cache-dir -r requirements/requirements.txt
+COPY --from=build-python /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=build-python /usr/local/bin /usr/local/bin
+COPY --from=build-flutter /app/build/web /app/moznods_flutter/build/web
 
-# Copy project
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# Copy built Flutter Web files from Stage 1
-COPY --from=build-env /app/build/web /app/moznods_flutter/build/web
+RUN chown -R appuser:appuser /app
 
-# Collect static files (now including Flutter build)
-RUN python manage.py collectstatic --noinput
+USER appuser
 
-# Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "config.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "config.wsgi:application"]

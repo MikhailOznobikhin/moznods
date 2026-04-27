@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moznods_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - USE_SQLITE=0
+      - USE_INMEMORY_CHANNELS=0
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - moznods_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: moznods_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${PGDATABASE:-moznods}
+      - POSTGRES_USER=${PGUSER:-moznods}
+      - POSTGRES_PASSWORD=${PGPASSWORD:-moznods_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - moznods_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-moznods} -d ${PGDATABASE:-moznods}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: moznods_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - moznods_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: moznods_coturn
+    restart: unless-stopped
+    command: |
+      turnserver
+      --verbose
+      --lt-cred-mech
+      --no-tls
+      --no-dtls
+      --realm=moznods
+      --static-auth-secret-file=/tmp/turn_secret
+      --user=moznods:moznods123
+      --min-port=49152
+      --max-port=65535
+    environment:
+      - TURN_SECRET=${TURN_SECRET:-change_me}
+    volumes:
+      - coturn_data:/var/lib/coturn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49152-65535:49152-65535/udp"
+    networks:
+      - moznods_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: moznods_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    depends_on:
+      - web
+    networks:
+      - moznods_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  coturn_data:
+  static_volume:
+  media_volume:
+
+networks:
+  moznods_network:
+    driver: bridge

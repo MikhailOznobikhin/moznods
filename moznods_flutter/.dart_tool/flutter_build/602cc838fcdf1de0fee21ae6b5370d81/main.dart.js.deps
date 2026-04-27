@@ -686,9 +686,12 @@ file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/store/auth_provider.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/store/call_provider.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/store/chat_provider.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/store/room_provider.dart
+file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/dialogs/create_room_dialog.dart
+file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/screens/chat_area.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/screens/dashboard_layout.dart
+file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/screens/login_screen.dart
+file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/screens/message_input.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/widgets/call_overlay.dart
-file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/widgets/uikit.dart
 file:///C:/Users/m_ozno/moznods/moznods_flutter/lib/ui/widgets/video_grid.dart
 file:///E:/flutter/flutter/bin/cache/flutter_web_sdk/kernel/dart2js_platform.dill
 file:///E:/flutter/flutter/packages/flutter/lib/animation.dart

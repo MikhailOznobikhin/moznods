@@ -62,12 +62,48 @@ MOznoDS спроектирован как легковесное решение,
 
 ---
 
-## 4. Динамические домены (localhost.run / Cloudflare Tunnel)
+## 4. Docker Production Deployment
 
-Если вы используете временные домены (например, `localhost.run`), обязательно настройте фронтенд на использование переменных окружения (`.env.production`), чтобы не менять URL вручную при каждом перезапуске.
+### Services
+| Service | Image | Purpose |
+|---------|-------|---------|
+| web | Django + Flutter | Main application |
+| postgres | postgres:16-alpine | Database |
+| redis | redis:7-alpine | Channels, Celery broker |
+| coturn | coturn/coturn | TURN server for WebRTC |
+| nginx | nginx:alpine | Reverse proxy, SSL |
+
+### Quick Start
 
 ```bash
-# Пример .env.production
-VITE_API_URL=https://your-dynamic-id.lhr.life
-VITE_WS_URL=wss://your-dynamic-id.lhr.life
+# 1. Copy and edit environment
+cp .env.production.example .env
+nano .env  # Fill in your SECRET_KEY, domain, passwords
+
+# 2. Generate SSL certificates (or use Let's Encrypt)
+mkdir -p nginx/ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx/ssl/privkey.pem -out nginx/ssl/fullchain.pem
+
+# 3. Build and start
+docker compose -f docker-compose.production.yml up -d
+
+# 4. Run migrations
+docker compose -f docker-compose.production.yml exec web python manage.py migrate
+
+# 5. Create superuser
+docker compose -f docker-compose.production.yml exec web python manage.py createsuperuser
+
+# 6. Collect static files
+docker compose -f docker-compose.production.yml exec web python manage.py collectstatic
 ```
+
+### Media Files
+Media files are stored locally in `/app/media/` (Docker volume: `media_volume`).
+
+### TURN Server (Coturn)
+- Port: 3478 (UDP/TCP)
+- Realm: moznods
+- User/Password: moznods/moznods123 (configure via TURN_SECRET env)
+
+
