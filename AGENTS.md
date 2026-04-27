@@ -7,7 +7,7 @@ This document is the **single source of truth** for any autonomous or semi-auton
 ## 1. Project Overview & Principles
 
 **MOznoDS** is a Discord-like platform (voice calls, chat).
-- **Stack**: Django 5, Channels (InMemory), SQLite 3, WebRTC (P2P), Local Storage.
+- **Stack**: Django 5, Channels (InMemory), SQLite 3, WebRTC (P2P), Flutter (Cross-platform UI).
 - **Principles**: Documentation-driven, greppable memory (`AICODE-*`), verification before finish.
 
 ---
@@ -24,7 +24,8 @@ This document is the **single source of truth** for any autonomous or semi-auton
 ## 3. Project Structure
 
 ```
-apps/           # accounts, rooms, chat, calls, files
+apps/           # Django apps (accounts, rooms, chat, calls, files)
+moznods_flutter/# Flutter cross-platform client (Web, Mobile, Desktop)
 core/           # models.py, exceptions.py, utils.py
 config/         # settings (base, low_memory), urls, asgi
 docs/           # index.md, structure.md, api.md, webrtc.md

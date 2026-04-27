@@ -1,0 +1,43 @@
+name: Build and Deploy Flutter Web to Django
+
+on:
+  push:
+    branches: [ main, flutter-migration ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.13.0'
+          channel: 'stable'
+          
+      - name: Build Flutter Web
+        run: |
+          cd moznods_flutter
+          flutter pub get
+          flutter build web --release --dart-define=FLUTTER_WEB_CANVASKIT_URL=https://unpkg.com/canvaskit-wasm@0.38.0/bin/
+          
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: flutter-web-build
+          path: moznods_flutter/build/web
+          
+  deploy-preview:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: flutter-web-build
+          path: static/flutter_web
+          
+      # Здесь может быть ваш шаг деплоя на сервер (SSH, Docker, etc.)
+      - name: Deploy Message
+        run: echo "Flutter Web build is ready for deployment"

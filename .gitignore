@@ -75,3 +75,17 @@ Thumbs.db
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Flutter
+moznods_flutter/build/
+moznods_flutter/.dart_tool/
+moznods_flutter/pubspec.lock
+moznods_flutter/.flutter*
+moznods_flutter/coverage/
+*.jks
+*.p12
+*.key
+.mel刷*
+
+# Flutter Web build output (served by Nginx, not committed)
+# /build/web/

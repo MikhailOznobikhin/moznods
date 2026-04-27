@@ -1,0 +1,26 @@
+# Flutter
+build/
+.dart_tool/
+pubspec.lock
+.flutter*
+coverage/
+*.jks
+*.p12
+*.key
+.mel刷*
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
