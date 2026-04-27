@@ -75,7 +75,7 @@ export const RoomPage = () => {
             <Hash className="w-5 h-5 text-gray-400 hidden lg:block" />
             <h2 className="text-lg font-bold text-white hidden lg:block truncate">{currentRoom.name}</h2>
             
-            {canManageParticipants && (
+            {canManageParticipants && !currentRoom.is_direct && (
               <button
                 className="p-1.5 text-gray-400 hover:text-white transition-colors"
                 title={t('edit_room_name')}
