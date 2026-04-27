@@ -80,7 +80,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   void connect(int roomId, String token) {
     _currentRoomId = roomId;
     _wsService.disconnect();
-    final url = 'ws://localhost:8000/ws/chat/$roomId';
+    final url = '${DioClient.wsBaseUrl}/ws/chat/$roomId';
     _wsService.connect(url, token);
 
     _wsService.messages.listen((message) {

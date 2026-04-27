@@ -2,7 +2,23 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DioClient {
-  static const String baseUrl = 'http://localhost:8000'; // Replace with your production URL
+  static String get baseUrl {
+    final uri = Uri.base;
+    if ((uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty) {
+      return uri.origin;
+    }
+    return 'http://localhost:8000';
+  }
+
+  static String get wsBaseUrl {
+    final uri = Uri.base;
+    if ((uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty) {
+      final scheme = uri.scheme == 'https' ? 'wss' : 'ws';
+      return '$scheme://${uri.authority}';
+    }
+    return 'ws://localhost:8000';
+  }
+
   final Dio _dio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 

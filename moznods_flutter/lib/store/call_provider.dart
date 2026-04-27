@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../api/dio_client.dart';
 import '../api/ws_service.dart';
 
 class CallParticipant {
@@ -120,7 +121,7 @@ class CallNotifier extends StateNotifier<CallState> {
       final stream = await navigator.mediaDevices.getUserMedia(constraints);
       state = state.copyWith(localStream: stream, isActive: true);
 
-      final wsUrl = 'ws://localhost:8000/ws/call/$roomId';
+      final wsUrl = '${DioClient.wsBaseUrl}/ws/call/$roomId';
       _wsService.connect(wsUrl, token);
 
       _wsService.messages.listen((message) async {

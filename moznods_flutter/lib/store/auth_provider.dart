@@ -34,7 +34,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final token = await _storage.read(key: 'auth_token');
     if (token != null) {
       try {
-        final response = await _client.dio.get('/api/accounts/me/');
+        final response = await _client.dio.get('/api/auth/me/');
         final user = User.fromJson(response.data);
         state = state.copyWith(user: user, token: token, isLoading: false);
       } catch (e) {
@@ -49,7 +49,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _client.dio.post('/api/accounts/login/', data: {
+      final response = await _client.dio.post('/api/auth/login/', data: {
         'username': username,
         'password': password,
       });

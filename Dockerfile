@@ -43,7 +43,8 @@ COPY --from=build-flutter /app/build/web /app/moznods_flutter/build/web
 
 COPY --chown=appuser:appuser . .
 
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/staticfiles /app/media \
+    && chown -R appuser:appuser /app
 
 USER appuser
 
