@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'ui/screens/dashboard_layout.dart';
-import 'ui/screens/login_screen.dart';
 import 'api/router.dart';
 
 void main() {

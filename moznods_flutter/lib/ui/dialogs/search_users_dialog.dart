@@ -105,7 +105,7 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
                                 ),
                               ),
                               title: Text(
-                                user.displayName ?? user.username,
+                                user.displayName,
                                 style: const TextStyle(color: Colors.white),
                               ),
                               subtitle: Text(

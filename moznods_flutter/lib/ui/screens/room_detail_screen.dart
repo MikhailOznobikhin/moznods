@@ -119,7 +119,7 @@ class _ParticipantTile extends StatelessWidget {
         ],
       ),
       title: Text(
-        participant.displayName ?? participant.username,
+        participant.displayName,
         style: const TextStyle(color: Colors.white),
       ),
       subtitle: Text(

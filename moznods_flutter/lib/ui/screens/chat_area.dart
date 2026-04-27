@@ -179,10 +179,10 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: const Color(0xFF5865F2),
-                          child: Text(p.user?.username[0].toUpperCase() ?? '?'),
+                          child: Text(p.user.username[0].toUpperCase()),
                         ),
                         title: Text(
-                          p.user?.username ?? 'Unknown',
+                          p.user.username,
                           style: const TextStyle(color: Colors.white),
                         ),
                         subtitle: Text(

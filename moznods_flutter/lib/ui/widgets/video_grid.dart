@@ -124,7 +124,6 @@ class VideoRendererWidget extends StatefulWidget {
 
 class _VideoRendererWidgetState extends State<VideoRendererWidget> {
   final _renderer = RTCVideoRenderer();
-  MediaStream? _currentStream;
 
   @override
   void initState() {
@@ -137,14 +136,12 @@ class _VideoRendererWidgetState extends State<VideoRendererWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.streamInfo.stream != widget.streamInfo.stream) {
       _renderer.srcObject = widget.streamInfo.stream;
-      _currentStream = widget.streamInfo.stream;
     }
   }
 
   Future<void> _initRenderer() async {
     await _renderer.initialize();
     _renderer.srcObject = widget.streamInfo.stream;
-    _currentStream = widget.streamInfo.stream;
   }
 
   @override

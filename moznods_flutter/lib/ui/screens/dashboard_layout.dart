@@ -4,11 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../store/room_provider.dart';
 import '../../store/chat_provider.dart';
 import '../../store/auth_provider.dart';
-import '../../store/call_provider.dart';
 import '../widgets/call_overlay.dart';
 import '../dialogs/create_room_dialog.dart';
 import 'chat_area.dart';
-import '../../models/room.dart';
 
 class DashboardLayout extends ConsumerStatefulWidget {
   final int? initialRoomId;

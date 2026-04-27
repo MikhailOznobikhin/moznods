@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/dio_client.dart';
 import '../api/ws_service.dart';
 import '../models/message.dart';
-import '../models/user.dart';
 
 class ChatState {
   final List<Message> messages;

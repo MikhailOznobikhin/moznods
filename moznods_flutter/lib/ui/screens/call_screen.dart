@@ -37,9 +37,12 @@ class CallScreen extends ConsumerWidget {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF57F287).withOpacity(0.2),
+                      color: const Color(0xFF57F287).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -79,20 +82,6 @@ class CallScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  bool _isLocalMuted(CallState state) {
-    if (state.localStream == null) return false;
-    final audioTracks = state.localStream!.getAudioTracks();
-    if (audioTracks.isEmpty) return false;
-    return !audioTracks[0].enabled;
-  }
-
-  bool _isLocalVideoEnabled(CallState state) {
-    if (state.localStream == null) return true;
-    final videoTracks = state.localStream!.getVideoTracks();
-    if (videoTracks.isEmpty) return true;
-    return videoTracks[0].enabled;
   }
 }
 
@@ -144,11 +133,7 @@ class _CallControls extends ConsumerWidget {
             label: 'Chat',
             onTap: () {},
           ),
-          _ControlButton(
-            icon: Icons.group_add,
-            label: 'Invite',
-            onTap: () {},
-          ),
+          _ControlButton(icon: Icons.group_add, label: 'Invite', onTap: () {}),
         ],
       ),
     );
@@ -198,21 +183,16 @@ class _ControlButton extends StatelessWidget {
           Container(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
-            ),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
           const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
-              color: isActive ? const Color(0xFFED4245) : const Color(0xFFB5BAC1),
+              color: isActive
+                  ? const Color(0xFFED4245)
+                  : const Color(0xFFB5BAC1),
               fontSize: 12,
             ),
           ),
