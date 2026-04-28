@@ -19,7 +19,7 @@ services:
 
     volumes:
       - .:/app
-      - /app/moznods_flutter/build
+      - ./moznods_flutter/build/web:/app/moznods_flutter/build/web
       - ./media:/app/media
       - ./static:/app/static
 

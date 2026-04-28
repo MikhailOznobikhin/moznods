@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../store/auth_provider.dart';
 import '../ui/screens/dashboard_layout.dart';
 import '../ui/screens/login_screen.dart';
+import '../ui/screens/register_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -12,9 +13,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = authState.user != null;
       final isLoggingIn = state.matchedLocation == '/login';
+      final isRegistering = state.matchedLocation == '/register';
 
-      if (!isLoggedIn && !isLoggingIn) return '/login';
-      if (isLoggedIn && isLoggingIn) return '/';
+      if (!isLoggedIn && !isLoggingIn && !isRegistering) return '/login';
+      if (isLoggedIn && (isLoggingIn || isRegistering)) return '/';
       return null;
     },
     routes: [
@@ -32,6 +34,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
     ],
   );
 });

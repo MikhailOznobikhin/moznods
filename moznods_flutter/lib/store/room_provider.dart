@@ -54,7 +54,10 @@ class RoomNotifier extends StateNotifier<RoomState> {
   Future<void> createRoom(String name) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _client.dio.post('/api/rooms/', data: {'name': name});
+      final response = await _client.dio.post(
+        '/api/rooms/',
+        data: {'name': name},
+      );
       final newRoom = Room.fromJson(response.data);
       state = state.copyWith(
         rooms: [...state.rooms, newRoom],
@@ -84,9 +87,13 @@ class RoomNotifier extends StateNotifier<RoomState> {
   Future<void> fetchParticipants(int roomId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _client.dio.get('/api/rooms/$roomId/participants/');
+      final response = await _client.dio.get(
+        '/api/rooms/$roomId/participants/',
+      );
       final List results = response.data;
-      final participants = results.map((p) => RoomParticipant.fromJson(p)).toList();
+      final participants = results
+          .map((p) => RoomParticipant.fromJson(p))
+          .toList();
       state = state.copyWith(participants: participants, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -107,7 +114,10 @@ class RoomNotifier extends StateNotifier<RoomState> {
 
   Future<void> addParticipant(int roomId, int userId) async {
     try {
-      await _client.dio.post('/api/rooms/$roomId/add/', data: {'user_id': userId});
+      await _client.dio.post(
+        '/api/rooms/$roomId/add-participant/',
+        data: {'user_id': userId},
+      );
       await fetchParticipants(roomId);
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -116,7 +126,10 @@ class RoomNotifier extends StateNotifier<RoomState> {
 
   Future<void> removeParticipant(int roomId, int userId) async {
     try {
-      await _client.dio.post('/api/rooms/$roomId/remove/', data: {'user_id': userId});
+      await _client.dio.post(
+        '/api/rooms/$roomId/remove-participant/',
+        data: {'user_id': userId},
+      );
       state = state.copyWith(
         participants: state.participants.where((p) => p.id != userId).toList(),
       );

@@ -10,6 +10,7 @@ class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(min_length=8, write_only=True)
+    password_confirm = serializers.CharField(write_only=True)
     display_name = serializers.CharField(
         max_length=150, required=False, default=""
     )
@@ -18,6 +19,11 @@ class RegisterSerializer(serializers.Serializer):
         if not value.strip():
             raise serializers.ValidationError("Username cannot be blank.")
         return value.strip()
+
+    def validate(self, attrs):
+        if attrs.get("password") != attrs.get("password_confirm"):
+            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+        return attrs
 
 
 class LoginSerializer(serializers.Serializer):

@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -11,6 +12,7 @@ from .services import UserService
 User = get_user_model()
 
 
+@csrf_exempt
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 

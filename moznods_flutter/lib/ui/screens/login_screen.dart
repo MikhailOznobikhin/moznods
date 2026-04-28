@@ -183,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () => context.go('/register'),
                         child: const Text(
                           'Register',
                           style: TextStyle(color: Color(0xFF5865F2)),

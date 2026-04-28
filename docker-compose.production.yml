@@ -97,6 +97,7 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
+      - ./moznods_flutter/build/web:/app/moznods_flutter/build/web:ro
     depends_on:
       - web
     networks:

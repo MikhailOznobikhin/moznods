@@ -57,7 +57,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> fetchMessages(int roomId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _client.dio.get('/api/chat/$roomId/messages/');
+      final response = await _client.dio.get('/api/rooms/$roomId/messages/');
       final dynamic data = response.data;
       List results;
       if (data is List) {
