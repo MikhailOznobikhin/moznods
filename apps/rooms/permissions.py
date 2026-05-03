@@ -23,3 +23,17 @@ class IsRoomOwner(permissions.BasePermission):
         if isinstance(obj, Room):
             return obj.owner_id == request.user.id
         return False
+
+
+class IsRoomAdmin(permissions.BasePermission):
+    """Allow only the room owner or admins."""
+
+    def has_object_permission(self, request, view, obj):
+        if not request.user.is_authenticated:
+            return False
+        if isinstance(obj, Room):
+            if obj.owner_id == request.user.id:
+                return True
+            participant = obj.participants.filter(user=request.user).first()
+            return participant is not None and participant.is_admin
+        return False

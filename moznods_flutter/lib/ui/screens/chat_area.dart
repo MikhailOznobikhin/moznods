@@ -51,8 +51,12 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
 
   @override
   Widget build(BuildContext context) {
-    final room = ref.watch(roomProvider).currentRoom;
+    final roomState = ref.watch(roomProvider);
+    final room = roomState.currentRoom;
     final chatState = ref.watch(chatProvider);
+    final currentUser = ref.watch(authProvider).user;
+    final canManageParticipants = room != null && currentUser != null && room.owner.id == currentUser.id;
+    final canPostInChannel = room == null || !room.isChannel || canManageParticipants;
 
     ref.listen(chatProvider, (previous, next) {
       if (previous?.messages.length != next.messages.length) {
@@ -89,8 +93,10 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
                 ? const Center(child: CircularProgressIndicator())
                 : _buildMessageList(chatState),
           ),
+          if (room.isChannel) _buildChannelNotice(canPostInChannel),
           if (_replyingToId != null) _buildReplyPreview(),
-          const MessageInput(replyToId: null, onCancelReply: null),
+          if (canPostInChannel)
+            const MessageInput(replyToId: null, onCancelReply: null),
         ],
       ),
     );
@@ -114,12 +120,44 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          if (room.isChannel) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.campaign, color: Color(0xFF80848E), size: 16),
+          ],
           const Spacer(),
-          _buildCallButton(false),
-          _buildCallButton(true),
+          if (!room.isChannel) ...[
+            _buildCallButton(false),
+            _buildCallButton(true),
+          ],
           IconButton(
             icon: const Icon(Icons.people, color: Color(0xFFB5BAC1)),
-            onPressed: () => _showParticipants(context),
+            onPressed: () => _showParticipants(context, room),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelNotice(bool canPostInChannel) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: canPostInChannel
+          ? const Color(0xFF5865F2).withValues(alpha: 0.12)
+          : const Color(0xFF2B2D31),
+      child: Row(
+        children: [
+          Icon(
+            canPostInChannel ? Icons.shield : Icons.lock_outline,
+            size: 16,
+            color: canPostInChannel ? const Color(0xFF5865F2) : const Color(0xFF80848E),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            canPostInChannel
+                ? 'You can post in this channel'
+                : 'Only admins can post in this channel',
+            style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 12),
           ),
         ],
       ),
@@ -149,58 +187,17 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
     );
   }
 
-  void _showParticipants(BuildContext context) {
+  void _showParticipants(BuildContext context, dynamic room) {
+    ref.read(roomProvider.notifier).fetchParticipants(room.id);
+    if (room.owner.id == ref.read(authProvider).user?.id) {
+      ref.read(roomProvider.notifier).fetchRoomBans(room.id);
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF2B2D31),
-      builder: (context) => Consumer(
-        builder: (context, ref, _) {
-          final participants = ref.watch(roomProvider).participants;
-          return Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Online — ${participants.length}',
-                  style: const TextStyle(
-                    color: Color(0xFFB5BAC1),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: participants.length,
-                    itemBuilder: (context, index) {
-                      final p = participants[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF5865F2),
-                          child: Text(p.user.username[0].toUpperCase()),
-                        ),
-                        title: Text(
-                          p.user.username,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        subtitle: Text(
-                          p.isAdmin ? 'Admin' : 'Member',
-                          style: const TextStyle(color: Color(0xFFB5BAC1)),
-                        ),
-                        trailing: p.isAdmin
-                            ? const Icon(Icons.star, color: Color(0xFFF9A825))
-                            : null,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      isScrollControlled: true,
+      builder: (context) => _ParticipantsSheet(roomId: room.id, ownerId: room.owner.id),
     );
   }
 
@@ -553,6 +550,152 @@ class _ActionButton extends StatelessWidget {
           child: Icon(icon, size: 16, color: Color(0xFFB5BAC1)),
         ),
       ),
+    );
+  }
+}
+
+class _ParticipantsSheet extends ConsumerStatefulWidget {
+  final int roomId;
+  final int ownerId;
+
+  const _ParticipantsSheet({required this.roomId, required this.ownerId});
+
+  @override
+  ConsumerState<_ParticipantsSheet> createState() => _ParticipantsSheetState();
+}
+
+class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
+  bool _showBans = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final roomState = ref.watch(roomProvider);
+    final currentUserId = ref.watch(authProvider).user?.id;
+    final isOwner = currentUserId == widget.ownerId;
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.75,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  _showBans ? 'Banned users' : 'Participants — ${roomState.participants.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                const Spacer(),
+                if (isOwner)
+                  TextButton.icon(
+                    onPressed: () => setState(() => _showBans = !_showBans),
+                    icon: Icon(
+                      _showBans ? Icons.people : Icons.gpp_bad,
+                      size: 16,
+                    ),
+                    label: Text(_showBans ? 'Participants' : 'Bans'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _showBans
+                  ? _buildBans(roomState, isOwner)
+                  : _buildParticipants(roomState, isOwner, currentUserId),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildParticipants(RoomState state, bool isOwner, int? currentUserId) {
+    return ListView.builder(
+      itemCount: state.participants.length,
+      itemBuilder: (context, index) {
+        final p = state.participants[index];
+        final isSelf = p.user.id == currentUserId;
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: const Color(0xFF5865F2),
+            child: Text(p.user.username[0].toUpperCase()),
+          ),
+          title: Text(p.user.username, style: const TextStyle(color: Colors.white)),
+          subtitle: Text(
+            p.isAdmin ? 'Admin' : 'Member',
+            style: const TextStyle(color: Color(0xFFB5BAC1)),
+          ),
+          trailing: isOwner && !isSelf
+              ? PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Color(0xFFB5BAC1)),
+                  onSelected: (value) async {
+                    if (value == 'admin' || value == 'member') {
+                      await ref.read(roomProvider.notifier).updateParticipantRole(
+                            roomId: widget.roomId,
+                            userId: p.user.id,
+                            role: value,
+                          );
+                    } else if (value == 'ban') {
+                      await ref.read(roomProvider.notifier).banUser(
+                            roomId: widget.roomId,
+                            userId: p.user.id,
+                          );
+                    } else if (value == 'remove') {
+                      await ref.read(roomProvider.notifier).removeParticipant(
+                            widget.roomId,
+                            p.user.id,
+                          );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'admin', child: Text('Make admin')),
+                    const PopupMenuItem(value: 'member', child: Text('Make member')),
+                    const PopupMenuItem(value: 'ban', child: Text('Ban user')),
+                    const PopupMenuItem(value: 'remove', child: Text('Remove from room')),
+                  ],
+                )
+              : (p.isAdmin
+                    ? const Icon(Icons.star, color: Color(0xFFF9A825))
+                    : null),
+        );
+      },
+    );
+  }
+
+  Widget _buildBans(RoomState state, bool isOwner) {
+    if (state.roomBans.isEmpty) {
+      return const Center(
+        child: Text('No bans', style: TextStyle(color: Color(0xFF80848E))),
+      );
+    }
+    return ListView.builder(
+      itemCount: state.roomBans.length,
+      itemBuilder: (context, index) {
+        final ban = state.roomBans[index];
+        return ListTile(
+          leading: const Icon(Icons.block, color: Color(0xFFED4245)),
+          title: Text(
+            ban.user.username,
+            style: const TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            ban.reason?.isNotEmpty == true ? ban.reason! : 'No reason',
+            style: const TextStyle(color: Color(0xFFB5BAC1)),
+          ),
+          trailing: isOwner
+              ? IconButton(
+                  onPressed: () async {
+                    await ref.read(roomProvider.notifier).unbanUser(
+                          roomId: widget.roomId,
+                          userId: ban.user.id,
+                        );
+                  },
+                  icon: const Icon(Icons.undo, color: Color(0xFF57F287)),
+                )
+              : null,
+        );
+      },
     );
   }
 }

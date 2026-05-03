@@ -118,10 +118,10 @@ class Sidebar extends ConsumerWidget {
                     tileColor: isSelected
                         ? const Color(0xFF3F4147)
                         : Colors.transparent,
-                    leading: const Icon(
-                      Icons.tag,
+                    leading: Icon(
+                      room.isChannel ? Icons.tag : Icons.forum,
                       size: 20,
-                      color: Color(0xFF80848E),
+                      color: const Color(0xFF80848E),
                     ),
                     title: Text(
                       room.name,
@@ -144,6 +144,24 @@ class Sidebar extends ConsumerWidget {
                     },
                   ),
                 );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: ListTile(
+              dense: true,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              leading: const Icon(Icons.public, color: Color(0xFF80848E), size: 20),
+              title: const Text(
+                'Discover',
+                style: TextStyle(color: Color(0xFFB5BAC1)),
+              ),
+              onTap: () {
+                context.go('/discover');
+                if (MediaQuery.of(context).size.width < 768) {
+                  Navigator.pop(context);
+                }
               },
             ),
           ),

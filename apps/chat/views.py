@@ -8,6 +8,7 @@ from apps.rooms.models import Room
 from apps.rooms.services import RoomService
 
 from .models import Message
+from .permissions import can_send_message
 from .serializers import CreateMessageSerializer, MessageSerializer
 from .services import MessageService
 
@@ -70,6 +71,11 @@ class MessageListCreateView(APIView):
         err = self.check_room_access(request, room)
         if err:
             return err
+        if not can_send_message(request.user, room):
+            return Response(
+                {"detail": "Only admins can send messages in channels."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = CreateMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

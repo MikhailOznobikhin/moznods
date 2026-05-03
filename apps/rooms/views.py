@@ -7,7 +7,6 @@ from rest_framework.views import APIView
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
 
 from .models import Room, RoomParticipant
-from .permissions import IsRoomOwner, IsRoomParticipant
 from .serializers import (
     CreateRoomSerializer,
     AddParticipantSerializer,
@@ -15,8 +14,13 @@ from .serializers import (
     RoomParticipantSerializer,
     RoomSerializer,
     UpdateRoomSerializer,
+    PublicRoomSerializer,
+    RoomBanSerializer,
+    UpdateRoleSerializer,
+    BanUserSerializer,
 )
 from .services import RoomService, InvitationService
+from .permissions import IsRoomOwner, IsRoomParticipant, IsRoomAdmin
 
 
 class RoomPinView(APIView):
@@ -106,6 +110,10 @@ class RoomListCreateView(APIView):
         room = RoomService.create_room(
             owner=request.user,
             name=serializer.validated_data["name"],
+            is_public=serializer.validated_data.get("is_public", False),
+            is_channel=serializer.validated_data.get("is_channel", False),
+            username=serializer.validated_data.get("username") or None,
+            avatar=serializer.validated_data.get("avatar"),
         )
         return Response(
             RoomSerializer(room, context={"request": request}).data,
@@ -318,6 +326,171 @@ class DirectRoomCreateView(APIView):
         try:
             room = RoomService.get_or_create_direct_room(request.user, target_user)
             return Response(RoomSerializer(room, context={"request": request}).data)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+
+class PublicRoomListView(APIView):
+    """List public rooms for discovery."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        search = request.query_params.get("search", "")
+        raw_is_channel = request.query_params.get("is_channel")
+        is_channel = None
+        if raw_is_channel is not None:
+            lowered = raw_is_channel.strip().lower()
+            if lowered in {"1", "true", "yes"}:
+                is_channel = True
+            elif lowered in {"0", "false", "no"}:
+                is_channel = False
+        rooms = RoomService.list_public_rooms(search=search, is_channel=is_channel)
+        serializer = PublicRoomSerializer(rooms, many=True)
+        return Response(serializer.data)
+
+
+class RoomByUsernameView(APIView):
+    """Get a room by its public username."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, username):
+        try:
+            room = RoomService.get_room_by_username(username)
+            if not room:
+                return Response(
+                    {"detail": "Room not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(RoomSerializer(room, context={"request": request}).data)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+
+class JoinRoomByUsernameView(APIView):
+    """Join a public room by its username."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, username):
+        try:
+            room = RoomService.join_by_username(request.user, username)
+            return Response(RoomSerializer(room, context={"request": request}).data)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+
+class RoomBanListView(APIView):
+    """List banned users in a room."""
+
+    permission_classes = [IsAuthenticated, IsRoomAdmin]
+
+    def get(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        bans = room.bans.select_related("user", "banned_by").all()
+        serializer = RoomBanSerializer(bans, many=True)
+        return Response(serializer.data)
+
+
+class RoomBanView(APIView):
+    """Ban or unban a user in a room."""
+
+    permission_classes = [IsAuthenticated, IsRoomAdmin]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        serializer = BanUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        try:
+            target_user = User.objects.get(pk=serializer.validated_data["user_id"])
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            ban = RoomService.ban_user(
+                room=room,
+                user=target_user,
+                banned_by=request.user,
+                reason=serializer.validated_data.get("reason", ""),
+            )
+            return Response(RoomBanSerializer(ban).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+    def delete(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        try:
+            target_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            RoomService.unban_user(room, target_user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            from core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            raise
+
+
+class RoomUpdateRoleView(APIView):
+    """Update participant role (admin/member)."""
+
+    permission_classes = [IsAuthenticated, IsRoomOwner]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        serializer = UpdateRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        try:
+            target_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            participant = RoomService.update_role(
+                room=room,
+                user=target_user,
+                new_role=serializer.validated_data["role"],
+            )
+            return Response(RoomParticipantSerializer(participant, context={"request": request}).data)
         except Exception as e:
             from core.exceptions import ValidationError
             if isinstance(e, ValidationError):

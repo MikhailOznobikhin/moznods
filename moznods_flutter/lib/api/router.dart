@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../store/auth_provider.dart';
 import '../ui/screens/dashboard_layout.dart';
+import '../ui/screens/discovery_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/register_screen.dart';
 
@@ -24,6 +25,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         builder: (context, state) => const DashboardLayout(),
         routes: [
+          GoRoute(
+            path: 'discover',
+            builder: (context, state) => const DiscoveryScreen(),
+          ),
           GoRoute(
             path: 'room/:roomId',
             builder: (context, state) {

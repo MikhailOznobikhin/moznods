@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
 
-from .models import Room, RoomParticipant
+from .models import Room, RoomParticipant, RoomBan
 
 User = get_user_model()
 
@@ -14,13 +14,14 @@ class RoomParticipantSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     joined_at = serializers.DateTimeField(source="created_at", read_only=True)
     is_admin = serializers.SerializerMethodField()
+    role = serializers.CharField(read_only=True)
 
     class Meta:
         model = RoomParticipant
-        fields = ("id", "user", "joined_at", "is_admin")
+        fields = ("id", "user", "joined_at", "is_admin", "role")
 
     def get_is_admin(self, obj: RoomParticipant) -> bool:
-        return obj.room.owner_id == obj.user_id
+        return obj.is_admin
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -35,7 +36,7 @@ class RoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Room
-        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "unread_count", "is_pinned", "participant_users", "is_direct", "created_at", "updated_at")
+        fields = ("id", "name", "owner", "participant_count", "active_call_participants", "unread_count", "is_pinned", "participant_users", "is_direct", "is_public", "is_channel", "username", "avatar", "created_at", "updated_at")
 
     def get_participant_count(self, obj: Room) -> int:
         return obj.participants.count()
@@ -78,6 +79,17 @@ class CreateRoomSerializer(serializers.Serializer):
     """Input for creating a room."""
 
     name = serializers.CharField(max_length=255)
+    is_public = serializers.BooleanField(default=False, required=False)
+    is_channel = serializers.BooleanField(default=False, required=False)
+    username = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    avatar = serializers.ImageField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if attrs.get("is_public") and not attrs.get("username"):
+            raise serializers.ValidationError({"username": ["Public rooms must have a username."]})
+        if attrs.get("is_channel") and not attrs.get("is_public"):
+            raise serializers.ValidationError({"is_channel": ["Channels must be public."]})
+        return attrs
 
     def validate_name(self, value: str) -> str:
         if not value.strip():
@@ -120,3 +132,41 @@ class RemoveParticipantSerializer(serializers.Serializer):
         if not attrs.get("id") and not attrs.get("username") and not attrs.get("email"):
             raise serializers.ValidationError("Provide id, username, or email.")
         return attrs
+
+
+class PublicRoomSerializer(serializers.ModelSerializer):
+    """Minimal room data for public listings."""
+
+    owner = UserSerializer(read_only=True)
+    participant_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Room
+        fields = ("id", "name", "username", "is_channel", "avatar", "owner", "participant_count", "created_at")
+
+    def get_participant_count(self, obj: Room) -> int:
+        return obj.participants.count()
+
+
+class RoomBanSerializer(serializers.ModelSerializer):
+    """Serializer for room bans."""
+
+    user = UserSerializer(read_only=True)
+    banned_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = RoomBan
+        fields = ("id", "user", "banned_by", "reason", "created_at")
+
+
+class UpdateRoleSerializer(serializers.Serializer):
+    """Input for updating participant role."""
+
+    role = serializers.ChoiceField(choices=[("admin", "Admin"), ("member", "Member")])
+
+
+class BanUserSerializer(serializers.Serializer):
+    """Input for banning a user."""
+
+    user_id = serializers.IntegerField()
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
