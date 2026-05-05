@@ -6,9 +6,9 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
-downloads/
-eggs/
+/dist/
+/downloads/
+/eggs/
 .eggs/
 /lib/
 lib64/
@@ -43,6 +43,7 @@ db.sqlite3-journal
 # IDE
 .idea/
 .vscode/
+*.iml
 *.swp
 *.swo
 *~
@@ -79,13 +80,22 @@ celerybeat.pid
 # Flutter
 moznods_flutter/build/
 moznods_flutter/.dart_tool/
-moznods_flutter/pubspec.lock
 moznods_flutter/.flutter*
 moznods_flutter/coverage/
 *.jks
 *.p12
 *.key
-.mel刷*
+
+# Android (generated/local — kept out of the repo)
+moznods_flutter/android/.gradle/
+moznods_flutter/android/.kotlin/
+moznods_flutter/android/local.properties
+moznods_flutter/android/captures/
+moznods_flutter/android/app/debug/
+moznods_flutter/android/app/profile/
+moznods_flutter/android/app/release/
+moznods_flutter/android/key.properties
+**/*.keystore
 
 # Flutter Web build output (served by Nginx, not committed)
 # /build/web/
