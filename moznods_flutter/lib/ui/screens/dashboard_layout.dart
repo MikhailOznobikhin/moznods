@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/room_provider.dart';
@@ -32,6 +33,10 @@ class _DashboardLayoutState extends ConsumerState<DashboardLayout> {
             );
             ref.read(roomProvider.notifier).setCurrentRoom(room);
             ref.read(chatProvider.notifier).fetchMessages(room.id);
+            final auth = ref.read(authProvider);
+            if (auth.token != null) {
+              ref.read(chatProvider.notifier).connect(room.id, auth.token!);
+            }
           }
         }
       });
@@ -137,6 +142,10 @@ class Sidebar extends ConsumerWidget {
                     onTap: () {
                       ref.read(roomProvider.notifier).setCurrentRoom(room);
                       ref.read(chatProvider.notifier).fetchMessages(room.id);
+                      final auth = ref.read(authProvider);
+                      if (auth.token != null) {
+                        ref.read(chatProvider.notifier).connect(room.id, auth.token!);
+                      }
                       context.go('/room/${room.id}');
                       if (MediaQuery.of(context).size.width < 768) {
                         Navigator.pop(context);
@@ -153,9 +162,9 @@ class Sidebar extends ConsumerWidget {
               dense: true,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               leading: const Icon(Icons.public, color: Color(0xFF80848E), size: 20),
-              title: const Text(
-                'Discover',
-                style: TextStyle(color: Color(0xFFB5BAC1)),
+              title: Text(
+                AppLocalizations.of(context)!.discover,
+                style: const TextStyle(color: Color(0xFFB5BAC1)),
               ),
               onTap: () {
                 context.go('/discover');
@@ -199,7 +208,7 @@ class UserPanel extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  user?.displayName ?? user?.username ?? 'Unknown',
+                  user?.displayName ?? user?.username ?? '',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -245,32 +254,48 @@ class UserPanel extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.person, color: Color(0xFFB5BAC1)),
-              title: const Text(
-                'Profile',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                AppLocalizations.of(context)!.profile,
+                style: const TextStyle(color: Colors.white),
               ),
               onTap: () {
                 Navigator.pop(context);
+                context.push('/profile');
               },
             ),
             ListTile(
               leading: const Icon(
-                Icons.notifications,
+                Icons.settings,
                 color: Color(0xFFB5BAC1),
               ),
-              title: const Text(
-                'Notifications',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                AppLocalizations.of(context)!.settings,
+                style: const TextStyle(color: Colors.white),
               ),
               onTap: () {
                 Navigator.pop(context);
+                context.push('/settings');
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.android,
+                color: Color(0xFFB5BAC1),
+              ),
+              title: Text(
+                AppLocalizations.of(context)!.downloadApk,
+                style: const TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/download');
               },
             ),
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFFED4245)),
-              title: const Text(
-                'Logout',
-                style: TextStyle(color: Color(0xFFED4245)),
+              title: Text(
+                AppLocalizations.of(context)!.logout,
+                style: const TextStyle(color: Color(0xFFED4245)),
               ),
               onTap: () {
                 Navigator.pop(context);

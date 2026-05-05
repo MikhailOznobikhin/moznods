@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../store/chat_provider.dart';
 import '../../store/room_provider.dart';
@@ -67,15 +68,15 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
     if (room == null) {
       return Container(
         color: const Color(0xFF313338),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.tag, size: 64, color: Color(0xFF4E5058)),
-              SizedBox(height: 16),
+              const Icon(Icons.tag, size: 64, color: Color(0xFF4E5058)),
+              const SizedBox(height: 16),
               Text(
-                'Select a channel to start chatting',
-                style: TextStyle(color: Color(0xFFB5BAC1), fontSize: 16),
+                AppLocalizations.of(context)!.selectChannelToStart,
+                style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 16),
               ),
             ],
           ),
@@ -139,6 +140,7 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
   }
 
   Widget _buildChannelNotice(bool canPostInChannel) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -155,8 +157,8 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
           const SizedBox(width: 8),
           Text(
             canPostInChannel
-                ? 'You can post in this channel'
-                : 'Only admins can post in this channel',
+                ? l10n.youCanPostInChannel
+                : l10n.onlyAdminsCanPost,
             style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 12),
           ),
         ],
@@ -203,16 +205,17 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
 
   Widget _buildMessageList(ChatState chatState) {
     if (chatState.messages.isEmpty) {
-      return const Center(
+      final l10n = AppLocalizations.of(context)!;
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline, size: 48, color: Color(0xFF4E5058)),
-            SizedBox(height: 8),
-            Text('No messages yet', style: TextStyle(color: Color(0xFF80848E))),
+            const Icon(Icons.chat_bubble_outline, size: 48, color: Color(0xFF4E5058)),
+            const SizedBox(height: 8),
+            Text(l10n.noMessagesYet, style: const TextStyle(color: Color(0xFF80848E))),
             Text(
-              'Be the first to say something!',
-              style: TextStyle(color: Color(0xFF4E5058), fontSize: 12),
+              l10n.beTheFirstToSay,
+              style: const TextStyle(color: Color(0xFF4E5058), fontSize: 12),
             ),
           ],
         ),
@@ -254,15 +257,16 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
   }
 
   Widget _buildTimestampDivider(DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final messageDate = DateTime(date.year, date.month, date.day);
 
     String label;
     if (messageDate == today) {
-      label = 'Today';
+      label = l10n.today;
     } else if (messageDate == today.subtract(const Duration(days: 1))) {
-      label = 'Yesterday';
+      label = l10n.yesterday;
     } else {
       label = '${date.day}/${date.month}/${date.year}';
     }
@@ -290,6 +294,7 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
   }
 
   Widget _buildReplyPreview() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
@@ -302,9 +307,9 @@ class _ChatAreaState extends ConsumerState<ChatArea> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Replying to',
-                  style: TextStyle(color: Color(0xFF5865F2), fontSize: 12),
+                Text(
+                  l10n.replyingTo,
+                  style: const TextStyle(color: Color(0xFF5865F2), fontSize: 12),
                 ),
                 Text(
                   _replyingToContent ?? '',
@@ -461,26 +466,27 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> {
   }
 
   Widget _buildActionButtons() {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
           _ActionButton(
             icon: Icons.add_reaction_outlined,
-            tooltip: 'Add reaction',
+            tooltip: l10n.addReaction,
             onPressed: () => _showReactionPicker(),
           ),
           const SizedBox(width: 4),
           _ActionButton(
             icon: Icons.reply,
-            tooltip: 'Reply',
+            tooltip: l10n.reply,
             onPressed: widget.onReply,
           ),
           if (widget.isOwnMessage) ...[
             const SizedBox(width: 4),
             _ActionButton(
               icon: Icons.delete_outline,
-              tooltip: 'Delete',
+              tooltip: l10n.delete,
               onPressed: () => _deleteMessage(),
             ),
           ],
@@ -569,6 +575,7 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final roomState = ref.watch(roomProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
     final isOwner = currentUserId == widget.ownerId;
@@ -583,7 +590,9 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
             Row(
               children: [
                 Text(
-                  _showBans ? 'Banned users' : 'Participants — ${roomState.participants.length}',
+                  _showBans
+                      ? l10n.bannedUsers
+                      : l10n.participantsWithCount(roomState.participants.length),
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
                 const Spacer(),
@@ -594,7 +603,7 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
                       _showBans ? Icons.people : Icons.gpp_bad,
                       size: 16,
                     ),
-                    label: Text(_showBans ? 'Participants' : 'Bans'),
+                    label: Text(_showBans ? l10n.participants : l10n.bans),
                   ),
               ],
             ),
@@ -611,6 +620,7 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
   }
 
   Widget _buildParticipants(RoomState state, bool isOwner, int? currentUserId) {
+    final l10n = AppLocalizations.of(context)!;
     return ListView.builder(
       itemCount: state.participants.length,
       itemBuilder: (context, index) {
@@ -623,7 +633,7 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
           ),
           title: Text(p.user.username, style: const TextStyle(color: Colors.white)),
           subtitle: Text(
-            p.isAdmin ? 'Admin' : 'Member',
+            p.isAdmin ? l10n.admin : l10n.member,
             style: const TextStyle(color: Color(0xFFB5BAC1)),
           ),
           trailing: isOwner && !isSelf
@@ -649,10 +659,10 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'admin', child: Text('Make admin')),
-                    const PopupMenuItem(value: 'member', child: Text('Make member')),
-                    const PopupMenuItem(value: 'ban', child: Text('Ban user')),
-                    const PopupMenuItem(value: 'remove', child: Text('Remove from room')),
+                    PopupMenuItem(value: 'admin', child: Text(l10n.makeAdmin)),
+                    PopupMenuItem(value: 'member', child: Text(l10n.makeMember)),
+                    PopupMenuItem(value: 'ban', child: Text(l10n.banUser)),
+                    PopupMenuItem(value: 'remove', child: Text(l10n.removeFromRoom)),
                   ],
                 )
               : (p.isAdmin
@@ -664,9 +674,10 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
   }
 
   Widget _buildBans(RoomState state, bool isOwner) {
+    final l10n = AppLocalizations.of(context)!;
     if (state.roomBans.isEmpty) {
-      return const Center(
-        child: Text('No bans', style: TextStyle(color: Color(0xFF80848E))),
+      return Center(
+        child: Text(l10n.noBans, style: const TextStyle(color: Color(0xFF80848E))),
       );
     }
     return ListView.builder(
@@ -680,7 +691,7 @@ class _ParticipantsSheetState extends ConsumerState<_ParticipantsSheet> {
             style: const TextStyle(color: Colors.white),
           ),
           subtitle: Text(
-            ban.reason?.isNotEmpty == true ? ban.reason! : 'No reason',
+            ban.reason?.isNotEmpty == true ? ban.reason! : l10n.noReason,
             style: const TextStyle(color: Color(0xFFB5BAC1)),
           ),
           trailing: isOwner

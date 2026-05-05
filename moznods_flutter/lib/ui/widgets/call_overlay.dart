@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../store/call_provider.dart';
 import '../widgets/video_grid.dart';
@@ -56,10 +57,10 @@ class _CallOverlayState extends ConsumerState<CallOverlay> {
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Icon(Icons.call, size: 16, color: Colors.green),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Active Call',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        AppLocalizations.of(context)!.activeCall,
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                     IconButton(

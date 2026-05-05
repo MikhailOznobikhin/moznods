@@ -9,9 +9,17 @@ class WebSocketService {
 
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
 
-  void connect(String url, String token) {
-    final wsUrl = Uri.parse('$url/?token=$token');
+  void connect(
+    String url,
+    String token, {
+    void Function()? onConnected,
+    void Function(Object error)? onError,
+    void Function()? onDone,
+  }) {
+    final normalizedUrl = url.endsWith('/') ? url : '$url/';
+    final wsUrl = Uri.parse('${normalizedUrl}?token=$token');
     _channel = WebSocketChannel.connect(wsUrl);
+    onConnected?.call();
 
     _channel!.stream.listen(
       (data) {
@@ -20,9 +28,11 @@ class WebSocketService {
       },
       onError: (error) {
         print('WebSocket Error: $error');
+        onError?.call(error);
       },
       onDone: () {
         print('WebSocket Closed');
+        onDone?.call();
       },
     );
   }

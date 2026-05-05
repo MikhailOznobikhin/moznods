@@ -23,6 +23,8 @@ MOznoDS is a web application for group voice calls and messaging — a simplifie
 - **Text Chat** – Real-time messaging with file attachments
 - **Room Management** – Create, join, and manage communication rooms
 - **User Authentication** – Secure user registration and login
+- **i18n (RU/EN)** – Russian by default, English available via the language selector in `/settings`. Strings live in `moznods_flutter/lib/l10n/app_*.arb` and are consumed via `AppLocalizations.of(context)!.<key>`.
+- **Android APK distribution** – `/download` page (`moznods_flutter/lib/ui/screens/download_screen.dart`) calls `GET /api/downloads/apk/info/` for metadata and hits `GET /api/downloads/apk/` to download. The APK is built in **GitHub Actions** (`.github/workflows/build-flutter.yml`) — every tag `v*` produces a Release with `moznods.apk` attached. On the server set `MOZNODS_APK_RELEASE_URL` to the Release URL and the Django endpoint will 302-redirect to it; if a local APK is present at `media/downloads/moznods.apk`, that one is served instead. See `commands.md` for the full flow.
 
 ## Getting Started
 

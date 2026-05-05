@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../../api/dio_client.dart';
@@ -29,7 +30,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _errorMessage = l10n.fixHighlightedFields;
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -50,23 +57,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful! Please login.'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(l10n.registrationSuccess),
+            backgroundColor: const Color(0xFF248046),
           ),
         );
         context.go('/login');
       }
     } on DioException catch (e) {
       setState(() {
-        _errorMessage =
-            e.response?.data?['detail'] ??
-            e.response?.data?['message'] ??
-            'Registration failed. Please try again.';
+        _errorMessage = _extractErrorMessage(e, l10n.registrationFailed);
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An unexpected error occurred.';
+        _errorMessage = l10n.unexpectedError;
       });
     } finally {
       if (mounted) {
@@ -77,8 +81,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  String _extractErrorMessage(DioException error, String fallback) {
+    final responseData = error.response?.data;
+
+    if (responseData is Map<String, dynamic>) {
+      final detail = responseData['detail'];
+      if (detail is String && detail.trim().isNotEmpty) {
+        return detail;
+      }
+
+      final message = responseData['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message;
+      }
+
+      for (final entry in responseData.entries) {
+        final value = entry.value;
+        if (value is List && value.isNotEmpty) {
+          final first = value.first;
+          if (first is String && first.trim().isNotEmpty) {
+            return first;
+          }
+        }
+        if (value is String && value.trim().isNotEmpty) {
+          return value;
+        }
+      }
+    } else if (responseData is String && responseData.trim().isNotEmpty) {
+      return responseData;
+    }
+
+    return fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF313338),
       body: Center(
@@ -94,20 +132,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 children: [
                   const Icon(Icons.hub, size: 64, color: Color(0xFF5865F2)),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Create Account',
+                  Text(
+                    l10n.createAccount,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Join MOznoDS today',
+                  Text(
+                    l10n.joinMoznodsToday,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Color(0xFFB5BAC1)),
+                    style: const TextStyle(fontSize: 14, color: Color(0xFFB5BAC1)),
                   ),
                   const SizedBox(height: 32),
                   if (_errorMessage != null)
@@ -129,16 +167,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   TextFormField(
                     controller: _usernameController,
+                    style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Username',
+                      label: l10n.username,
                       icon: Icons.person,
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a username';
+                        return l10n.enterUsername;
                       }
                       if (value.trim().length < 3) {
-                        return 'Username must be at least 3 characters';
+                        return l10n.usernameMinLength;
                       }
                       return null;
                     },
@@ -146,19 +185,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
+                    style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Email',
+                      label: l10n.email,
                       icon: Icons.email,
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter an email';
+                        return l10n.enterEmail;
                       }
                       if (!RegExp(
                         r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                       ).hasMatch(value)) {
-                        return 'Please enter a valid email';
+                        return l10n.enterValidEmail;
                       }
                       return null;
                     },
@@ -166,17 +206,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
+                    style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Password',
+                      label: l10n.password,
                       icon: Icons.lock,
                     ),
                     obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter a password';
+                        return l10n.enterPassword;
                       }
                       if (value.length < 8) {
-                        return 'Password must be at least 8 characters';
+                        return l10n.passwordMinLength8;
                       }
                       return null;
                     },
@@ -184,14 +225,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _confirmPasswordController,
+                    style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Confirm Password',
+                      label: l10n.confirmPassword,
                       icon: Icons.lock_outline,
                     ),
                     obscureText: true,
                     validator: (value) {
                       if (value != _passwordController.text) {
-                        return 'Passwords do not match';
+                        return l10n.passwordsDoNotMatch;
                       }
                       return null;
                     },
@@ -216,9 +258,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(
+                        : Text(
+                            l10n.createAccount,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -228,15 +270,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Already have an account?',
-                        style: TextStyle(color: Color(0xFFB5BAC1)),
+                      Text(
+                        l10n.alreadyHaveAccount,
+                        style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
                         onPressed: () => context.go('/login'),
-                        child: const Text(
-                          'Sign In',
-                          style: TextStyle(color: Color(0xFF5865F2)),
+                        child: Text(
+                          l10n.signIn,
+                          style: const TextStyle(color: Color(0xFF5865F2)),
                         ),
                       ),
                     ],

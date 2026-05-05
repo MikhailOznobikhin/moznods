@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../store/room_provider.dart';
 
@@ -44,9 +45,10 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       backgroundColor: const Color(0xFF2B2D31),
-      title: const Text('Create Room', style: TextStyle(color: Colors.white)),
+      title: Text(l10n.createRoom, style: const TextStyle(color: Colors.white)),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -57,25 +59,25 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
                 controller: _nameController,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Room name',
-                  hintStyle: TextStyle(color: Color(0xFF80848E)),
-                  enabledBorder: UnderlineInputBorder(
+                decoration: InputDecoration(
+                  hintText: l10n.roomName,
+                  hintStyle: const TextStyle(color: Color(0xFF80848E)),
+                  enabledBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFF4E5058)),
                   ),
-                  focusedBorder: UnderlineInputBorder(
+                  focusedBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFF5865F2)),
                   ),
-                  errorBorder: UnderlineInputBorder(
+                  errorBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFFED4245)),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Room name is required';
+                    return l10n.roomNameRequired;
                   }
                   if (value.trim().length < 2) {
-                    return 'Room name must be at least 2 characters';
+                    return l10n.roomNameMinLength;
                   }
                   return null;
                 },
@@ -83,9 +85,9 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
               const SizedBox(height: 12),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Public room',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l10n.publicRoom,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 value: _isPublic,
                 onChanged: _isLoading
@@ -104,19 +106,19 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
                 TextFormField(
                   controller: _usernameController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Public username (without @)',
-                    hintStyle: TextStyle(color: Color(0xFF80848E)),
-                    enabledBorder: UnderlineInputBorder(
+                  decoration: InputDecoration(
+                    hintText: l10n.publicUsernameHint,
+                    hintStyle: const TextStyle(color: Color(0xFF80848E)),
+                    enabledBorder: const UnderlineInputBorder(
                       borderSide: BorderSide(color: Color(0xFF4E5058)),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: const UnderlineInputBorder(
                       borderSide: BorderSide(color: Color(0xFF5865F2)),
                     ),
                   ),
                   validator: (value) {
                     if (_isPublic && (value == null || value.trim().isEmpty)) {
-                      return 'Username is required for public rooms';
+                      return l10n.publicUsernameRequired;
                     }
                     return null;
                   },
@@ -124,9 +126,9 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
                 const SizedBox(height: 8),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Channel mode (admins post only)',
-                    style: TextStyle(color: Colors.white),
+                  title: Text(
+                    l10n.channelMode,
+                    style: const TextStyle(color: Colors.white),
                   ),
                   value: _isChannel,
                   onChanged: _isLoading
@@ -142,7 +144,7 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
           child: Text(
-            'Cancel',
+            l10n.cancel,
             style: TextStyle(color: _isLoading ? const Color(0xFF80848E) : const Color(0xFFB5BAC1)),
           ),
         ),
@@ -154,7 +156,7 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF5865F2)),
                 )
-              : const Text('Create', style: TextStyle(color: Color(0xFF5865F2))),
+              : Text(l10n.create, style: const TextStyle(color: Color(0xFF5865F2))),
         ),
       ],
     );

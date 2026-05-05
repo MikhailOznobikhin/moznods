@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../store/call_provider.dart';
 
@@ -16,6 +17,7 @@ class VideoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final allStreams = <_StreamInfo>[];
 
     if (localStream != null) {
@@ -24,7 +26,7 @@ class VideoGrid extends StatelessWidget {
           stream: localStream!,
           isLocal: true,
           participantId: -1,
-          username: 'You',
+          username: l10n.youLabel,
           state: 'connected',
           isMuted: false,
           isVideoEnabled: true,
@@ -39,7 +41,7 @@ class VideoGrid extends StatelessWidget {
           stream: entry.value,
           isLocal: false,
           participantId: entry.key,
-          username: participant?.username ?? 'User ${entry.key}',
+          username: participant?.username ?? l10n.userPlaceholder(entry.key),
           state: participant?.state ?? 'connecting',
           isMuted: participant?.isMuted ?? false,
           isVideoEnabled: participant?.isVideoEnabled ?? true,
@@ -48,15 +50,15 @@ class VideoGrid extends StatelessWidget {
     }
 
     if (allStreams.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.videocam_off, size: 64, color: Colors.white30),
-            SizedBox(height: 16),
+            const Icon(Icons.videocam_off, size: 64, color: Colors.white30),
+            const SizedBox(height: 16),
             Text(
-              'No active video streams',
-              style: TextStyle(color: Colors.white70, fontSize: 16),
+              l10n.noActiveVideoStreams,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
             ),
           ],
         ),
@@ -186,15 +188,15 @@ class _VideoRendererWidgetState extends State<VideoRendererWidget> {
             Positioned.fill(
               child: Container(
                 color: Colors.black45,
-                child: const Center(
+                child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 8),
+                      const CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 8),
                       Text(
-                        'Connecting...',
-                        style: TextStyle(color: Colors.white70),
+                        AppLocalizations.of(context)!.connecting,
+                        style: const TextStyle(color: Colors.white70),
                       ),
                     ],
                   ),
@@ -251,9 +253,9 @@ class _VideoRendererWidgetState extends State<VideoRendererWidget> {
                   color: Colors.red.withAlpha(200),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Disconnected',
-                  style: TextStyle(color: Colors.white, fontSize: 10),
+                child: Text(
+                  AppLocalizations.of(context)!.disconnectedLabel,
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
                 ),
               ),
             ),

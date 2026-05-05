@@ -4,7 +4,7 @@
 _flutter.loader.load({
   config: {
     entryPointBaseUrl: '/static/',
-    assetBase: '/static/assets/',
+    assetBase: '/static/',
   },
   serviceWorkerSettings: {
     serviceWorkerVersion: {{flutter_service_worker_version}},

@@ -1,8 +1,11 @@
 from core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.db.models import Q, QuerySet
 
 User = get_user_model()
+
+USER_SEARCH_LIMIT = 20
 
 
 class UserService:
@@ -40,3 +43,16 @@ class UserService:
             return user
         except IntegrityError as e:
             raise ValidationError(detail={"__all__": [str(e)]}) from e
+
+    @staticmethod
+    def search(*, query: str, exclude_user_id: int | None = None, limit: int = USER_SEARCH_LIMIT) -> QuerySet:
+        """Search users by username or display name (case-insensitive)."""
+        query = (query or "").strip()
+        if not query:
+            return User.objects.none()
+        qs = User.objects.filter(
+            Q(username__icontains=query) | Q(profile__display_name__icontains=query)
+        ).select_related("profile").distinct()
+        if exclude_user_id is not None:
+            qs = qs.exclude(id=exclude_user_id)
+        return qs.order_by("username")[:limit]

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/auth_provider.dart';
@@ -35,10 +36,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (success && mounted) {
       context.go('/');
     } else if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid username or password'),
-          backgroundColor: Color(0xFFED4245),
+        SnackBar(
+          content: Text(l10n.invalidCredentials),
+          backgroundColor: const Color(0xFFED4245),
         ),
       );
     }
@@ -47,6 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: const Color(0xFF313338),
@@ -67,9 +70,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: Color(0xFF5865F2),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Welcome to MOznoDS',
-                    style: TextStyle(
+                  Text(
+                    l10n.welcomeToMoznods,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -77,9 +80,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Sign in to continue',
-                    style: TextStyle(
+                  Text(
+                    l10n.signInToContinue,
+                    style: const TextStyle(
                       color: Color(0xFFB5BAC1),
                       fontSize: 16,
                     ),
@@ -90,16 +93,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _usernameController,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Username',
+                      label: l10n.username,
                       icon: Icons.person_outline,
                     ),
                     textInputAction: TextInputAction.next,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
+                        return l10n.enterUsername;
                       }
                       if (value.length < 3) {
-                        return 'Username must be at least 3 characters';
+                        return l10n.usernameMinLength;
                       }
                       return null;
                     },
@@ -109,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _passwordController,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration(
-                      label: 'Password',
+                      label: l10n.password,
                       icon: Icons.lock_outline,
                     ).copyWith(
                       suffixIcon: IconButton(
@@ -125,10 +128,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onFieldSubmitted: (_) => _login(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
+                        return l10n.enterPassword;
                       }
                       if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                        return l10n.passwordMinLength6;
                       }
                       return null;
                     },
@@ -141,9 +144,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         onChanged: (value) => setState(() => _rememberMe = value ?? false),
                         activeColor: const Color(0xFF5865F2),
                       ),
-                      const Text(
-                        'Remember me',
-                        style: TextStyle(color: Color(0xFFB5BAC1)),
+                      Text(
+                        l10n.rememberMe,
+                        style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                     ],
                   ),
@@ -168,9 +171,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Sign In',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          : Text(
+                              l10n.signIn,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
@@ -178,18 +181,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "Don't have an account?",
-                        style: TextStyle(color: Color(0xFFB5BAC1)),
+                      Text(
+                        l10n.noAccount,
+                        style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
                         onPressed: () => context.go('/register'),
-                        child: const Text(
-                          'Register',
-                          style: TextStyle(color: Color(0xFF5865F2)),
+                        child: Text(
+                          l10n.register,
+                          style: const TextStyle(color: Color(0xFF5865F2)),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => context.push('/download'),
+                    icon: const Icon(Icons.android, color: Color(0xFF3DDC84)),
+                    label: Text(
+                      l10n.downloadAndroidApp,
+                      style: const TextStyle(color: Color(0xFF3DDC84)),
+                    ),
                   ),
                 ],
               ),

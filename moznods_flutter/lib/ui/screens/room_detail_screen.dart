@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/room_provider.dart';
@@ -47,7 +48,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
             Text(
-              '${roomState.participants.length} members',
+              AppLocalizations.of(context)!.membersCount(roomState.participants.length),
               style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 12),
             ),
           ],
@@ -123,7 +124,7 @@ class _ParticipantTile extends StatelessWidget {
         style: const TextStyle(color: Colors.white),
       ),
       subtitle: Text(
-        'Online',
+        AppLocalizations.of(context)!.online,
         style: const TextStyle(color: Color(0xFFB5BAC1)),
       ),
       trailing: const Icon(Icons.chevron_right, color: Color(0xFF80848E)),

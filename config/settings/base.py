@@ -2,6 +2,7 @@
 Django base settings for MOznoDS.
 """
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -29,6 +30,7 @@ INSTALLED_APPS = [
     "apps.files",
     "apps.chat",
     "apps.calls",
+    "apps.downloads",
 ]
 
 MIDDLEWARE = [
@@ -83,6 +85,8 @@ STATICFILES_DIRS = [
 ]
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+APK_RELEASE_URL = os.environ.get("MOZNODS_APK_RELEASE_URL", "").strip() or None
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

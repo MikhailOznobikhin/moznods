@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 import '../api/dio_client.dart';
 import '../api/ws_service.dart';
 import '../models/message.dart';
@@ -51,6 +52,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final DioClient _client = DioClient();
   final WebSocketService _wsService = WebSocketService();
   int? _currentRoomId;
+  StreamSubscription<Map<String, dynamic>>? _messagesSubscription;
 
   ChatNotifier() : super(ChatState());
 
@@ -80,10 +82,26 @@ class ChatNotifier extends StateNotifier<ChatState> {
   void connect(int roomId, String token) {
     _currentRoomId = roomId;
     _wsService.disconnect();
-    final url = '${DioClient.wsBaseUrl}/ws/chat/$roomId';
-    _wsService.connect(url, token);
+    final url = '${DioClient.wsBaseUrl}/ws/chat/$roomId/';
+    _wsService.connect(
+      url,
+      token,
+      onConnected: () {
+        state = state.copyWith(isConnected: true, error: null);
+      },
+      onError: (error) {
+        state = state.copyWith(
+          isConnected: false,
+          error: 'Connection error: $error',
+        );
+      },
+      onDone: () {
+        state = state.copyWith(isConnected: false);
+      },
+    );
 
-    _wsService.messages.listen((message) {
+    _messagesSubscription?.cancel();
+    _messagesSubscription = _wsService.messages.listen((message) {
       final type = message['type'];
       final data = message['data'];
 
@@ -119,11 +137,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
         state = state.copyWith(error: message['detail']);
       }
     });
-
-    state = state.copyWith(isConnected: true);
   }
 
   void sendMessage(String content, {List<int>? attachmentIds, int? replyToId}) {
+    if (!state.isConnected) {
+      state = state.copyWith(error: 'Chat is disconnected');
+      return;
+    }
     _wsService.sendMessage({
       'type': 'chat_message',
       'data': {
@@ -201,6 +221,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void disconnect() {
+    _messagesSubscription?.cancel();
+    _messagesSubscription = null;
     _wsService.disconnect();
     _currentRoomId = null;
     state = state.copyWith(isConnected: false, typingUsers: {});

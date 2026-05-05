@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/call_provider.dart';
@@ -12,6 +13,7 @@ class CallScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final callState = ref.watch(callProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E1F22),
@@ -27,9 +29,9 @@ class CallScreen extends ConsumerWidget {
                     onPressed: () => context.go('/room/$roomId'),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Voice Channel',
-                    style: TextStyle(
+                  Text(
+                    l10n.voiceChannel,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -57,9 +59,9 @@ class CallScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Text(
-                          'Connected',
-                          style: TextStyle(
+                        Text(
+                          l10n.connectedLabel,
+                          style: const TextStyle(
                             color: Color(0xFF57F287),
                             fontSize: 12,
                           ),
@@ -94,6 +96,7 @@ class _CallControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final callState = ref.watch(callProvider);
     final callNotifier = ref.read(callProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
 
     final isMuted = _isLocalMuted(callState);
     final isVideoOff = !_isLocalVideoEnabled(callState);
@@ -109,19 +112,19 @@ class _CallControls extends ConsumerWidget {
         children: [
           _ControlButton(
             icon: isMuted ? Icons.mic_off : Icons.mic,
-            label: isMuted ? 'Unmute' : 'Mute',
+            label: isMuted ? l10n.unmuteAction : l10n.muteAction,
             isActive: isMuted,
             onTap: () => callNotifier.toggleAudio(),
           ),
           _ControlButton(
             icon: isVideoOff ? Icons.videocam_off : Icons.videocam,
-            label: isVideoOff ? 'Start Video' : 'Stop Video',
+            label: isVideoOff ? l10n.startVideo : l10n.stopVideo,
             isActive: isVideoOff,
             onTap: () => callNotifier.toggleVideo(),
           ),
           _ControlButton(
             icon: Icons.call_end,
-            label: 'Leave',
+            label: l10n.leaveCall,
             isDestructive: true,
             onTap: () {
               callNotifier.leaveCall();
@@ -130,10 +133,10 @@ class _CallControls extends ConsumerWidget {
           ),
           _ControlButton(
             icon: Icons.chat_bubble_outline,
-            label: 'Chat',
+            label: l10n.chatLabel,
             onTap: () {},
           ),
-          _ControlButton(icon: Icons.group_add, label: 'Invite', onTap: () {}),
+          _ControlButton(icon: Icons.group_add, label: l10n.inviteLabel, onTap: () {}),
         ],
       ),
     );

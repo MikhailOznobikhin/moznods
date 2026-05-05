@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/room_provider.dart';
@@ -54,6 +55,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   Widget build(BuildContext context) {
     final roomState = ref.watch(roomProvider);
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       drawer: isMobile ? const Drawer(child: Sidebar()) : null,
@@ -76,9 +78,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                           children: [
                             const Icon(Icons.public, color: Color(0xFFB5BAC1)),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Discover',
-                              style: TextStyle(
+                            Text(
+                              l10n.discover,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
@@ -92,7 +94,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                           onChanged: (_) => _queueFetch(),
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'Search public rooms',
+                            hintText: l10n.searchPublicRooms,
                             hintStyle: const TextStyle(color: Color(0xFF80848E)),
                             prefixIcon: const Icon(Icons.search, color: Color(0xFF80848E)),
                             filled: true,
@@ -108,7 +110,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                           children: [
                             _FilterChip(
                               selected: _filter == 'all',
-                              label: 'All',
+                              label: l10n.filterAll,
                               onTap: () {
                                 setState(() => _filter = 'all');
                                 _queueFetch();
@@ -117,7 +119,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                             const SizedBox(width: 8),
                             _FilterChip(
                               selected: _filter == 'rooms',
-                              label: 'Rooms',
+                              label: l10n.filterRooms,
                               onTap: () {
                                 setState(() => _filter = 'rooms');
                                 _queueFetch();
@@ -126,7 +128,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                             const SizedBox(width: 8),
                             _FilterChip(
                               selected: _filter == 'channels',
-                              label: 'Channels',
+                              label: l10n.filterChannels,
                               onTap: () {
                                 setState(() => _filter = 'channels');
                                 _queueFetch();
@@ -139,10 +141,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                   ),
                   Expanded(
                     child: roomState.publicRooms.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'No public rooms found',
-                              style: TextStyle(color: Color(0xFF80848E)),
+                              l10n.noPublicRoomsFound,
+                              style: const TextStyle(color: Color(0xFF80848E)),
                             ),
                           )
                         : ListView.builder(
@@ -196,7 +198,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                                       onPressed: room.username == null
                                           ? null
                                           : () => _joinByUsername(room.username!),
-                                      child: const Text('Join'),
+                                      child: Text(l10n.join),
                                     ),
                                   ],
                                 ),

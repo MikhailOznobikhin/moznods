@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/dio_client.dart';
 import '../../models/user.dart';
@@ -36,8 +37,14 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await _dioClient.dio.get('/api/accounts/search/', queryParameters: {'q': query});
-      final List results = response.data;
+      final response = await _dioClient.dio.get(
+        '/api/auth/search/',
+        queryParameters: {'q': query},
+      );
+      final dynamic data = response.data;
+      final List results = data is List
+          ? data
+          : (data is Map && data['results'] is List ? data['results'] as List : <dynamic>[]);
       setState(() {
         _searchResults = results.map((u) => User.fromJson(u)).toList();
         _isLoading = false;
@@ -54,9 +61,10 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       backgroundColor: const Color(0xFF2B2D31),
-      title: const Text('Add Members', style: TextStyle(color: Colors.white)),
+      title: Text(l10n.addMembers, style: const TextStyle(color: Colors.white)),
       content: SizedBox(
         width: 300,
         height: 300,
@@ -67,7 +75,7 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
               autofocus: true,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Search users...',
+                hintText: l10n.searchUsersHint,
                 hintStyle: const TextStyle(color: Color(0xFF80848E)),
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF80848E)),
                 filled: true,
@@ -88,7 +96,7 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
                   : _searchResults.isEmpty
                       ? Center(
                           child: Text(
-                            _hasSearched ? 'No users found' : 'Start typing to search',
+                            _hasSearched ? l10n.noUsersFound : l10n.startTypingToSearch,
                             style: const TextStyle(color: Color(0xFF80848E)),
                           ),
                         )
@@ -126,7 +134,7 @@ class _SearchUsersDialogState extends ConsumerState<SearchUsersDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Color(0xFFB5BAC1))),
+          child: Text(l10n.cancel, style: const TextStyle(color: Color(0xFFB5BAC1))),
         ),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/auth_provider.dart';
@@ -13,6 +14,9 @@ class UserProfileScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final isOwnProfile = authState.user?.id == userId;
     final user = authState.user;
+    final l10n = AppLocalizations.of(context)!;
+    final avatarUrl = user?.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFF313338),
@@ -22,9 +26,9 @@ class UserProfileScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Profile',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          l10n.profile,
+          style: const TextStyle(color: Colors.white),
         ),
       ),
       body: Center(
@@ -36,18 +40,21 @@ class UserProfileScreen extends ConsumerWidget {
               CircleAvatar(
                 radius: 64,
                 backgroundColor: const Color(0xFF5865F2),
-                child: Text(
-                  user?.username[0].toUpperCase() ?? '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                child: hasAvatar
+                    ? null
+                    : Text(
+                        user?.username[0].toUpperCase() ?? '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
               const SizedBox(height: 24),
               Text(
-                user?.displayName ?? user?.username ?? 'Unknown',
+                user?.displayName ?? user?.username ?? '',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -56,7 +63,7 @@ class UserProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '@${user?.username ?? 'unknown'}',
+                '@${user?.username ?? ''}',
                 style: const TextStyle(
                   color: Color(0xFFB5BAC1),
                   fontSize: 16,
@@ -69,9 +76,9 @@ class UserProfileScreen extends ConsumerWidget {
                   color: const Color(0xFF57F287).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  'Online',
-                  style: TextStyle(
+                child: Text(
+                  l10n.online,
+                  style: const TextStyle(
                     color: Color(0xFF57F287),
                     fontSize: 14,
                   ),
@@ -81,19 +88,19 @@ class UserProfileScreen extends ConsumerWidget {
               if (isOwnProfile) ...[
                 _ProfileButton(
                   icon: Icons.edit,
-                  label: 'Edit Profile',
-                  onTap: () {},
+                  label: l10n.editProfile,
+                  onTap: () => context.push('/profile/edit'),
                 ),
                 const SizedBox(height: 12),
                 _ProfileButton(
                   icon: Icons.settings,
-                  label: 'Settings',
+                  label: l10n.settings,
                   onTap: () => context.push('/settings'),
                 ),
               ] else ...[
                 _ProfileButton(
                   icon: Icons.message,
-                  label: 'Send Message',
+                  label: l10n.sendMessage,
                   onTap: () {},
                   isPrimary: true,
                 ),
@@ -122,7 +129,7 @@ class _ProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 200,
+      width: 220,
       child: ElevatedButton.icon(
         icon: Icon(icon),
         label: Text(label),

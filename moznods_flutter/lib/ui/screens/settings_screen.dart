@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/auth_provider.dart';
+import '../../store/locale_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -19,6 +21,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = ref.watch(localeProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF313338),
       appBar: AppBar(
@@ -27,84 +32,112 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Settings',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          l10n.settings,
+          style: const TextStyle(color: Colors.white),
         ),
       ),
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          _SectionHeader(title: 'Notifications'),
+          _SectionHeader(title: l10n.language),
+          RadioListTile<String>(
+            value: 'ru',
+            groupValue: locale.languageCode,
+            onChanged: (v) => v == null
+                ? null
+                : ref.read(localeProvider.notifier).setLocale(Locale(v)),
+            activeColor: const Color(0xFF5865F2),
+            title: Text(l10n.russianLanguage, style: const TextStyle(color: Colors.white)),
+          ),
+          RadioListTile<String>(
+            value: 'en',
+            groupValue: locale.languageCode,
+            onChanged: (v) => v == null
+                ? null
+                : ref.read(localeProvider.notifier).setLocale(Locale(v)),
+            activeColor: const Color(0xFF5865F2),
+            title: Text(l10n.englishLanguage, style: const TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 16),
+          _SectionHeader(title: l10n.notifications),
           _SwitchTile(
-            title: 'Push Notifications',
-            subtitle: 'Receive push notifications for new messages',
+            title: l10n.pushNotifications,
+            subtitle: l10n.pushNotificationsDesc,
             value: _notificationsEnabled,
             onChanged: (v) => setState(() => _notificationsEnabled = v),
           ),
           _SwitchTile(
-            title: 'Sound',
-            subtitle: 'Play sound for notifications',
+            title: l10n.sound,
+            subtitle: l10n.soundDesc,
             value: _soundEnabled,
             onChanged: (v) => setState(() => _soundEnabled = v),
           ),
           _SwitchTile(
-            title: 'Vibration',
-            subtitle: 'Vibrate for notifications',
+            title: l10n.vibration,
+            subtitle: l10n.vibrationDesc,
             value: _vibrationEnabled,
             onChanged: (v) => setState(() => _vibrationEnabled = v),
           ),
           const SizedBox(height: 16),
-          _SectionHeader(title: 'Appearance'),
+          _SectionHeader(title: l10n.appearance),
           _SwitchTile(
-            title: 'Dark Mode',
-            subtitle: 'Use dark theme',
+            title: l10n.darkMode,
+            subtitle: l10n.darkModeDesc,
             value: _darkModeEnabled,
             onChanged: (v) => setState(() => _darkModeEnabled = v),
           ),
           const SizedBox(height: 16),
-          _SectionHeader(title: 'Audio'),
+          _SectionHeader(title: l10n.audio),
           _SliderTile(
-            title: 'Master Volume',
+            title: l10n.masterVolume,
             value: _masterVolume,
             onChanged: (v) => setState(() => _masterVolume = v),
           ),
           const SizedBox(height: 16),
-          _SectionHeader(title: 'Account'),
+          _SectionHeader(title: l10n.account),
           _ActionTile(
-            title: 'Change Password',
+            title: l10n.editProfile,
+            onTap: () => context.push('/profile/edit'),
+          ),
+          _ActionTile(
+            title: l10n.changePassword,
             onTap: () {},
           ),
           _ActionTile(
-            title: 'Privacy Policy',
+            title: l10n.privacyPolicy,
             onTap: () {},
           ),
           _ActionTile(
-            title: 'Terms of Service',
+            title: l10n.termsOfService,
             onTap: () {},
           ),
           _ActionTile(
-            title: 'Logout',
+            title: l10n.downloadApk,
+            onTap: () => context.push('/download'),
+          ),
+          _ActionTile(
+            title: l10n.logout,
             textColor: const Color(0xFFED4245),
             onTap: () {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: const Color(0xFF2B2D31),
-                  title: const Text(
-                    'Logout',
-                    style: TextStyle(color: Colors.white),
+                  title: Text(
+                    l10n.logout,
+                    style: const TextStyle(color: Colors.white),
                   ),
-                  content: const Text(
-                    'Are you sure you want to logout?',
-                    style: TextStyle(color: Color(0xFFB5BAC1)),
+                  content: Text(
+                    l10n.logoutConfirm,
+                    style: const TextStyle(color: Color(0xFFB5BAC1)),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Color(0xFFB5BAC1)),
+                      child: Text(
+                        l10n.cancel,
+                        style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                     ),
                     TextButton(
@@ -113,9 +146,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ref.read(authProvider.notifier).logout();
                         context.go('/login');
                       },
-                      child: const Text(
-                        'Logout',
-                        style: TextStyle(color: Color(0xFFED4245)),
+                      child: Text(
+                        l10n.logout,
+                        style: const TextStyle(color: Color(0xFFED4245)),
                       ),
                     ),
                   ],
@@ -126,9 +159,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'MOznoDS v1.0.0',
-              style: TextStyle(
-                color: const Color(0xFF80848E),
+              l10n.appVersion,
+              style: const TextStyle(
+                color: Color(0xFF80848E),
                 fontSize: 12,
               ),
             ),

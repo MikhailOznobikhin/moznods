@@ -17,8 +17,8 @@ Room _$RoomFromJson(Map<String, dynamic> json) => Room(
   unreadCount: (json['unread_count'] as num?)?.toInt(),
   isPinned: json['is_pinned'] as bool?,
   isDirect: json['is_direct'] as bool,
-  isPublic: json['is_public'] as bool? ?? false,
-  isChannel: json['is_channel'] as bool? ?? false,
+  isPublic: json['is_public'] as bool,
+  isChannel: json['is_channel'] as bool,
   username: json['username'] as String?,
   avatar: json['avatar'] as String?,
   createdAt: DateTime.parse(json['created_at'] as String),
@@ -48,7 +48,7 @@ RoomParticipant _$RoomParticipantFromJson(Map<String, dynamic> json) =>
       user: User.fromJson(json['user'] as Map<String, dynamic>),
       joinedAt: DateTime.parse(json['joined_at'] as String),
       isAdmin: json['is_admin'] as bool,
-      role: json['role'] as String? ?? 'member',
+      role: json['role'] as String,
     );
 
 Map<String, dynamic> _$RoomParticipantToJson(RoomParticipant instance) =>
@@ -64,7 +64,7 @@ PublicRoom _$PublicRoomFromJson(Map<String, dynamic> json) => PublicRoom(
   id: (json['id'] as num).toInt(),
   name: json['name'] as String,
   username: json['username'] as String?,
-  isChannel: json['is_channel'] as bool? ?? false,
+  isChannel: json['is_channel'] as bool,
   avatar: json['avatar'] as String?,
   owner: User.fromJson(json['owner'] as Map<String, dynamic>),
   participantCount: (json['participant_count'] as num).toInt(),

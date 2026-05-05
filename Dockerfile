@@ -1,4 +1,4 @@
-# Stage 1: Build Flutter Web
+# Stage 1: Build Flutter Web (only — APK is built in CI and served via MOZNODS_APK_RELEASE_URL).
 FROM ghcr.io/cirruslabs/flutter:stable AS build-flutter
 
 WORKDIR /app
@@ -39,11 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=build-python /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=build-python /usr/local/bin /usr/local/bin
-COPY --from=build-flutter /app/build/web /app/moznods_flutter/build/web
 
 COPY --chown=appuser:appuser . .
 
-RUN mkdir -p /app/staticfiles /app/media \
+# Copy build artefacts AFTER the host bind copy so they aren't overwritten.
+COPY --from=build-flutter --chown=appuser:appuser /app/build/web /app/moznods_flutter/build/web
+
+RUN mkdir -p /app/staticfiles /app/media/downloads \
     && chown -R appuser:appuser /app
 
 USER appuser

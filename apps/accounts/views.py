@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,7 +11,6 @@ from .services import UserService
 User = get_user_model()
 
 
-@csrf_exempt
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -86,3 +84,16 @@ class ProfileUpdateView(APIView):
             profile.avatar = request.FILES["avatar"]
         profile.save()
         return Response(UserSerializer(user, context={"request": request}).data)
+
+
+class UserSearchView(APIView):
+    """Search users by username or display name."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("q", "")
+        users = UserService.search(query=query, exclude_user_id=request.user.id)
+        return Response(
+            UserSerializer(users, many=True, context={"request": request}).data
+        )
