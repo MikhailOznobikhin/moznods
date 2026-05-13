@@ -42,14 +42,15 @@ COPY --from=build-python /usr/local/bin /usr/local/bin
 
 COPY --chown=appuser:appuser . .
 
-# Copy build artefacts AFTER the host bind copy so they aren't overwritten.
-COPY --from=build-flutter --chown=appuser:appuser /app/build/web /app/moznods_flutter/build/web
+# Baked Flutter web output (copied into the shared volume at container start; see docker/entrypoint-web.sh).
+COPY --from=build-flutter /app/build/web /opt/moznods_flutter_web
 
-RUN mkdir -p /app/staticfiles /app/media/downloads \
+COPY docker/entrypoint-web.sh /entrypoint-web.sh
+RUN chmod +x /entrypoint-web.sh \
+    && mkdir -p /app/staticfiles /app/media/downloads \
     && chown -R appuser:appuser /app
-
-USER appuser
 
 EXPOSE 8000
 
+ENTRYPOINT ["/entrypoint-web.sh"]
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
