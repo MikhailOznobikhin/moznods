@@ -1,4 +1,4 @@
-package ru.moznods.moznods_flutter
+package ru.moznods.app
 
 import io.flutter.embedding.android.FlutterActivity
 

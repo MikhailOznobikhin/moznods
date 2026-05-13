@@ -68,7 +68,14 @@ jobs:
 
       - name: Build APK (arm64)
         working-directory: moznods_flutter
-        run: flutter build apk --release --target-platform android-arm64
+        env:
+          MOZNODS_API_BASE: ${{ vars.MOZNODS_API_BASE }}
+        run: |
+          if [ -n "${MOZNODS_API_BASE:-}" ]; then
+            flutter build apk --release --target-platform android-arm64 --dart-define=MOZNODS_API_BASE="${MOZNODS_API_BASE}"
+          else
+            flutter build apk --release --target-platform android-arm64
+          fi
 
       - name: Rename APK
         run: |
