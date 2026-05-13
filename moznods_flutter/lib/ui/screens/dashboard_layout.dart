@@ -95,7 +95,7 @@ class Sidebar extends ConsumerWidget {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(
-                    Icons.keyboard_arrow_down,
+                    Icons.add,
                     color: Color(0xFFB5BAC1),
                   ),
                   onPressed: () => showCreateRoomDialog(context),

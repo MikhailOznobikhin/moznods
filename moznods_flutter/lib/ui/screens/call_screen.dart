@@ -3,7 +3,9 @@ import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../store/call_provider.dart';
+import '../../services/device_service.dart';
 import '../widgets/video_grid.dart';
+import '../dialogs/device_selection_dialog.dart';
 
 class CallScreen extends ConsumerWidget {
   final int roomId;
@@ -137,9 +139,50 @@ class _CallControls extends ConsumerWidget {
             onTap: () {},
           ),
           _ControlButton(icon: Icons.group_add, label: l10n.inviteLabel, onTap: () {}),
+          _ControlButton(
+            icon: Icons.settings,
+            label: l10n.deviceSettings,
+            onTap: () => _showDeviceSettings(context, ref),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _showDeviceSettings(BuildContext context, WidgetRef ref) async {
+    final callState = ref.read(callProvider);
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => DeviceSelectionDialog(
+        currentAudioDevice: callState.audioDeviceId != null
+            ? DeviceInfo(deviceId: callState.audioDeviceId!, label: '', kind: 0)
+            : null,
+        currentVideoDevice: callState.videoDeviceId != null
+            ? DeviceInfo(deviceId: callState.videoDeviceId!, label: '', kind: 2)
+            : null,
+      ),
+    );
+
+    if (result != null && context.mounted) {
+      final audioDeviceId = result['audioDeviceId'] as String?;
+      final videoDeviceId = result['videoDeviceId'] as String?;
+
+      final success = await ref.read(callProvider.notifier).switchDevice(
+        audioDeviceId: audioDeviceId,
+        videoDeviceId: videoDeviceId,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success
+                ? AppLocalizations.of(context)!.saveLabel
+                : AppLocalizations.of(context)!.updateFailed),
+            backgroundColor: success ? const Color(0xFF57F287) : const Color(0xFFED4245),
+          ),
+        );
+      }
+    }
   }
 
   bool _isLocalMuted(CallState state) {

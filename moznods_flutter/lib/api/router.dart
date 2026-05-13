@@ -5,6 +5,7 @@ import '../ui/screens/dashboard_layout.dart';
 import '../ui/screens/discovery_screen.dart';
 import '../ui/screens/download_screen.dart';
 import '../ui/screens/edit_profile_screen.dart';
+import '../ui/screens/invite_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/register_screen.dart';
 import '../ui/screens/settings_screen.dart';
@@ -86,6 +87,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/download',
         builder: (context, state) => const DownloadScreen(),
+      ),
+      GoRoute(
+        path: '/invite/:token',
+        builder: (context, state) {
+          final token = state.pathParameters['token'] ?? '';
+          return InviteScreen(token: token);
+        },
       ),
     ],
   );

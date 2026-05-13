@@ -51,4 +51,27 @@ class MessageService:
         )
         for f in files_to_attach:
             MessageAttachment.objects.create(message=message, file=f)
+
+        _send_push_notifications(message)
+
         return message
+
+
+def _send_push_notifications(message: Message) -> None:
+    """Send push notifications to room participants (except message author)."""
+    from apps.accounts.push_service import send_push_to_user
+
+    participant_ids = message.room.participants.values_list("user_id", flat=True)
+    for participant_id in participant_ids:
+        if participant_id == message.author_id:
+            continue
+        send_push_to_user(
+            user_id=participant_id,
+            title=f"{message.author.username}: ",
+            body=message.content[:100] if message.content else "Sent a message",
+            data={
+                "room_id": message.room_id,
+                "room_name": message.room.name,
+                "message_id": message.id,
+            },
+        )

@@ -101,11 +101,35 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/minute",
+        "user": "1000/minute",
+        "login": "5/minute",
+        "messages": "60/minute",
+        "rooms": "30/minute",
+    },
 }
 
 # Celery
 CELERY_BROKER_URL = "redis://localhost:6379/1"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/2"
+
+# Cache (Redis)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/4",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django.core.cache.backends.redis.RedisCache",
+        },
+        "KEY_PREFIX": "moznods",
+        "TIMEOUT": 300,
+    },
+}
 
 # Logging configuration
 LOG_DIR = BASE_DIR / "logs"

@@ -5,7 +5,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import LoginSerializer, RegisterSerializer, UserSerializer, UpdateProfileSerializer
+from core.throttling import LoginThrottle
+from .serializers import (
+    LoginSerializer,
+    PushSubscriptionCreateSerializer,
+    PushSubscriptionSerializer,
+    RegisterSerializer,
+    UpdateProfileSerializer,
+    UserSerializer,
+)
 from .services import UserService
 
 User = get_user_model()
@@ -28,6 +36,7 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -97,3 +106,52 @@ class UserSearchView(APIView):
         return Response(
             UserSerializer(users, many=True, context={"request": request}).data
         )
+
+
+class PushSubscriptionView(APIView):
+    """Manage push subscriptions for the current user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        subscriptions = PushSubscription.objects.filter(user=request.user, is_active=True)
+        serializer = PushSubscriptionSerializer(subscriptions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = PushSubscriptionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        subscription, created = PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=data["endpoint"],
+            defaults={
+                "p256dh": data["p256dh"],
+                "auth": data["auth"],
+                "is_active": True,
+            },
+        )
+        return Response(
+            PushSubscriptionSerializer(subscription).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        endpoint = request.data.get("endpoint")
+        if not endpoint:
+            return Response(
+                {"detail": "Endpoint is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            subscription = PushSubscription.objects.get(
+                user=request.user, endpoint=endpoint
+            )
+            subscription.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except PushSubscription.DoesNotExist:
+            return Response(
+                {"detail": "Subscription not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )

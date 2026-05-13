@@ -25,3 +25,6 @@ gunicorn==25.1.0
 whitenoise==6.8.2
 logtail-python==0.3.4
 sentry-sdk==2.22.0
+
+# Push notifications
+pywebpush==1.15.0

@@ -258,6 +258,39 @@ class RoomNotifier extends StateNotifier<RoomState> {
       state = state.copyWith(error: e.toString());
     }
   }
+
+  Future<String> generateInviteLink(int roomId, {int? expiresInHours}) async {
+    try {
+      final response = await _client.dio.post(
+        '/api/rooms/$roomId/invite/',
+        data: expiresInHours != null ? {'expires_in_hours': expiresInHours} : null,
+      );
+      final token = response.data['token'];
+      return token;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> updateRoom(int roomId, String name) async {
+    try {
+      final response = await _client.dio.patch(
+        '/api/rooms/$roomId/',
+        data: {'name': name},
+      );
+      final updatedRoom = Room.fromJson(response.data);
+      final updatedRooms = state.rooms.map((r) {
+        if (r.id == roomId) return updatedRoom;
+        return r;
+      }).toList();
+      final currentRoom = state.currentRoom?.id == roomId ? updatedRoom : state.currentRoom;
+      state = state.copyWith(rooms: updatedRooms, currentRoom: currentRoom);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 final roomProvider = StateNotifierProvider<RoomNotifier, RoomState>((ref) {

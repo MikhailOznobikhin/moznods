@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../store/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -34,7 +35,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
 
     if (success && mounted) {
-      context.go('/');
+      await _checkPendingInvite();
     } else if (mounted) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -43,6 +44,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: const Color(0xFFED4245),
         ),
       );
+    }
+  }
+
+  Future<void> _checkPendingInvite() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pendingToken = prefs.getString('pending_invite_token');
+
+    if (pendingToken != null) {
+      await prefs.remove('pending_invite_token');
+      if (mounted) {
+        context.go('/invite/$pendingToken');
+      }
+    } else {
+      if (mounted) {
+        context.go('/');
+      }
     }
   }
 

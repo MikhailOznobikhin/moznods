@@ -1,6 +1,7 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from datetime import timedelta
+from django.core.cache import cache
 from django.utils import timezone
 from django.db.models import Q
 
@@ -11,6 +12,11 @@ from .models import Room, RoomParticipant, RoomInvitation, RoomBan
 from .serializers import RoomSerializer
 
 User = get_user_model()
+
+ROOM_CACHE_TTL = 300
+PUBLIC_ROOMS_CACHE_KEY = "public_rooms_list"
+ROOM_PARTICIPANTS_CACHE_KEY = "room_{}_participants"
+ROOM_ADMINS_CACHE_KEY = "room_{}_admins"
 
 
 class InvitationService:
@@ -71,6 +77,7 @@ class RoomService:
         """Create a room and add owner as first participant."""
         room = Room.objects.create(owner=owner, name=name.strip(), **kwargs)
         RoomParticipant.objects.create(room=room, user=owner)
+        cache.delete(PUBLIC_ROOMS_CACHE_KEY)
         return room
 
     @staticmethod
@@ -79,8 +86,8 @@ class RoomService:
         if RoomParticipant.objects.filter(room=room, user=user).exists():
             raise ValidationError(detail={"user": ["User is already a participant in this room."]})
         participant = RoomParticipant.objects.create(room=room, user=user)
-        # AICODE-NOTE: Notify user in real-time (#2)
         RoomService._notify_participant_added(room, user)
+        RoomService._invalidate_room_cache(room.id)
         return participant
 
     @staticmethod
@@ -88,8 +95,16 @@ class RoomService:
         """Remove user from room. Raises ValidationError if not a participant."""
         try:
             RoomParticipant.objects.get(room=room, user=user).delete()
+            RoomService._invalidate_room_cache(room.id)
         except RoomParticipant.DoesNotExist:
             raise ValidationError(detail={"user": ["User is not a participant in this room."]})
+
+    @staticmethod
+    def _invalidate_room_cache(room_id: int) -> None:
+        """Invalidate cache for a room."""
+        cache.delete(ROOM_PARTICIPANTS_CACHE_KEY.format(room_id))
+        cache.delete(ROOM_ADMINS_CACHE_KEY.format(room_id))
+        cache.delete(PUBLIC_ROOMS_CACHE_KEY)
 
     @staticmethod
     def is_participant(room: Room, user: User) -> bool:
@@ -131,12 +146,23 @@ class RoomService:
         offset: int = 0,
     ):
         """List public rooms with optional search."""
+        if not search and is_channel is None and offset == 0:
+            cache_key = f"{PUBLIC_ROOMS_CACHE_KEY}_{limit}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
+
         qs = Room.objects.filter(is_public=True).select_related("owner")
         if is_channel is not None:
             qs = qs.filter(is_channel=is_channel)
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(username__icontains=search))
-        return qs.order_by("-created_at")[offset : offset + limit]
+        rooms = list(qs.order_by("-created_at")[offset : offset + limit])
+
+        if not search and is_channel is None and offset == 0:
+            cache.set(cache_key, rooms, timeout=ROOM_CACHE_TTL)
+
+        return rooms
 
     @staticmethod
     def get_room_by_username(username: str) -> Room:

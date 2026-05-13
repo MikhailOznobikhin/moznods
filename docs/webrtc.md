@@ -285,37 +285,38 @@ User A ──► TURN Server ──► User B
 
 ### coturn Setup
 
-> For MVP you may run without TURN. Most home networks succeed with STUN-only; corporate/symmetric NAT may fail.
+coturn уже настроен в `docker-compose.production.yml`:
+- Образ: `coturn/coturn:latest`
+- Порт: 3478 (UDP/TCP)
+- Long-term credentials mech включён
 
-#### Running Without TURN (MVP)
+#### Конфигурация TURN в Flutter
 
-- Client `iceServers` can include only STUN:
-  - `{ urls: 'stun:stun.l.google.com:19302' }`
-- Keep signaling over WebSocket at `ws://host/ws/call/{room_id}/?token=...`
-- Log ICE candidate types (`host`, `srflx`, `relay`) to measure how often relay would be needed.
-- When adding TURN later:
-  - Use `turn:` URLs with credentials (prefer short‑lived creds via REST API).
-  - Open UDP 3478 and a restricted relay port range; enable TCP/TLS (5349) fallback for corporate networks.
+```dart
+// lib/store/call_provider.dart
+final Map<String, dynamic> _iceServers = {
+  'iceServers': [
+    {'urls': 'stun:stun.l.google.com:19302'},
+    {
+      'urls': 'turn:<your-turn-server>:3478',
+      'username': '<configured-username>',
+      'credential': '<configured-password>',
+    },
+  ],
+};
+```
 
-#### WebSocket Endpoints (ASGI)
+#### Переменные окружения (.env)
 
-- Chat: `ws://host/ws/chat/{room_id}/?token=...`
-- Calls: `ws://host/ws/call/{room_id}/?token=...`
-
-```bash
-# Install coturn
-sudo apt install coturn
-
-# /etc/turnserver.conf
-listening-port=3478
-fingerprint
-lt-cred-mech
-user=turnuser:turnpassword
-realm=moznods.example.com
+```
+TURN_SERVER_URL=turn:your-turn-server.com:3478
+TURN_SERVER_USERNAME=your-username
+TURN_SERVER_PASSWORD=your-password
 ```
 
 ### ICE Server Configuration
 
+В `moznods_flutter/lib/store/call_provider.dart`:
 ```python
 # config/settings/base.py
 
@@ -328,6 +329,13 @@ WEBRTC_ICE_SERVERS = [
     },
 ]
 ```
+
+### Рекомендация
+
+Для production рекомендуется:
+1. Использовать свой coturn сервер (уже настроен в docker-compose)
+2. Включить TLS (порт 5349) для corporate сетей
+3. Использовать short-lived credentials via REST API coturn
 
 ## Scaling Considerations
 

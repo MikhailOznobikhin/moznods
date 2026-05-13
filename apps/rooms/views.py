@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
+from core.throttling import RoomsThrottle
 
 from .models import Room, RoomParticipant
 from .serializers import (
@@ -83,6 +84,7 @@ class RoomInviteJoinView(APIView):
 
 class RoomListCreateView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [RoomsThrottle]
 
     def get(self, request):
         """List rooms where the user is a participant. Paginated."""

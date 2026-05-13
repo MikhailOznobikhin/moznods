@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.rooms.models import Room
 from apps.rooms.services import RoomService
+from core.throttling import MessagesThrottle
 
 from .models import Message
 from .permissions import can_send_message
@@ -33,6 +34,7 @@ class MessageListCreateView(APIView):
     """List and create messages in a room. Requires room participation."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [MessagesThrottle]
 
     def get_room(self):
         return get_object_or_404(Room, pk=self.kwargs["room_id"])

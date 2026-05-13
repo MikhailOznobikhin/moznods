@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/dio_client.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -62,7 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: const Color(0xFF248046),
           ),
         );
-        context.go('/login');
+        await _checkPendingInvite();
       }
     } on DioException catch (e) {
       setState(() {
@@ -77,6 +78,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _checkPendingInvite() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pendingToken = prefs.getString('pending_invite_token');
+
+    if (pendingToken != null) {
+      await prefs.remove('pending_invite_token');
+      if (mounted) {
+        context.go('/login?invite=$pendingToken');
+      }
+    } else {
+      if (mounted) {
+        context.go('/login');
       }
     }
   }

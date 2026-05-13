@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from .models import Profile, PushSubscription
+
 User = get_user_model()
 
 
@@ -68,3 +70,29 @@ class UserSerializer(serializers.ModelSerializer):
 class UpdateProfileSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=150, required=False)
     avatar = serializers.ImageField(required=False)
+
+
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for PushSubscription model."""
+
+    class Meta:
+        model = PushSubscription
+        fields = ("id", "endpoint", "p256dh", "auth", "is_active", "created_at")
+        read_only_fields = ("id", "is_active", "created_at")
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
+
+
+class PushSubscriptionCreateSerializer(serializers.Serializer):
+    """Input serializer for creating a push subscription."""
+
+    endpoint = serializers.URLField(max_length=500)
+    p256dh = serializers.CharField(max_length=100)
+    auth = serializers.CharField(max_length=100)
+
+    def validate_endpoint(self, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise serializers.ValidationError("Invalid endpoint URL.")
+        return value

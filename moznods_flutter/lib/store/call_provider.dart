@@ -54,6 +54,8 @@ class CallState {
   final Map<int, CallParticipant> participants;
   final Map<int, PeerFlags> peerFlags;
   final String? error;
+  final String? audioDeviceId;
+  final String? videoDeviceId;
 
   CallState({
     this.isActive = false,
@@ -64,6 +66,8 @@ class CallState {
     this.participants = const {},
     this.peerFlags = const {},
     this.error,
+    this.audioDeviceId,
+    this.videoDeviceId,
   });
 
   CallState copyWith({
@@ -75,6 +79,8 @@ class CallState {
     Map<int, CallParticipant>? participants,
     Map<int, PeerFlags>? peerFlags,
     String? error,
+    String? audioDeviceId,
+    String? videoDeviceId,
   }) {
     return CallState(
       isActive: isActive ?? this.isActive,
@@ -85,6 +91,8 @@ class CallState {
       participants: participants ?? this.participants,
       peerFlags: peerFlags ?? this.peerFlags,
       error: error ?? this.error,
+      audioDeviceId: audioDeviceId ?? this.audioDeviceId,
+      videoDeviceId: videoDeviceId ?? this.videoDeviceId,
     );
   }
 }
@@ -375,6 +383,59 @@ class CallNotifier extends StateNotifier<CallState> {
       'type': 'toggle_video',
       'data': {'is_video_enabled': !isEnabled},
     });
+  }
+
+  Future<bool> switchDevice({String? audioDeviceId, String? videoDeviceId}) async {
+    if (state.localStream == null) return false;
+
+    try {
+      final oldStream = state.localStream;
+      final newStream = await navigator.mediaDevices.getUserMedia({
+        'audio': audioDeviceId != null
+            ? {'deviceId': {'exact': audioDeviceId}}
+            : true,
+        'video': videoDeviceId != null
+            ? {
+                'deviceId': {'exact': videoDeviceId},
+                'facingMode': 'user',
+                'width': {'ideal': 640},
+                'height': {'ideal': 480},
+              }
+            : true,
+      });
+
+      final audioTracks = oldStream?.getAudioTracks() ?? [];
+      final videoTracks = oldStream?.getVideoTracks() ?? [];
+      audioTracks.forEach((t) => t.stop());
+      videoTracks.forEach((t) => t.stop());
+
+      final newAudioTracks = newStream.getAudioTracks();
+      final newVideoTracks = newStream.getVideoTracks();
+
+      for (final pc in state.peers.values) {
+        final senders = pc.getSenders();
+        for (final sender in senders) {
+          if (sender.track != null) {
+            if (sender.track!.kind == 'audio' && newAudioTracks.isNotEmpty) {
+              await sender.replaceTrack(newAudioTracks.first);
+            } else if (sender.track!.kind == 'video' && newVideoTracks.isNotEmpty) {
+              await sender.replaceTrack(newVideoTracks.first);
+            }
+          }
+        }
+      }
+
+      state = state.copyWith(
+        localStream: newStream,
+        audioDeviceId: audioDeviceId ?? state.audioDeviceId,
+        videoDeviceId: videoDeviceId ?? state.videoDeviceId,
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
   }
 }
 

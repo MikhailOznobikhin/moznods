@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../store/room_provider.dart';
 import '../../models/user.dart';
 import '../dialogs/search_users_dialog.dart';
+import '../dialogs/share_room_dialog.dart';
+import '../dialogs/participants_sheet.dart';
+import '../dialogs/edit_room_dialog.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
   final int roomId;
@@ -40,20 +43,31 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.go('/room/${widget.roomId}'),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              currentRoom.name,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+        title: GestureDetector(
+            onTap: () => _showParticipants(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  currentRoom.name,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                Text(
+                  AppLocalizations.of(context)!.membersCount(roomState.participants.length),
+                  style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 12),
+                ),
+              ],
             ),
-            Text(
-              AppLocalizations.of(context)!.membersCount(roomState.participants.length),
-              style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 12),
-            ),
-          ],
-        ),
+          ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Color(0xFFB5BAC1)),
+            onPressed: () => _showEditDialog(context, currentRoom.name),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share, color: Color(0xFFB5BAC1)),
+            onPressed: () => _showShareDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.person_add, color: Color(0xFFB5BAC1)),
             onPressed: () => _showAddMembers(context),
@@ -83,6 +97,40 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       await ref.read(roomProvider.notifier).addParticipant(widget.roomId, user.id);
       ref.read(roomProvider.notifier).fetchParticipants(widget.roomId);
     });
+  }
+
+  void _showShareDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => ShareRoomDialog(roomId: widget.roomId),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, String currentName) {
+    showDialog(
+      context: context,
+      builder: (context) => EditRoomDialog(
+        roomId: widget.roomId,
+        initialName: currentName,
+      ),
+    );
+  }
+
+  void _showParticipants(BuildContext context) {
+    final roomState = ref.read(roomProvider);
+    final currentRoom = roomState.rooms.firstWhere(
+      (r) => r.id == widget.roomId,
+      orElse: () => roomState.currentRoom!,
+    );
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ParticipantsSheet(
+        roomId: widget.roomId,
+        isOwner: currentRoom.owner?.id == roomState.currentRoom?.owner?.id,
+      ),
+    );
   }
 }
 
