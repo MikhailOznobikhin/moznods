@@ -32,5 +32,7 @@ Checks (same as CI): `ruff check .`, `pytest`, `cd moznods_flutter && flutter an
    optionally `VAPID_*` (web push), `REGISTRATION_INVITE_CODE`, `SENTRY_DSN`.
 2. Let's Encrypt certificate for `DOMAIN` in `/etc/letsencrypt` (used by nginx and LiveKit TURN).
 3. Firewall: 80, 443, 7881/tcp, 7882-7883/udp, 3478/udp, 5349/tcp.
-4. `make deploy` (pull, build, up, migrate). Static files are collected on container start.
-5. Android: tag a release (`git tag vX.Y.Z && git push --tags`), CI builds the APK.
+4. The `web` image is built by GitHub Actions and published to GHCR. First time: make the
+   `moznods-web` package public or `docker login ghcr.io` on the server (see `commands.md`).
+5. `make deploy` (git pull, pull image, up, migrate). Static files are collected on container start.
+6. Android: tag a release (`git tag vX.Y.Z && git push --tags`), CI builds the APK.

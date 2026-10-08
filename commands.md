@@ -3,8 +3,8 @@
 ## TL;DR
 
 - На сервере (2 ядра / 4 GB) **APK не собирается** — он строится в GitHub Actions и раздаётся через GitHub Releases.
-- На сервере собирается только Flutter web (легковесный) + Django.
-- Для production достаточно `docker compose -f docker-compose.production.yml up -d --build`.
+- На сервере ничего не собирается: образ `web` (Django + Flutter web) строится в GitHub Actions и лежит в GHCR.
+- Для production: `make deploy` — сервер скачивает готовый образ из GHCR (собирается в GitHub Actions).
 
 ## CI: GitHub Actions (`.github/workflows/build-flutter.yml`)
 
@@ -56,54 +56,45 @@ docker compose -f docker-compose.production.yml up -d
 
 После этого `/download` в приложении и `/api/downloads/apk/info/` начнут отдавать «available: true», а сама кнопка «Скачать» перенаправит пользователя прямо на CDN GitHub.
 
-## Production-сборка на сервере (только Django + web)
+## Production: образ собирается в GitHub Actions
 
-Образ собирает Flutter web внутри build-stage. Контейнер `web` при старте кладёт эту сборку в **общий volume** `flutter_web_build`, откуда её читает nginx (`/flutter/` и `flutter_bootstrap.js`). Раньше nginx монтировал `./moznods_flutter/build/web` с хоста — из-за этого после деплоя часто отдавалась **старая** веб-сборка с диска сервера, а не из образа.
+Образ `web` (Django + Flutter web) собирает `.github/workflows/docker-image.yml` и публикует в GHCR:
 
-```
-docker compose -f docker-compose.production.yml build --no-cache
-docker compose -f docker-compose.production.yml up -d
-```
+- `ghcr.io/mikhailoznobikhin/moznods-web:latest` — каждый push в `main`;
+- `...:sha-<коммит>` — каждый коммит (для отката);
+- `...:vX.Y.Z` — теги релизов.
 
-После обновления при необходимости сделайте в браузере жёсткое обновление (Ctrl+Shift+R) или очистите кэш для сайта — у Flutter web есть service worker.
+На PR образ только собирается (проверка), без публикации.
 
-Если хотите ещё уменьшить нагрузку на сервер — собирайте web в CI и подставляйте архив (опционально, отдельная доработка).
-
-## Локальная разработка (на машине разработчика)
-
-Когда нужно потрогать Flutter без коммита:
+Сервер ничего не собирает, только скачивает готовый образ:
 
 ```
-cd moznods_flutter
-flutter pub get
-flutter run -d chrome     # web
-flutter run -d <device>   # android
+make deploy        # git pull + docker compose pull web + up -d + migrate
 ```
 
-Регенерация локализаций после правок ARB-файлов:
+### Первый раз на сервере
+
+Пакет в GHCR по умолчанию приватный. Два варианта:
+
+1. Сделать его публичным: GitHub → профиль → Packages → `moznods-web` → Package settings → Change visibility → Public.
+2. Или залогиниться на сервере токеном с правом `read:packages`
+   (GitHub → Settings → Developer settings → Personal access tokens):
 
 ```
-cd moznods_flutter && flutter gen-l10n
+echo <TOKEN> | docker login ghcr.io -u MikhailOznobikhin --password-stdin
 ```
 
-(обычно вызывается автоматически на `flutter pub get`).
-
-## Полезные ручные команды (Docker, если очень нужно)
-
-Persistent volumes для кэшей:
+### Откат на предыдущую версию
 
 ```
-docker volume create moznods_pubcache
-docker volume create moznods_gradle
+MOZNODS_IMAGE=ghcr.io/mikhailoznobikhin/moznods-web:sha-1a2b3c4 make deploy
 ```
 
-Алиас:
+(короткий sha — во вкладке Actions или `git log --oneline`).
 
-```bash
-alias mznflutter='docker run --rm \
-  -v /home/mozno/moznods/moznods_flutter:/app \
-  -v moznods_pubcache:/root/.pub-cache \
-  -v moznods_gradle:/root/.gradle \
-  -w /app \
-  ghcr.io/cirruslabs/flutter:stable bash -lc'
-```
+### Сборка на самом сервере (запасной вариант)
+
+`make deploy-local-build` — как раньше, собирает образ на сервере (нужно ~3 ГБ RAM).
+
+Контейнер `web` при старте копирует Flutter-сборку из образа в общий volume `flutter_web_build` и выполняет
+`collectstatic`; nginx отдаёт `/static/` с `Cache-Control: no-cache`, так что браузеры сразу получают новую версию.
