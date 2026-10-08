@@ -7,4 +7,6 @@ if [ -d /opt/moznods_flutter_web ]; then
   cp -a /opt/moznods_flutter_web/. /app/moznods_flutter/build/web/
   chown -R appuser:appuser /app/moznods_flutter/build/web 2>/dev/null || true
 fi
+# Publish the fresh Flutter build (and admin assets) to STATIC_ROOT on every start.
+runuser -u appuser -g appuser -- python manage.py collectstatic --noinput >/dev/null
 exec runuser -u appuser -g appuser -- "$@"

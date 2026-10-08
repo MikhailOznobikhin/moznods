@@ -87,8 +87,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    if (state.token != null) {
+      try {
+        // Invalidate the token server-side too.
+        await _client.dio.post('/api/auth/logout/');
+      } catch (_) {}
+    }
     await _safeDeleteToken();
     state = AuthState();
+  }
+
+  /// Returns null on success, otherwise an error message from the server.
+  Future<String?> changePassword(String oldPassword, String newPassword) async {
+    try {
+      final response = await _client.dio.post('/api/auth/password/', data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      });
+      final token = response.data['token'] as String;
+      await _storage.write(key: 'auth_token', value: token);
+      state = state.copyWith(token: token);
+      return null;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.isNotEmpty) {
+        final first = data.values.first;
+        return first is List && first.isNotEmpty ? first.first.toString() : first.toString();
+      }
+      return e.message ?? 'Error';
+    }
   }
 
   Future<bool> updateProfile({

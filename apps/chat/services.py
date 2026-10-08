@@ -61,20 +61,17 @@ class MessageService:
 
 
 def _send_push_notifications(message: Message) -> None:
-    """Send push notifications to room participants (except message author)."""
-    from apps.accounts.push_service import send_push_to_user
+    """Web push to room participants except the author (sent in the background)."""
+    from apps.accounts.push_service import notify_users
 
-    participant_ids = message.room.participants.values_list("user_id", flat=True)
-    for participant_id in participant_ids:
-        if participant_id == message.author_id:
-            continue
-        send_push_to_user(
-            user_id=participant_id,
-            title=f"{message.author.username}: ",
-            body=message.content[:100] if message.content else "Sent a message",
-            data={
-                "room_id": message.room_id,
-                "room_name": message.room.name,
-                "message_id": message.id,
-            },
-        )
+    recipient_ids = list(
+        message.room.participants.exclude(user_id=message.author_id).values_list("user_id", flat=True)
+    )
+    author_name = getattr(getattr(message.author, "profile", None), "display_name", "") or message.author.username
+    title = author_name if message.room.is_direct else f"{author_name} · {message.room.name}"
+    notify_users(
+        recipient_ids,
+        title=title,
+        body=message.content[:100] if message.content else "📎",
+        data={"room_id": message.room_id, "message_id": message.id},
+    )

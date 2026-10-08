@@ -194,5 +194,12 @@
   "copy": "Copy",
   "newLink": "New Link",
   "editRoomName": "Edit Room Name",
-  "inviteCodeOptional": "Invite code (if required)"
+  "inviteCodeOptional": "Invite code (if required)",
+  "currentPassword": "Current password",
+  "newPassword": "New password",
+  "passwordChanged": "Password changed",
+  "pushUnsupported": "Not supported on this device yet",
+  "pushDenied": "Notifications are blocked in the browser settings",
+  "pushNotConfigured": "Push notifications are not configured on the server",
+  "pushFailed": "Could not enable notifications"
 }

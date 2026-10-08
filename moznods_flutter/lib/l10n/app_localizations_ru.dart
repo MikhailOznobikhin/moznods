@@ -525,4 +525,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get inviteCodeOptional => 'Код приглашения (если нужен)';
+
+  @override
+  String get currentPassword => 'Текущий пароль';
+
+  @override
+  String get newPassword => 'Новый пароль';
+
+  @override
+  String get passwordChanged => 'Пароль изменён';
+
+  @override
+  String get pushUnsupported => 'Пока не поддерживается на этом устройстве';
+
+  @override
+  String get pushDenied => 'Уведомления запрещены в настройках браузера';
+
+  @override
+  String get pushNotConfigured => 'Пуш-уведомления не настроены на сервере';
+
+  @override
+  String get pushFailed => 'Не удалось включить уведомления';
 }

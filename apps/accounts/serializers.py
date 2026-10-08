@@ -59,6 +59,16 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email", "display_name", "avatar_url")
 
+    def to_representation(self, instance: User) -> dict:
+        data = super().to_representation(instance)
+        # Email is private: only the user themself sees it.
+        request = self.context.get("request")
+        viewer = getattr(request, "user", None)
+        is_self = self.context.get("is_self") or (viewer is not None and viewer.pk == instance.pk)
+        if not is_self:
+            data["email"] = ""
+        return data
+
     def get_display_name(self, obj: User) -> str:
         if hasattr(obj, "profile"):
             return obj.profile.display_name or obj.username
@@ -72,6 +82,11 @@ class UserSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(url)
             return url
         return ""
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(min_length=8, write_only=True)
+
 
 class UpdateProfileSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=150, required=False)

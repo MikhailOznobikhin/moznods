@@ -1099,6 +1099,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invite code (if required)'**
   String get inviteCodeOptional;
+
+  /// No description provided for @currentPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get currentPassword;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPassword;
+
+  /// No description provided for @passwordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed'**
+  String get passwordChanged;
+
+  /// No description provided for @pushUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Not supported on this device yet'**
+  String get pushUnsupported;
+
+  /// No description provided for @pushDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked in the browser settings'**
+  String get pushDenied;
+
+  /// No description provided for @pushNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are not configured on the server'**
+  String get pushNotConfigured;
+
+  /// No description provided for @pushFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not enable notifications'**
+  String get pushFailed;
 }
 
 class _AppLocalizationsDelegate

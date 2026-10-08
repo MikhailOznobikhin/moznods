@@ -101,6 +101,31 @@ class RoomService:
             RoomService._disconnect_member_sockets(room_id, user_id)
 
     @staticmethod
+    def update_room(room: Room, name: str | None = None) -> Room:
+        if name is not None:
+            room.name = name
+            room.save(update_fields=["name", "updated_at"])
+            RoomService._invalidate_room_cache(room.id)
+        return room
+
+    @staticmethod
+    def leave_room(room: Room, user: User) -> None:
+        """Leave a room voluntarily. The owner must delete the room instead."""
+        if not RoomService.is_participant(room, user):
+            raise PermissionDenied("You are not a participant in this room.")
+        if room.owner_id == user.id and not room.is_direct:
+            raise ValidationError(
+                detail={"user": ["The owner cannot leave the room. Delete it instead."]}
+            )
+        RoomService.remove_participant(room, user)
+
+    @staticmethod
+    def kick_participant(room: Room, user: User) -> None:
+        if user.id == room.owner_id:
+            raise ValidationError(detail={"user": ["The room owner cannot be removed."]})
+        RoomService.remove_participant(room, user)
+
+    @staticmethod
     def join_room(room: Room, user: User) -> RoomParticipant:
         """Self-join by room id. Only public, non-direct rooms; banned users are rejected."""
         if RoomService.is_participant(room, user):

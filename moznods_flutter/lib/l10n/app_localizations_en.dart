@@ -521,4 +521,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inviteCodeOptional => 'Invite code (if required)';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get passwordChanged => 'Password changed';
+
+  @override
+  String get pushUnsupported => 'Not supported on this device yet';
+
+  @override
+  String get pushDenied => 'Notifications are blocked in the browser settings';
+
+  @override
+  String get pushNotConfigured =>
+      'Push notifications are not configured on the server';
+
+  @override
+  String get pushFailed => 'Could not enable notifications';
 }

@@ -29,3 +29,4 @@ TURN_PASSWORD = ""
 TURN_URLS = []
 STUN_URLS = ["stun:stun.example.org:3478"]
 REGISTRATION_INVITE_CODE = ""
+PUSH_SEND_SYNC = True

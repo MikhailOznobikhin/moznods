@@ -210,3 +210,10 @@ CALL_RECONNECT_GRACE_SECONDS = float(os.environ.get("CALL_RECONNECT_GRACE_SECOND
 
 # Closed registration: when set, /api/auth/register/ requires this invite_code.
 REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "").strip()
+
+# Web Push (VAPID). Generate keys: `npx web-push generate-vapid-keys` or py_vapid.
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "admin@example.com").strip()
+# Tests send inline instead of the background pool.
+PUSH_SEND_SYNC = False
