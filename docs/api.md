@@ -81,7 +81,7 @@ User payload includes `avatar_url` (may be empty string if no avatar).
 | GET | `/api/rooms/{id}/` | Get room details |
 | PATCH | `/api/rooms/{id}/` | Update room |
 | DELETE | `/api/rooms/{id}/` | Delete room |
-| POST | `/api/rooms/{id}/join/` | Join room |
+| POST | `/api/rooms/{id}/join/` | Join a public room (403 for private/direct rooms or banned users; use invite links for private rooms) |
 | POST | `/api/rooms/{id}/leave/` | Leave room |
 | GET | `/api/rooms/{id}/participants/` | List room participants |
 | GET | `/api/rooms/{id}/call-state/` | Get current call presence (idle/active, participants in call) |
@@ -182,6 +182,10 @@ WebSocket: `ws://host/ws/call/{room_id}/?token={auth_token}`
 | `offer` | `{"target_user_id": int, "sdp": str}` | WebRTC offer |
 | `answer` | `{"target_user_id": int, "sdp": str}` | WebRTC answer |
 | `ice_candidate`| `{"target_user_id": int, "candidate": obj}` | ICE candidate |
+| `toggle_audio` | `{"is_muted": bool}` | Broadcast own mute state to others |
+| `toggle_video` | `{"is_video_enabled": bool}` | Broadcast own camera state to others |
+
+`target_user_id` may also be sent as top-level `to_user_id` (Flutter client).
 
 #### Message Types (Send to Client)
 
@@ -191,7 +195,10 @@ WebSocket: `ws://host/ws/call/{room_id}/?token={auth_token}`
 | `user_joined` | `{"user": {"id": int, "username": str}}` | User entered the call |
 | `user_left` | `{"user_id": int}` | User left the call |
 | `request_mic` | `{"from_user_id": int, "from_username": str}` | Unmute request from admin |
-| `signaling_relay`| `{"message_type": str, "data": obj, ...}` | Forwarded WebRTC payload |
+| `offer` / `answer` / `ice_candidate` | `{...payload, "from_user_id": int, "from_username": str}` | Forwarded WebRTC payload; `from_user_id` is set by the server (also duplicated at top level) |
+| `toggle_audio` / `toggle_video` | `{"user_id": int, "is_muted" \| "is_video_enabled": bool}` | Another member changed media state |
+
+The socket is closed with code `4403` when the user is removed/banned from the room or the room is deleted.
 
 ### Chat Consumer (Messages & Presence)
 

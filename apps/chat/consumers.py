@@ -1,9 +1,15 @@
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+import logging
+
+from rest_framework.exceptions import APIException
+
 from core.ws_auth import get_user_from_scope
 from apps.rooms.models import Room
-from apps.rooms.services import RoomService
+from apps.rooms.services import RoomService, member_group_name
+
+logger = logging.getLogger(__name__)
 
 from .services import MessageService
 
@@ -34,14 +40,15 @@ def save_and_broadcast_message(room, user, content, attachment_ids):
 
 
 @database_sync_to_async
-def mark_message_as_read(message_id, user):
+def mark_message_as_read(room, message_id, user):
+    """Mark one message of this room as read. Ignores ids from other rooms."""
+    from .models import Message
     try:
-        from .models import Message
-        message = Message.objects.get(pk=message_id)
-        message.read_by.add(user)
-        return True
-    except Exception:
+        message = Message.objects.get(pk=int(message_id), room=room)
+    except (Message.DoesNotExist, TypeError, ValueError):
         return False
+    message.read_by.add(user)
+    return True
 
 
 @database_sync_to_async
@@ -66,37 +73,20 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for room chat. Join room group, receive chat_message, persist and broadcast."""
 
     async def connect(self):
-        print(f"DEBUG: ChatConsumer.connect() called for room {self.scope['url_route']['kwargs'].get('room_id')}")
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
-        
-        # Authenticate user
-        from core.ws_auth import get_user_from_scope
         self.user = await database_sync_to_async(get_user_from_scope)(self.scope)
-        
-        if not self.user or not self.user.is_authenticated:
-            print(f"WebSocket auth failed for room {self.room_id}")
-            await self.close(code=4403)
-            return
 
         ok, room = await check_participant(self.room_id, self.user)
-        # If admin, allow access even if not participant (optional debug helper)
-        if (not ok or room is None) and self.user.is_superuser:
-             try:
-                room = await database_sync_to_async(Room.objects.get)(pk=self.room_id)
-                ok = True
-             except Room.DoesNotExist:
-                pass
-
         if not ok or room is None:
-            print(f"WebSocket participant check failed for user {self.user} in room {self.room_id}")
             await self.close(code=4403)
             return
-            
+
         self.room = room
         self.room_group_name = f"chat_{self.room_id}"
+        self.member_group_name = member_group_name(self.room_id, self.user.id)
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.member_group_name, self.channel_name)
         await self.accept()
-        print(f"WebSocket connected for user {self.user} in room {self.room_id}")
 
     async def disconnect(self, close_code):
         if hasattr(self, "room_group_name"):
@@ -104,16 +94,22 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 self.room_group_name,
                 self.channel_name,
             )
+            await self.channel_layer.group_discard(
+                self.member_group_name,
+                self.channel_name,
+            )
+
+    async def member_removed(self, event):
+        """User was kicked/banned or the room was deleted: drop the socket."""
+        await self.close(code=4403)
 
     async def receive_json(self, content):
-        print(f"Received WebSocket message: {content}")
         msg_type = content.get("type")
         
         if msg_type == "chat_message":
             data = content.get("data", {})
             content_text = data.get("content", "")
             attachment_ids = data.get("attachment_ids", [])
-            print(f"Processing message from {self.user}: {content_text}")
             try:
                 payload = await save_and_broadcast_message(
                     self.room,
@@ -121,7 +117,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                     content_text,
                     attachment_ids,
                 )
-                print(f"Message saved: {payload['id']}")
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -129,14 +124,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                         "payload": payload,
                     },
                 )
-            except Exception as e:
-                print(f"Error saving message: {e}")
-                await self.send_json({"type": "error", "detail": str(e)})
+            except APIException as e:
+                await self.send_json({"type": "error", "detail": e.detail})
+            except Exception:
+                logger.exception("Failed to save chat message in room %s", self.room_id)
+                await self.send_json({"type": "error", "detail": "Failed to send message."})
 
         elif msg_type == "message_read":
             message_id = content.get("data", {}).get("message_id")
             if message_id:
-                ok = await mark_message_as_read(message_id, self.user)
+                ok = await mark_message_as_read(self.room, message_id, self.user)
                 if ok:
                     await self.channel_layer.group_send(
                         self.room_group_name,
@@ -166,7 +163,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                     )
 
         else:
-            print(f"Unknown message type: {msg_type}")
             await self.send_json({"type": "error", "detail": "Unknown message type."})
 
     async def chat_message_broadcast(self, event):

@@ -23,6 +23,8 @@ from .serializers import (
 from .services import RoomService, InvitationService
 from .permissions import IsRoomOwner, IsRoomParticipant, IsRoomAdmin
 
+MAX_PAGE_SIZE = 100
+
 
 class RoomPinView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
@@ -30,6 +32,7 @@ class RoomPinView(APIView):
     def post(self, request, pk):
         """Pin a room for the user."""
         room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
         participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
         participant.is_pinned = True
         participant.save()
@@ -38,6 +41,7 @@ class RoomPinView(APIView):
     def delete(self, request, pk):
         """Unpin a room for the user."""
         room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
         participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
         participant.is_pinned = False
         participant.save()
@@ -49,11 +53,19 @@ class RoomInviteCreateView(APIView):
 
     def post(self, request, pk):
         room = get_object_or_404(Room, pk=pk)
+        self.check_object_permissions(request, room)
+        if room.is_direct:
+            return Response(
+                {"detail": "Direct rooms do not support invitations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         expires_in = request.data.get("expires_in_hours")
         if expires_in:
             try:
                 expires_in = int(expires_in)
-            except ValueError:
+            except (TypeError, ValueError):
+                expires_in = None
+            if expires_in is not None and expires_in <= 0:
                 expires_in = None
 
         invitation = InvitationService.create_invitation(room, request.user, expires_in)
@@ -95,7 +107,7 @@ class RoomListCreateView(APIView):
         try:
             page_size = request.query_params.get("page_size")
             if page_size is not None:
-                paginator.page_size = int(page_size)
+                paginator.page_size = max(1, min(int(page_size), MAX_PAGE_SIZE))
         except (TypeError, ValueError):
             pass
         page = paginator.paginate_queryset(rooms, request)
@@ -146,6 +158,7 @@ class RoomDetailView(APIView):
         if "name" in serializer.validated_data:
             room.name = serializer.validated_data["name"]
             room.save()
+            RoomService._invalidate_room_cache(room.id)
         return Response(RoomSerializer(room, context={"request": request}).data)
 
     def delete(self, request, pk):
@@ -155,7 +168,7 @@ class RoomDetailView(APIView):
                 {"detail": "Only the room owner can delete the room."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        room.delete()
+        RoomService.delete_room(room)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -165,14 +178,14 @@ class RoomJoinView(APIView):
     def post(self, request, pk):
         room = get_object_or_404(Room, pk=pk)
         try:
-            RoomService.add_participant(room, request.user)
+            RoomService.join_room(room, request.user)
         except Exception as e:
             from core.exceptions import ValidationError
 
             if isinstance(e, ValidationError):
                 return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
             raise
-        return Response(RoomSerializer(room).data)
+        return Response(RoomSerializer(room, context={"request": request}).data)
 
 
 class RoomLeaveView(APIView):
@@ -281,6 +294,12 @@ class RoomRemoveParticipantView(APIView):
             return Response(
                 {"detail": "User not found."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if target.id == room.owner_id:
+            return Response(
+                {"detail": "The room owner cannot be removed."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:

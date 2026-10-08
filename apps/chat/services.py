@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from core.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 
 from apps.files.models import File
@@ -28,6 +29,8 @@ class MessageService:
             raise ValidationError(
                 detail={"room": ["You are not a participant in this room."]}
             )
+        if room.is_channel and not RoomService.is_admin(room, author):
+            raise PermissionDenied("Only admins can send messages in channels.")
 
         attachment_file_ids = attachment_file_ids or []
         files_to_attach = []

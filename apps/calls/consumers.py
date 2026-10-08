@@ -9,8 +9,8 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from core.ws_auth import get_user_from_scope
-from apps.rooms.models import Room
-from apps.rooms.services import RoomService
+from apps.rooms.models import Room, RoomParticipant
+from apps.rooms.services import RoomService, member_group_name
 
 from .call_state import (
     STATE_ACTIVE,
@@ -36,6 +36,17 @@ def check_room_participant(room_id, user):
     return True, room
 
 
+def _parse_user_id(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+# Keys the server sets on relayed messages; never taken from client payloads.
+RESERVED_RELAY_KEYS = ("from_user_id", "from_username", "target_user_id", "to_user_id")
+
+
 class SignalingConsumer(AsyncJsonWebsocketConsumer):
     """
     WebRTC signaling: join_call, leave_call, offer, answer, ice_candidate.
@@ -52,7 +63,9 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         self.room_group_name = f"call_{self.room_id}"
         self.user_id = self.user.id
         self._username = getattr(self.user, "username", "") or ""
+        self.member_group_name = member_group_name(self.room_id, self.user_id)
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.member_group_name, self.channel_name)
         await sync_to_async(call_state_set_user_state)(
             self.room_id, self.user_id, self._username, STATE_CONNECTING
         )
@@ -73,10 +86,25 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 self.room_group_name,
                 self.channel_name,
             )
+            await self.channel_layer.group_discard(
+                self.member_group_name,
+                self.channel_name,
+            )
+
+    async def member_removed(self, event):
+        """User was kicked/banned or the room was deleted: drop the socket."""
+        await self.close(code=4403)
 
     async def receive_json(self, content):
         message_type = content.get("type")
-        data = content.get("data", {})
+        data = content.get("data")
+        if not isinstance(data, dict):
+            data = {}
+        # AICODE-NOTE: Web client sends data.target_user_id, Flutter sends top-level
+        # to_user_id. Accept both.
+        target_user_id = _parse_user_id(
+            data.get("target_user_id", content.get("to_user_id", content.get("target_user_id")))
+        )
 
         if message_type == "ping":
             await self.send_json({"type": "pong"})
@@ -88,13 +116,15 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             await self._broadcast_user_left()
         elif message_type == "request_mic":
             # AICODE-NOTE: Handle admin request to unmute (#15)
-            await self._handle_request_mic(data)
+            await self._handle_request_mic(target_user_id)
         elif message_type in ("offer", "answer", "ice_candidate"):
-            await self._relay_signaling(message_type, data)
+            await self._relay_signaling(message_type, target_user_id, data)
+        elif message_type in ("toggle_audio", "toggle_video"):
+            await self._broadcast_media_state(message_type, data)
         else:
             await self.send_json({"type": "error", "detail": "Unknown message type."})
 
-    async def _handle_request_mic(self, data):
+    async def _handle_request_mic(self, target_user_id: int | None) -> None:
         """Admin requests a user to unmute."""
         # 1. Check if requester is admin (owner)
         is_owner = await database_sync_to_async(lambda: Room.objects.filter(pk=self.room_id, owner=self.user).exists())()
@@ -102,8 +132,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "detail": "Only admin can request microphone."})
             return
 
-        target_user_id = data.get("target_user_id")
-        if not target_user_id:
+        if target_user_id is None:
             await self.send_json({"type": "error", "detail": "target_user_id required."})
             return
 
@@ -166,13 +195,15 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         )
 
         # 2. Notify all room members for sidebar update (#UI_Presence)
-        room_members_group = f"room_{self.room_id}"
         active_usernames = [p["username"] for p in participants if p.get("state") in (STATE_ACTIVE, STATE_CONNECTING)]
         
         # Broadcast to all users in the room (via their personal user_{id} groups)
         # We need to fetch all participant IDs for this room
+        # filter() instead of get(): the room may already be deleted during disconnect.
         participant_ids = await database_sync_to_async(
-            lambda: list(Room.objects.get(pk=self.room_id).participants.values_list('user_id', flat=True))
+            lambda: list(
+                RoomParticipant.objects.filter(room_id=self.room_id).values_list("user_id", flat=True)
+            )
         )()
 
         for user_id in participant_ids:
@@ -189,12 +220,12 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 }
             )
 
-    async def _relay_signaling(self, message_type, data):
+    async def _relay_signaling(self, message_type: str, target_user_id: int | None, data: dict) -> None:
         """Relay offer/answer/ice_candidate to target_user_id."""
-        target_user_id = data.get("target_user_id")
         if target_user_id is None:
             await self.send_json({"type": "error", "detail": "target_user_id required."})
             return
+        payload = {k: v for k, v in data.items() if k not in RESERVED_RELAY_KEYS}
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -203,9 +234,30 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
                 "from_user_id": self.user_id,
                 "from_username": self._username,
                 "target_user_id": target_user_id,
-                "data": data,
+                "data": payload,
             },
         )
+
+    async def _broadcast_media_state(self, message_type: str, data: dict) -> None:
+        """Tell other call members that this user muted/unmuted audio or video."""
+        if message_type == "toggle_audio":
+            payload = {"user_id": self.user_id, "is_muted": bool(data.get("is_muted"))}
+        else:
+            payload = {"user_id": self.user_id, "is_video_enabled": bool(data.get("is_video_enabled"))}
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "media_state",
+                "message_type": message_type,
+                "data": payload,
+                "exclude_channel": self.channel_name,
+            },
+        )
+
+    async def media_state(self, event):
+        if event.get("exclude_channel") == self.channel_name:
+            return
+        await self.send_json({"type": event["message_type"], "data": event["data"]})
 
     async def call_state(self, event):
         """Send current call presence to this client."""
@@ -237,11 +289,14 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         """Send offer/answer/ice_candidate only to the target user."""
         if event["target_user_id"] != self.user_id:
             return
+        # Sender identity goes last so it cannot be overridden by the payload;
+        # it is duplicated at top level for the Flutter client.
         await self.send_json({
             "type": event["message_type"],
+            "from_user_id": event["from_user_id"],
             "data": {
+                **event["data"],
                 "from_user_id": event["from_user_id"],
                 "from_username": event.get("from_username", ""),
-                **event["data"],
             },
         })

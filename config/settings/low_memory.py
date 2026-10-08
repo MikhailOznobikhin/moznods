@@ -24,7 +24,7 @@ sentry_sdk.init(
 from dotenv import load_dotenv
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("1", "true", "yes")
 
 # Основные настройки
 SECRET_KEY = os.environ["SECRET_KEY"]

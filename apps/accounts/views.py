@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.throttling import LoginThrottle
+
+from .models import PushSubscription
 from .serializers import (
     LoginSerializer,
     PushSubscriptionCreateSerializer,

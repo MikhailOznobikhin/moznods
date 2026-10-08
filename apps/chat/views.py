@@ -58,7 +58,7 @@ class MessageListCreateView(APIView):
         try:
             page_size = request.query_params.get("page_size")
             if page_size is not None:
-                paginator.page_size = int(page_size)
+                paginator.page_size = max(1, min(int(page_size), 100))
         except (TypeError, ValueError):
             pass
         page = paginator.paginate_queryset(qs, request)

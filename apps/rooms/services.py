@@ -7,6 +7,7 @@ from django.db.models import Q
 
 from core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Room, RoomParticipant, RoomInvitation, RoomBan
 from .serializers import RoomSerializer
@@ -17,6 +18,13 @@ ROOM_CACHE_TTL = 300
 PUBLIC_ROOMS_CACHE_KEY = "public_rooms_list"
 ROOM_PARTICIPANTS_CACHE_KEY = "room_{}_participants"
 ROOM_ADMINS_CACHE_KEY = "room_{}_admins"
+# Only these page sizes are cached, so invalidation knows every key it has to drop.
+PUBLIC_ROOMS_CACHED_LIMITS = (20,)
+
+
+def member_group_name(room_id: int | str, user_id: int) -> str:
+    """Channels group holding one user's room-scoped sockets (chat + call)."""
+    return f"room_{room_id}_member_{user_id}"
 
 
 class InvitationService:
@@ -41,6 +49,8 @@ class InvitationService:
             invitation = RoomInvitation.objects.get(token=token)
             if invitation.is_expired:
                 raise ValidationError(detail={"invitation": ["Invitation has expired."]})
+            if RoomService.is_banned(invitation.room, user):
+                raise ValidationError(detail={"user": ["You are banned from this room."]})
 
             if not RoomService.is_participant(invitation.room, user):
                 RoomService.add_participant(invitation.room, user)
@@ -77,8 +87,27 @@ class RoomService:
         """Create a room and add owner as first participant."""
         room = Room.objects.create(owner=owner, name=name.strip(), **kwargs)
         RoomParticipant.objects.create(room=room, user=owner)
-        cache.delete(PUBLIC_ROOMS_CACHE_KEY)
+        RoomService._invalidate_public_rooms_cache()
         return room
+
+    @staticmethod
+    def delete_room(room: Room) -> None:
+        """Delete a room, drop caches and disconnect live sockets of its members."""
+        room_id = room.id
+        member_ids = list(room.participants.values_list("user_id", flat=True))
+        room.delete()
+        RoomService._invalidate_room_cache(room_id)
+        for user_id in member_ids:
+            RoomService._disconnect_member_sockets(room_id, user_id)
+
+    @staticmethod
+    def join_room(room: Room, user: User) -> RoomParticipant:
+        """Self-join by room id. Only public, non-direct rooms; banned users are rejected."""
+        if not room.is_public or room.is_direct:
+            raise PermissionDenied("This room is private. Use an invitation link to join.")
+        if RoomService.is_banned(room, user):
+            raise PermissionDenied("You are banned from this room.")
+        return RoomService.add_participant(room, user)
 
     @staticmethod
     def add_participant(room: Room, user: User) -> RoomParticipant:
@@ -93,18 +122,38 @@ class RoomService:
     @staticmethod
     def remove_participant(room: Room, user: User) -> None:
         """Remove user from room. Raises ValidationError if not a participant."""
-        try:
-            RoomParticipant.objects.get(room=room, user=user).delete()
-            RoomService._invalidate_room_cache(room.id)
-        except RoomParticipant.DoesNotExist:
+        deleted, _ = RoomParticipant.objects.filter(room=room, user=user).delete()
+        if not deleted:
             raise ValidationError(detail={"user": ["User is not a participant in this room."]})
+        RoomService._invalidate_room_cache(room.id)
+        RoomService._disconnect_member_sockets(room.id, user.id)
+
+    @staticmethod
+    def _disconnect_member_sockets(room_id: int, user_id: int) -> None:
+        """Close the user's open chat/call WebSockets for this room.
+
+        AICODE-NOTE: Consumers check membership only on connect(), so every room-scoped
+        consumer joins the group from member_group_name() and closes on "member_removed".
+        """
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            return
+        async_to_sync(channel_layer.group_send)(
+            member_group_name(room_id, user_id),
+            {"type": "member_removed"},
+        )
+
+    @staticmethod
+    def _invalidate_public_rooms_cache() -> None:
+        for limit in PUBLIC_ROOMS_CACHED_LIMITS:
+            cache.delete(f"{PUBLIC_ROOMS_CACHE_KEY}_{limit}")
 
     @staticmethod
     def _invalidate_room_cache(room_id: int) -> None:
         """Invalidate cache for a room."""
         cache.delete(ROOM_PARTICIPANTS_CACHE_KEY.format(room_id))
         cache.delete(ROOM_ADMINS_CACHE_KEY.format(room_id))
-        cache.delete(PUBLIC_ROOMS_CACHE_KEY)
+        RoomService._invalidate_public_rooms_cache()
 
     @staticmethod
     def is_participant(room: Room, user: User) -> bool:
@@ -146,7 +195,10 @@ class RoomService:
         offset: int = 0,
     ):
         """List public rooms with optional search."""
-        if not search and is_channel is None and offset == 0:
+        use_cache = (
+            not search and is_channel is None and offset == 0 and limit in PUBLIC_ROOMS_CACHED_LIMITS
+        )
+        if use_cache:
             cache_key = f"{PUBLIC_ROOMS_CACHE_KEY}_{limit}"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -159,7 +211,7 @@ class RoomService:
             qs = qs.filter(Q(name__icontains=search) | Q(username__icontains=search))
         rooms = list(qs.order_by("-created_at")[offset : offset + limit])
 
-        if not search and is_channel is None and offset == 0:
+        if use_cache:
             cache.set(cache_key, rooms, timeout=ROOM_CACHE_TTL)
 
         return rooms
@@ -186,7 +238,11 @@ class RoomService:
         """Update participant role. Only owner or admins can do this."""
         if new_role not in [RoomParticipant.ROLE_ADMIN, RoomParticipant.ROLE_MEMBER]:
             raise ValidationError(detail={"role": ["Invalid role."]})
-        participant = RoomParticipant.objects.get(room=room, user=user)
+        participant = RoomParticipant.objects.filter(room=room, user=user).first()
+        if participant is None:
+            raise ValidationError(detail={"user": ["User is not a participant in this room."]})
+        if room.owner_id == user.id:
+            raise ValidationError(detail={"user": ["The owner's role cannot be changed."]})
         participant.role = new_role
         participant.save(update_fields=["role"])
         return participant
@@ -199,10 +255,17 @@ class RoomService:
 
     @staticmethod
     def ban_user(room: Room, user: User, banned_by: User, reason: str = None) -> RoomBan:
-        """Ban a user from room. Only admins can ban."""
+        """Ban a user from room. Only admins can ban; only the owner can ban admins."""
+        if user.id == banned_by.id:
+            raise ValidationError(detail={"user": ["You cannot ban yourself."]})
+        if room.owner_id == user.id:
+            raise ValidationError(detail={"user": ["The room owner cannot be banned."]})
         if RoomService.is_banned(room, user):
             raise ValidationError(detail={"user": ["User is already banned."]})
-        RoomService.remove_participant(room, user)
+        if room.owner_id != banned_by.id and RoomService.is_admin(room, user):
+            raise PermissionDenied("Only the room owner can ban admins.")
+        if RoomService.is_participant(room, user):
+            RoomService.remove_participant(room, user)
         return RoomBan.objects.create(room=room, user=user, banned_by=banned_by, reason=reason)
 
     @staticmethod

@@ -27,3 +27,16 @@ class TestMessageService:
         with pytest.raises(ValidationError) as exc_info:
             MessageService.send_message(room=room, author=other, content="Hi")
         assert "room" in exc_info.value.detail
+
+    def test_send_message_channel_member_raises(self):
+        from rest_framework.exceptions import PermissionDenied
+
+        from apps.rooms.models import RoomParticipant
+
+        owner = create_user(username="owner")
+        member = create_user(username="member")
+        room = create_room(owner=owner, name="C1", is_channel=True)
+        RoomParticipant.objects.create(room=room, user=member)
+        with pytest.raises(PermissionDenied):
+            MessageService.send_message(room=room, author=member, content="spam")
+        assert MessageService.send_message(room=room, author=owner, content="news").id
