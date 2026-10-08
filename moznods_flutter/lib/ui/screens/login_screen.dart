@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../store/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -33,10 +32,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _usernameController.text.trim(),
           _passwordController.text,
         );
-
-    if (success && mounted) {
-      await _checkPendingInvite();
-    } else if (mounted) {
+    // On success the router redirects to `from` (or home) by itself.
+    if (!success && mounted) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -47,20 +44,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _checkPendingInvite() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingToken = prefs.getString('pending_invite_token');
-
-    if (pendingToken != null) {
-      await prefs.remove('pending_invite_token');
-      if (mounted) {
-        context.go('/invite/$pendingToken');
-      }
-    } else {
-      if (mounted) {
-        context.go('/');
-      }
-    }
+  String _withFrom(String path) {
+    final from = GoRouterState.of(context).uri.queryParameters['from'];
+    return from == null ? path : '$path?from=${Uri.encodeComponent(from)}';
   }
 
   @override
@@ -204,7 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/register'),
+                        onPressed: () => context.go(_withFrom('/register')),
                         child: Text(
                           l10n.register,
                           style: const TextStyle(color: Color(0xFF5865F2)),

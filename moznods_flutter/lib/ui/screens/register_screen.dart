@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/dio_client.dart';
+import '../../store/auth_provider.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -48,7 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final client = DioClient();
-      await client.dio.post(
+      final response = await client.dio.post(
         '/api/auth/register/',
         data: {
           'username': _usernameController.text.trim(),
@@ -67,7 +68,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: const Color(0xFF248046),
           ),
         );
-        await _checkPendingInvite();
+        // Logged in right away; the router then continues to `from` (or home).
+        await ref.read(authProvider.notifier).applySession(
+              response.data['token'] as String,
+              Map<String, dynamic>.from(response.data['user'] as Map),
+            );
       }
     } on DioException catch (e) {
       setState(() {
@@ -86,21 +91,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _checkPendingInvite() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingToken = prefs.getString('pending_invite_token');
-
-    if (pendingToken != null) {
-      await prefs.remove('pending_invite_token');
-      if (mounted) {
-        context.go('/login?invite=$pendingToken');
-      }
-    } else {
-      if (mounted) {
-        context.go('/login');
-      }
-    }
+  String _withFrom(String path) {
+    final from = GoRouterState.of(context).uri.queryParameters['from'];
+    return from == null ? path : '$path?from=${Uri.encodeComponent(from)}';
   }
+
 
   String _extractErrorMessage(DioException error, String fallback) {
     final responseData = error.response?.data;
@@ -305,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/login'),
+                        onPressed: () => context.go(_withFrom('/login')),
                         child: Text(
                           l10n.signIn,
                           style: const TextStyle(color: Color(0xFF5865F2)),

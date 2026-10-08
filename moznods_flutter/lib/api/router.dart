@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../store/auth_provider.dart';
@@ -9,39 +10,60 @@ import '../ui/screens/invite_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/register_screen.dart';
 import '../ui/screens/settings_screen.dart';
+import '../ui/screens/splash_screen.dart';
 import '../ui/screens/user_profile_screen.dart';
 
+const _publicPaths = {'/login', '/register', '/download'};
+
+/// Re-runs GoRouter redirects when auth changes, without rebuilding the router
+/// (rebuilding it reset navigation and dropped deep links).
+class _AuthRefresh extends ChangeNotifier {
+  _AuthRefresh(Ref ref) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (previous?.user?.id != next.user?.id ||
+          previous?.initialized != next.initialized) {
+        notifyListeners();
+      }
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final refresh = _AuthRefresh(ref);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: refresh,
     redirect: (context, state) {
-      final isLoggedIn = authState.user != null;
-      final matchedLocation = state.matchedLocation;
-      final pathLocation = state.uri.path;
-      final fragmentLocation = '/${state.uri.fragment.replaceFirst(RegExp(r'^/+'), '')}';
+      final auth = ref.read(authProvider);
+      final path = state.uri.path;
+      final from = state.uri.queryParameters['from'];
 
-      final isLoggingIn =
-          matchedLocation == '/login' ||
-          pathLocation == '/login' ||
-          fragmentLocation == '/login';
-      final isRegistering =
-          matchedLocation == '/register' ||
-          pathLocation == '/register' ||
-          fragmentLocation == '/register';
-      final isDownloadPage =
-          matchedLocation == '/download' ||
-          pathLocation == '/download' ||
-          fragmentLocation == '/download';
-
-      if (!isLoggedIn && !isLoggingIn && !isRegistering && !isDownloadPage) {
-        return '/login';
+      if (!auth.initialized) {
+        if (path == '/splash') return null;
+        return '/splash?from=${Uri.encodeComponent(state.uri.toString())}';
       }
-      if (isLoggedIn && (isLoggingIn || isRegistering)) return '/';
+
+      final isLoggedIn = auth.user != null;
+      if (path == '/splash') {
+        final target = from ?? '/';
+        if (!isLoggedIn && !_publicPaths.contains(Uri.parse(target).path)) {
+          return target == '/' ? '/login' : '/login?from=${Uri.encodeComponent(target)}';
+        }
+        return target;
+      }
+      if (!isLoggedIn && !_publicPaths.contains(path)) {
+        final target = state.uri.toString();
+        return target == '/' ? '/login' : '/login?from=${Uri.encodeComponent(target)}';
+      }
+      if (isLoggedIn && (path == '/login' || path == '/register')) {
+        return from ?? '/';
+      }
       return null;
     },
     routes: [
+      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/',
         builder: (context, state) => const DashboardLayout(),
@@ -71,10 +93,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) {
-          final userId = authState.user?.id;
-          if (userId == null) {
-            return const LoginScreen();
-          }
+          final userId = ref.read(authProvider).user?.id;
+          if (userId == null) return const LoginScreen();
           return UserProfileScreen(userId: userId);
         },
         routes: [

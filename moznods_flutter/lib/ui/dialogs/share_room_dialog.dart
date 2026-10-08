@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../api/dio_client.dart';
 import 'package:flutter/services.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +29,7 @@ class _ShareRoomDialogState extends ConsumerState<ShareRoomDialog> {
       );
       if (mounted) {
         setState(() {
-          _inviteUrl = '/invite/$token';
+          _inviteUrl = '${DioClient.publicBaseUrl}/invite/$token';
           _isLoading = false;
         });
       }

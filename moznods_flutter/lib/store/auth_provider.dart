@@ -11,14 +11,30 @@ class AuthState {
   final bool isLoading;
   final String? error;
 
-  AuthState({this.user, this.token, this.isLoading = false, this.error});
+  /// False until the stored session has been restored (or found missing).
+  final bool initialized;
 
-  AuthState copyWith({User? user, String? token, bool? isLoading, String? error}) {
+  AuthState({
+    this.user,
+    this.token,
+    this.isLoading = false,
+    this.error,
+    this.initialized = true,
+  });
+
+  AuthState copyWith({
+    User? user,
+    String? token,
+    bool? isLoading,
+    String? error,
+    bool? initialized,
+  }) {
     return AuthState(
       user: user ?? this.user,
       token: token ?? this.token,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      initialized: initialized ?? this.initialized,
     );
   }
 }
@@ -27,11 +43,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final DioClient _client = DioClient();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  AuthNotifier({bool loadSession = true}) : super(AuthState()) {
+  AuthNotifier({bool loadSession = true})
+      : super(AuthState(initialized: !loadSession)) {
     if (loadSession) _loadSession();
   }
 
   Future<void> _loadSession() async {
+    try {
+      await _restoreSession();
+    } finally {
+      state = state.copyWith(initialized: true, isLoading: false);
+    }
+  }
+
+  Future<void> _restoreSession() async {
     state = state.copyWith(isLoading: true);
     String? token;
     try {
@@ -59,6 +84,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  /// Store a session returned by register/login endpoints.
+  Future<void> applySession(String token, Map<String, dynamic> userJson) async {
+    await _storage.write(key: 'auth_token', value: token);
+    state = AuthState(user: User.fromJson(userJson), token: token);
   }
 
   Future<void> _safeDeleteToken() async {

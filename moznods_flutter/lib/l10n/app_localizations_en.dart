@@ -508,7 +508,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createLink => 'Create Link';
 
   @override
-  String get copied => 'Copied!';
+  String get copied => 'Copied';
 
   @override
   String get copy => 'Copy';
@@ -543,4 +543,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushFailed => 'Could not enable notifications';
+
+  @override
+  String get newDirectMessage => 'New direct message';
+
+  @override
+  String get directMessages => 'Direct messages';
+
+  @override
+  String get roomsSection => 'Rooms';
+
+  @override
+  String get pin => 'Pin';
+
+  @override
+  String get unpin => 'Unpin';
+
+  @override
+  String get inviteLink => 'Invite link';
+
+  @override
+  String get addMember => 'Add member';
+
+  @override
+  String get renameRoom => 'Rename';
+
+  @override
+  String get leaveRoom => 'Leave room';
+
+  @override
+  String get deleteRoom => 'Delete room';
+
+  @override
+  String get deleteRoomConfirm =>
+      'Delete this room and all its messages for everyone?';
+
+  @override
+  String get leaveRoomConfirm => 'Leave this room?';
+
+  @override
+  String get youPrefix => 'You';
+
+  @override
+  String get attachment => 'Attachment';
+
+  @override
+  String get messageDeleted => 'Message deleted';
+
+  @override
+  String get edited => 'edited';
+
+  @override
+  String get editMessage => 'Edit';
+
+  @override
+  String get copyText => 'Copy text';
+
+  @override
+  String get editingMessage => 'Editing message';
+
+  @override
+  String get deleteMessageConfirm => 'Delete this message?';
+
+  @override
+  String typingOne(String name) {
+    return '$name is typing…';
+  }
+
+  @override
+  String get typingMany => 'Several people are typing…';
+
+  @override
+  String get loadingOlder => 'Loading…';
+
+  @override
+  String get jumpToLatest => 'Jump to latest';
+
+  @override
+  String inCall(String names) {
+    return 'In call: $names';
+  }
+
+  @override
+  String get noRoomsYet =>
+      'No conversations yet. Create a room or start a direct message.';
+
+  @override
+  String get roomMenu => 'Room menu';
+
+  @override
+  String get openRooms => 'Rooms';
+
+  @override
+  String get send => 'Send';
+
+  @override
+  String get readBy => 'Read';
+
+  @override
+  String get sent => 'Sent';
+
+  @override
+  String get retry => 'Retry';
 }

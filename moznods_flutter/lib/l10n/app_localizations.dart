@@ -1073,7 +1073,7 @@ abstract class AppLocalizations {
   /// No description provided for @copied.
   ///
   /// In en, this message translates to:
-  /// **'Copied!'**
+  /// **'Copied'**
   String get copied;
 
   /// No description provided for @copy.
@@ -1141,6 +1141,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not enable notifications'**
   String get pushFailed;
+
+  /// No description provided for @newDirectMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New direct message'**
+  String get newDirectMessage;
+
+  /// No description provided for @directMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct messages'**
+  String get directMessages;
+
+  /// No description provided for @roomsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Rooms'**
+  String get roomsSection;
+
+  /// No description provided for @pin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin'**
+  String get pin;
+
+  /// No description provided for @unpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin'**
+  String get unpin;
+
+  /// No description provided for @inviteLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link'**
+  String get inviteLink;
+
+  /// No description provided for @addMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Add member'**
+  String get addMember;
+
+  /// No description provided for @renameRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get renameRoom;
+
+  /// No description provided for @leaveRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave room'**
+  String get leaveRoom;
+
+  /// No description provided for @deleteRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete room'**
+  String get deleteRoom;
+
+  /// No description provided for @deleteRoomConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this room and all its messages for everyone?'**
+  String get deleteRoomConfirm;
+
+  /// No description provided for @leaveRoomConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this room?'**
+  String get leaveRoomConfirm;
+
+  /// No description provided for @youPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get youPrefix;
+
+  /// No description provided for @attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment'**
+  String get attachment;
+
+  /// No description provided for @messageDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Message deleted'**
+  String get messageDeleted;
+
+  /// No description provided for @edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get edited;
+
+  /// No description provided for @editMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editMessage;
+
+  /// No description provided for @copyText.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy text'**
+  String get copyText;
+
+  /// No description provided for @editingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing message'**
+  String get editingMessage;
+
+  /// No description provided for @deleteMessageConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this message?'**
+  String get deleteMessageConfirm;
+
+  /// No description provided for @typingOne.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is typing…'**
+  String typingOne(String name);
+
+  /// No description provided for @typingMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Several people are typing…'**
+  String get typingMany;
+
+  /// No description provided for @loadingOlder.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get loadingOlder;
+
+  /// No description provided for @jumpToLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to latest'**
+  String get jumpToLatest;
+
+  /// No description provided for @inCall.
+  ///
+  /// In en, this message translates to:
+  /// **'In call: {names}'**
+  String inCall(String names);
+
+  /// No description provided for @noRoomsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations yet. Create a room or start a direct message.'**
+  String get noRoomsYet;
+
+  /// No description provided for @roomMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Room menu'**
+  String get roomMenu;
+
+  /// No description provided for @openRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Rooms'**
+  String get openRooms;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
+
+  /// No description provided for @readBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get readBy;
+
+  /// No description provided for @sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get sent;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
 }
 
 class _AppLocalizationsDelegate

@@ -321,3 +321,36 @@ class TestRoomAPI:
         url = reverse("rooms:remove-participant", kwargs={"pk": room.pk})
         response = api_client.post(url, {"id": target.id})
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestRoomListFields:
+    def test_direct_room_title_peer_and_last_message(self, api_client: APIClient):
+        from apps.chat.services import MessageService
+        from apps.rooms.services import RoomService
+
+        alice = create_user(username="alice", email="a@example.com")
+        bob = create_user(username="bob", email="b@example.com")
+        room = RoomService.get_or_create_direct_room(alice, bob)
+        MessageService.send_message(room, bob, "hello alice")
+        api_client.force_authenticate(user=alice)
+        data = api_client.get(reverse("rooms:list-create")).data["results"][0]
+        assert data["title"] == "bob"
+        assert data["peer"]["username"] == "bob"
+        assert data["last_message"]["content"] == "hello alice"
+        assert data["unread_count"] == 1
+        assert data["can_manage"] is True  # alice created the DM
+
+    def test_can_manage_for_admin_not_member(self, api_client: APIClient):
+        from apps.rooms.models import RoomParticipant
+
+        owner = create_user(username="owner", email="o@example.com")
+        admin = create_user(username="admin", email="ad@example.com")
+        member = create_user(username="member", email="m@example.com")
+        room = create_room(owner=owner, name="R")
+        RoomParticipant.objects.create(room=room, user=admin, role=RoomParticipant.ROLE_ADMIN)
+        RoomParticipant.objects.create(room=room, user=member)
+        api_client.force_authenticate(user=admin)
+        assert api_client.get(reverse("rooms:detail", kwargs={"pk": room.pk})).data["can_manage"] is True
+        api_client.force_authenticate(user=member)
+        assert api_client.get(reverse("rooms:detail", kwargs={"pk": room.pk})).data["can_manage"] is False

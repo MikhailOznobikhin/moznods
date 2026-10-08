@@ -70,7 +70,7 @@ class RoomService:
         if not channel_layer:
             return
 
-        room_data = RoomSerializer(room).data
+        room_data = RoomSerializer(room, context={"viewer": user}).data
         async_to_sync(channel_layer.group_send)(
             f"user_{user.id}",
             {
@@ -168,6 +168,11 @@ class RoomService:
         async_to_sync(channel_layer.group_send)(
             member_group_name(room_id, user_id),
             {"type": "member_removed"},
+        )
+        # Tell the user's other clients (sidebar) the room is gone.
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user_id}",
+            {"type": "notification", "data": {"type": "room_removed", "room_id": room_id}},
         )
 
     @staticmethod

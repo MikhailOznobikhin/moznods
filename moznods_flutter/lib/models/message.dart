@@ -42,6 +42,38 @@ class Attachment {
 }
 
 @JsonSerializable()
+class ReplyPreview {
+  final int id;
+  final User author;
+  final String content;
+  @JsonKey(name: 'is_deleted')
+  final bool isDeleted;
+
+  ReplyPreview({
+    required this.id,
+    required this.author,
+    required this.content,
+    this.isDeleted = false,
+  });
+
+  factory ReplyPreview.fromJson(Map<String, dynamic> json) => _$ReplyPreviewFromJson(json);
+  Map<String, dynamic> toJson() => _$ReplyPreviewToJson(this);
+}
+
+@JsonSerializable()
+class ReactionSummary {
+  final String emoji;
+  final int count;
+  @JsonKey(name: 'user_ids')
+  final List<int> userIds;
+
+  ReactionSummary({required this.emoji, required this.count, required this.userIds});
+
+  factory ReactionSummary.fromJson(Map<String, dynamic> json) => _$ReactionSummaryFromJson(json);
+  Map<String, dynamic> toJson() => _$ReactionSummaryToJson(this);
+}
+
+@JsonSerializable()
 class Message {
   final int id;
   final int room;
@@ -50,8 +82,16 @@ class Message {
   final List<Attachment> attachments;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
-  @JsonKey(name: 'read_by_ids')
-  final List<int>? readByIds;
+  @JsonKey(name: 'edited_at')
+  final DateTime? editedAt;
+  @JsonKey(name: 'is_deleted', defaultValue: false)
+  final bool isDeleted;
+  @JsonKey(name: 'read_by_ids', defaultValue: <int>[])
+  final List<int> readByIds;
+  @JsonKey(name: 'reply_to')
+  final ReplyPreview? replyTo;
+  @JsonKey(defaultValue: <ReactionSummary>[])
+  final List<ReactionSummary> reactions;
 
   Message({
     required this.id,
@@ -60,8 +100,45 @@ class Message {
     required this.content,
     required this.attachments,
     required this.createdAt,
-    this.readByIds,
+    this.editedAt,
+    this.isDeleted = false,
+    this.readByIds = const [],
+    this.replyTo,
+    this.reactions = const [],
   });
+
+  bool get isEdited => editedAt != null;
+
+  Message copyWith({List<int>? readByIds}) {
+    return Message(
+      id: id,
+      room: room,
+      author: author,
+      content: content,
+      attachments: attachments,
+      createdAt: createdAt,
+      editedAt: editedAt,
+      isDeleted: isDeleted,
+      readByIds: readByIds ?? this.readByIds,
+      replyTo: replyTo,
+      reactions: reactions,
+    );
+  }
+
+  Message deletedCopy() {
+    return Message(
+      id: id,
+      room: room,
+      author: author,
+      content: '',
+      attachments: const [],
+      createdAt: createdAt,
+      editedAt: editedAt,
+      isDeleted: true,
+      readByIds: readByIds,
+      replyTo: replyTo,
+    );
+  }
 
   factory Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);
   Map<String, dynamic> toJson() => _$MessageToJson(this);

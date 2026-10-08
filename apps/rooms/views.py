@@ -1,6 +1,7 @@
 from core.throttling import RoomsThrottle
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from django.db.models import Count, IntegerField, Max, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -11,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
+from apps.chat.models import Message
 
 from .models import Room, RoomParticipant
 from .permissions import IsRoomAdmin, IsRoomOwner, IsRoomParticipant
@@ -58,6 +60,25 @@ def _lookup_user(data: dict) -> User:
 def _require_owner(request: Request, room: Room, action: str) -> None:
     if room.owner_id != request.user.id:
         raise PermissionDenied(f"Only the room owner can {action}.")
+
+
+def _attach_last_messages(rooms: list[Room]) -> None:
+    """Load the latest message of each room in two queries (used by the sidebar)."""
+    room_ids = [room.pk for room in rooms]
+    latest_ids = (
+        Message.objects.filter(room_id__in=room_ids)
+        .values("room_id")
+        .annotate(last_id=Max("pk"))
+        .values_list("last_id", flat=True)
+    )
+    messages = {
+        m.room_id: m
+        for m in Message.objects.filter(pk__in=list(latest_ids))
+        .select_related("author", "author__profile")
+        .prefetch_related("attachments")
+    }
+    for room in rooms:
+        room._last_message = messages.get(room.pk)
 
 
 def _room_data(request: Request, room: Room) -> dict:
@@ -129,13 +150,22 @@ class RoomListCreateView(APIView):
             .prefetch_related("participants__user__profile")
             .annotate(
                 participant_count_value=Count("participants", distinct=True),
-                unread_count_value=Count(
-                    "messages",
-                    filter=~Q(messages__author=user) & ~Q(messages__read_by=user),
-                    distinct=True,
+                # Subquery: a filtered Count over the read_by M2M join miscounts.
+                unread_count_value=Coalesce(
+                    Subquery(
+                        Message.objects.filter(room=OuterRef("pk"), is_deleted=False)
+                        .exclude(author=user)
+                        .exclude(read_by=user)
+                        .values("room")
+                        .annotate(c=Count("pk"))
+                        .values("c")[:1],
+                        output_field=IntegerField(),
+                    ),
+                    0,
                 ),
             )
             .distinct()
+            .order_by("-updated_at", "-pk")
         )
         paginator = PageNumberPagination()
         try:
@@ -145,6 +175,7 @@ class RoomListCreateView(APIView):
         except (TypeError, ValueError):
             pass
         page = paginator.paginate_queryset(rooms, request)
+        _attach_last_messages(page)
         serializer = RoomSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 

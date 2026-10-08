@@ -190,7 +190,7 @@
   "days7": "7 days",
   "never": "Never",
   "createLink": "Create Link",
-  "copied": "Copied!",
+  "copied": "Copied",
   "copy": "Copy",
   "newLink": "New Link",
   "editRoomName": "Edit Room Name",
@@ -201,5 +201,51 @@
   "pushUnsupported": "Not supported on this device yet",
   "pushDenied": "Notifications are blocked in the browser settings",
   "pushNotConfigured": "Push notifications are not configured on the server",
-  "pushFailed": "Could not enable notifications"
+  "pushFailed": "Could not enable notifications",
+  "newDirectMessage": "New direct message",
+  "directMessages": "Direct messages",
+  "roomsSection": "Rooms",
+  "pin": "Pin",
+  "unpin": "Unpin",
+  "inviteLink": "Invite link",
+  "addMember": "Add member",
+  "renameRoom": "Rename",
+  "leaveRoom": "Leave room",
+  "deleteRoom": "Delete room",
+  "deleteRoomConfirm": "Delete this room and all its messages for everyone?",
+  "leaveRoomConfirm": "Leave this room?",
+  "youPrefix": "You",
+  "attachment": "Attachment",
+  "messageDeleted": "Message deleted",
+  "edited": "edited",
+  "editMessage": "Edit",
+  "copyText": "Copy text",
+  "editingMessage": "Editing message",
+  "deleteMessageConfirm": "Delete this message?",
+  "typingOne": "{name} is typing…",
+  "typingMany": "Several people are typing…",
+  "loadingOlder": "Loading…",
+  "jumpToLatest": "Jump to latest",
+  "inCall": "In call: {names}",
+  "noRoomsYet": "No conversations yet. Create a room or start a direct message.",
+  "roomMenu": "Room menu",
+  "openRooms": "Rooms",
+  "send": "Send",
+  "readBy": "Read",
+  "sent": "Sent",
+  "retry": "Retry",
+  "@typingOne": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@inCall": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  }
 }

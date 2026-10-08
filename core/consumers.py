@@ -24,6 +24,10 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         if hasattr(self, "user_group_name"):
             await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
 
+    async def receive_json(self, content, **kwargs):
+        if content.get("type") == "ping":
+            await self.send_json({"type": "pong"})
+
     async def notification(self, event):
         """Send notification to the client."""
         await self.send_json(event["data"])

@@ -512,7 +512,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createLink => 'Создать ссылку';
 
   @override
-  String get copied => 'Скопировано!';
+  String get copied => 'Скопировано';
 
   @override
   String get copy => 'Копировать';
@@ -546,4 +546,106 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get pushFailed => 'Не удалось включить уведомления';
+
+  @override
+  String get newDirectMessage => 'Новое личное сообщение';
+
+  @override
+  String get directMessages => 'Личные сообщения';
+
+  @override
+  String get roomsSection => 'Комнаты';
+
+  @override
+  String get pin => 'Закрепить';
+
+  @override
+  String get unpin => 'Открепить';
+
+  @override
+  String get inviteLink => 'Ссылка-приглашение';
+
+  @override
+  String get addMember => 'Добавить участника';
+
+  @override
+  String get renameRoom => 'Переименовать';
+
+  @override
+  String get leaveRoom => 'Покинуть комнату';
+
+  @override
+  String get deleteRoom => 'Удалить комнату';
+
+  @override
+  String get deleteRoomConfirm =>
+      'Удалить комнату и все её сообщения для всех?';
+
+  @override
+  String get leaveRoomConfirm => 'Покинуть комнату?';
+
+  @override
+  String get youPrefix => 'Вы';
+
+  @override
+  String get attachment => 'Вложение';
+
+  @override
+  String get messageDeleted => 'Сообщение удалено';
+
+  @override
+  String get edited => 'изменено';
+
+  @override
+  String get editMessage => 'Изменить';
+
+  @override
+  String get copyText => 'Копировать текст';
+
+  @override
+  String get editingMessage => 'Редактирование сообщения';
+
+  @override
+  String get deleteMessageConfirm => 'Удалить сообщение?';
+
+  @override
+  String typingOne(String name) {
+    return '$name печатает…';
+  }
+
+  @override
+  String get typingMany => 'Несколько человек печатают…';
+
+  @override
+  String get loadingOlder => 'Загрузка…';
+
+  @override
+  String get jumpToLatest => 'К последним';
+
+  @override
+  String inCall(String names) {
+    return 'В звонке: $names';
+  }
+
+  @override
+  String get noRoomsYet =>
+      'Пока нет бесед. Создайте комнату или напишите кому-нибудь лично.';
+
+  @override
+  String get roomMenu => 'Меню комнаты';
+
+  @override
+  String get openRooms => 'Комнаты';
+
+  @override
+  String get send => 'Отправить';
+
+  @override
+  String get readBy => 'Прочитано';
+
+  @override
+  String get sent => 'Отправлено';
+
+  @override
+  String get retry => 'Повторить';
 }
