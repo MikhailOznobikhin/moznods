@@ -1,62 +1,124 @@
+from core.throttling import RoomsThrottle
+from django.contrib.auth import get_user_model
+from django.db.models import Count, IntegerField, Max, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
-from core.throttling import RoomsThrottle
+from apps.chat.models import Message
 
 from .models import Room, RoomParticipant
+from .permissions import IsRoomAdmin, IsRoomOwner, IsRoomParticipant
 from .serializers import (
-    CreateRoomSerializer,
     AddParticipantSerializer,
+    BanUserSerializer,
+    CreateRoomSerializer,
+    PublicRoomSerializer,
     RemoveParticipantSerializer,
+    RoomBanSerializer,
     RoomParticipantSerializer,
     RoomSerializer,
-    UpdateRoomSerializer,
-    PublicRoomSerializer,
-    RoomBanSerializer,
     UpdateRoleSerializer,
-    BanUserSerializer,
+    UpdateRoomSerializer,
 )
-from .services import RoomService, InvitationService
-from .permissions import IsRoomOwner, IsRoomParticipant, IsRoomAdmin
+from .services import InvitationService, RoomService
+
+User = get_user_model()
+
+MAX_PAGE_SIZE = 100
+
+# AICODE-NOTE: Service ValidationError / PermissionDenied (APIException) propagate to DRF,
+# which renders them as 400 / 403. Views do not catch them.
+
+
+def _get_user(user_id) -> User:
+    try:
+        return User.objects.get(pk=int(user_id))
+    except (User.DoesNotExist, TypeError, ValueError) as e:
+        raise NotFound("User not found.") from e
+
+
+def _lookup_user(data: dict) -> User:
+    """Find a user by id, email or username (validated serializer data)."""
+    try:
+        if data.get("id") is not None:
+            return User.objects.get(pk=data["id"])
+        if data.get("email"):
+            return User.objects.get(email=data["email"])
+        return User.objects.get(username=data["username"])
+    except User.DoesNotExist as e:
+        raise NotFound("User not found.") from e
+
+
+def _require_owner(request: Request, room: Room, action: str) -> None:
+    if room.owner_id != request.user.id:
+        raise PermissionDenied(f"Only the room owner can {action}.")
+
+
+def _attach_last_messages(rooms: list[Room]) -> None:
+    """Load the latest message of each room in two queries (used by the sidebar)."""
+    room_ids = [room.pk for room in rooms]
+    latest_ids = (
+        Message.objects.filter(room_id__in=room_ids)
+        .values("room_id")
+        .annotate(last_id=Max("pk"))
+        .values_list("last_id", flat=True)
+    )
+    messages = {
+        m.room_id: m
+        for m in Message.objects.filter(pk__in=list(latest_ids))
+        .select_related("author", "author__profile")
+        .prefetch_related("attachments")
+    }
+    for room in rooms:
+        room._last_message = messages.get(room.pk)
+
+
+def _room_data(request: Request, room: Room) -> dict:
+    return RoomSerializer(room, context={"request": request}).data
 
 
 class RoomPinView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 
-    def post(self, request, pk):
-        """Pin a room for the user."""
+    def _set_pinned(self, request: Request, pk: int, pinned: bool) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
-        participant.is_pinned = True
-        participant.save()
-        return Response(RoomSerializer(room, context={"request": request}).data)
+        self.check_object_permissions(request, room)
+        RoomParticipant.objects.filter(room=room, user=request.user).update(is_pinned=pinned)
+        return Response(_room_data(request, room))
 
-    def delete(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
+        """Pin a room for the user."""
+        return self._set_pinned(request, pk, True)
+
+    def delete(self, request: Request, pk: int) -> Response:
         """Unpin a room for the user."""
-        room = get_object_or_404(Room, pk=pk)
-        participant = get_object_or_404(RoomParticipant, room=room, user=request.user)
-        participant.is_pinned = False
-        participant.save()
-        return Response(RoomSerializer(room, context={"request": request}).data)
+        return self._set_pinned(request, pk, False)
 
 
 class RoomInviteCreateView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        expires_in = request.data.get("expires_in_hours")
-        if expires_in:
-            try:
-                expires_in = int(expires_in)
-            except ValueError:
-                expires_in = None
-
-        invitation = InvitationService.create_invitation(room, request.user, expires_in)
+        self.check_object_permissions(request, room)
+        if room.is_direct:
+            return Response(
+                {"detail": "Direct rooms do not support invitations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            expires_in = int(request.data.get("expires_in_hours") or 0)
+        except (TypeError, ValueError):
+            expires_in = 0
+        invitation = InvitationService.create_invitation(room, request.user, expires_in or None)
         return Response(
             {
                 "token": str(invitation.token),
@@ -70,244 +132,166 @@ class RoomInviteCreateView(APIView):
 class RoomInviteJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, token):
-        try:
-            room = InvitationService.join_room_via_invitation(request.user, token)
-            return Response(RoomSerializer(room, context={"request": request}).data)
-        except Exception as e:
-            from core.exceptions import ValidationError
-
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+    def post(self, request: Request, token: str) -> Response:
+        room = InvitationService.join_room_via_invitation(request.user, token)
+        return Response(_room_data(request, room))
 
 
 class RoomListCreateView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [RoomsThrottle]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         """List rooms where the user is a participant. Paginated."""
-        from rest_framework.pagination import PageNumberPagination
-
-        rooms = Room.objects.filter(participants__user=request.user).distinct()
+        user = request.user
+        rooms = (
+            Room.objects.filter(participants__user=user)
+            .select_related("owner", "owner__profile")
+            .prefetch_related("participants__user__profile")
+            .annotate(
+                participant_count_value=Count("participants", distinct=True),
+                # Subquery: a filtered Count over the read_by M2M join miscounts.
+                unread_count_value=Coalesce(
+                    Subquery(
+                        Message.objects.filter(room=OuterRef("pk"), is_deleted=False)
+                        .exclude(author=user)
+                        .exclude(read_by=user)
+                        .values("room")
+                        .annotate(c=Count("pk"))
+                        .values("c")[:1],
+                        output_field=IntegerField(),
+                    ),
+                    0,
+                ),
+            )
+            .distinct()
+            .order_by("-updated_at", "-pk")
+        )
         paginator = PageNumberPagination()
         try:
             page_size = request.query_params.get("page_size")
             if page_size is not None:
-                paginator.page_size = int(page_size)
+                paginator.page_size = max(1, min(int(page_size), MAX_PAGE_SIZE))
         except (TypeError, ValueError):
             pass
         page = paginator.paginate_queryset(rooms, request)
-        if page is not None:
-            serializer = RoomSerializer(page, many=True, context={"request": request})
-            return paginator.get_paginated_response(serializer.data)
-        serializer = RoomSerializer(rooms, many=True, context={"request": request})
-        return Response(serializer.data)
+        _attach_last_messages(page)
+        serializer = RoomSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         """Create a room (caller becomes owner and first participant)."""
         serializer = CreateRoomSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         room = RoomService.create_room(
             owner=request.user,
-            name=serializer.validated_data["name"],
-            is_public=serializer.validated_data.get("is_public", False),
-            is_channel=serializer.validated_data.get("is_channel", False),
-            username=serializer.validated_data.get("username") or None,
-            avatar=serializer.validated_data.get("avatar"),
+            name=data["name"],
+            is_public=data.get("is_public", False),
+            is_channel=data.get("is_channel", False),
+            username=data.get("username") or None,
+            avatar=data.get("avatar"),
         )
-        return Response(
-            RoomSerializer(room, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(_room_data(request, room), status=status.HTTP_201_CREATED)
 
 
 class RoomDetailView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 
-    def get_object(self):
-        return get_object_or_404(Room, pk=self.kwargs["pk"])
-
-    def get(self, request, pk):
-        room = self.get_object()
+    def get(self, request: Request, pk: int) -> Response:
+        room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
-        return Response(RoomSerializer(room, context={"request": request}).data)
+        return Response(_room_data(request, room))
 
-    def patch(self, request, pk):
-        room = self.get_object()
-        if not IsRoomOwner().has_object_permission(request, self, room):
-            return Response(
-                {"detail": "Only the room owner can update the room."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+    def patch(self, request: Request, pk: int) -> Response:
+        room = get_object_or_404(Room, pk=pk)
+        _require_owner(request, room, "update the room")
         serializer = UpdateRoomSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        if "name" in serializer.validated_data:
-            room.name = serializer.validated_data["name"]
-            room.save()
-        return Response(RoomSerializer(room, context={"request": request}).data)
+        room = RoomService.update_room(room, **serializer.validated_data)
+        return Response(_room_data(request, room))
 
-    def delete(self, request, pk):
-        room = self.get_object()
-        if not IsRoomOwner().has_object_permission(request, self, room):
-            return Response(
-                {"detail": "Only the room owner can delete the room."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        room.delete()
+    def delete(self, request: Request, pk: int) -> Response:
+        room = get_object_or_404(Room, pk=pk)
+        _require_owner(request, room, "delete the room")
+        RoomService.delete_room(room)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RoomJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        try:
-            RoomService.add_participant(room, request.user)
-        except Exception as e:
-            from core.exceptions import ValidationError
-
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
-        return Response(RoomSerializer(room).data)
+        RoomService.join_room(room, request.user)
+        return Response(_room_data(request, room))
 
 
 class RoomLeaveView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        if not RoomService.is_participant(room, request.user):
-            return Response(
-                {"detail": "You are not a participant in this room."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        try:
-            RoomService.remove_participant(room, request.user)
-        except Exception as e:
-            from core.exceptions import ValidationError
-
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+        RoomService.leave_room(room, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RoomParticipantListView(APIView):
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 
-    def get(self, request, pk):
+    def get(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
-        participants = room.participants.select_related("user").all()
+        participants = room.participants.select_related("user", "user__profile", "room")
         serializer = RoomParticipantSerializer(participants, many=True, context={"request": request})
         return Response(serializer.data)
+
 
 class RoomAddParticipantView(APIView):
     """Add a participant to the room by id, username or email. Owner only."""
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        if not IsRoomOwner().has_object_permission(request, self, room):
-            return Response(
-                {"detail": "Only the room owner can add participants."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        _require_owner(request, room, "add participants")
         serializer = AddParticipantSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        target = None
-        data = serializer.validated_data
-        try:
-            if data.get("id") is not None:
-                target = User.objects.get(pk=data["id"])
-            elif data.get("email"):
-                target = User.objects.get(email=data["email"])
-            elif data.get("username"):
-                target = User.objects.get(username=data["username"])
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            participant = RoomService.add_participant(room, target)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
-
+        participant = RoomService.add_participant(room, _lookup_user(serializer.validated_data))
         return Response(
-            RoomParticipantSerializer(participant).data,
+            RoomParticipantSerializer(participant, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
 
 class RoomRemoveParticipantView(APIView):
     """Remove a participant from the room by id, username or email. Owner only."""
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
-        if not IsRoomOwner().has_object_permission(request, self, room):
-            return Response(
-                {"detail": "Only the room owner can remove participants."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        _require_owner(request, room, "remove participants")
         serializer = RemoveParticipantSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        target = None
-        data = serializer.validated_data
-        try:
-            if data.get("id") is not None:
-                target = User.objects.get(pk=data["id"])
-            elif data.get("email"):
-                target = User.objects.get(email=data["email"])
-            elif data.get("username"):
-                target = User.objects.get(username=data["username"])
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            RoomService.remove_participant(room, target)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
-
+        RoomService.kick_participant(room, _lookup_user(serializer.validated_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RoomCallStateView(APIView):
-    """Return current call presence state (Redis) for the room. Participants only."""
+    """Return current call presence state for the room. Participants only."""
 
     permission_classes = [IsAuthenticated, IsRoomParticipant]
 
-    def get(self, request, pk):
+    def get(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
-        participants = get_room_state(room.id)
-        room_state = get_room_aggregate_state(room.id)
-        return Response({
-            "participants": participants,
-            "room_state": room_state,
-        })
+        return Response(
+            {
+                "participants": get_room_state(room.id),
+                "room_state": get_room_aggregate_state(room.id),
+            }
+        )
 
 
 class DirectRoomCreateView(APIView):
@@ -315,24 +299,12 @@ class DirectRoomCreateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        
+    def post(self, request: Request) -> Response:
         user_id = request.data.get("user_id")
         if not user_id:
             return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-            
-        target_user = get_object_or_404(User, pk=user_id)
-        
-        try:
-            room = RoomService.get_or_create_direct_room(request.user, target_user)
-            return Response(RoomSerializer(room, context={"request": request}).data)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+        room = RoomService.get_or_create_direct_room(request.user, _get_user(user_id))
+        return Response(_room_data(request, room))
 
 
 class PublicRoomListView(APIView):
@@ -340,7 +312,7 @@ class PublicRoomListView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         search = request.query_params.get("search", "")
         raw_is_channel = request.query_params.get("is_channel")
         is_channel = None
@@ -351,29 +323,19 @@ class PublicRoomListView(APIView):
             elif lowered in {"0", "false", "no"}:
                 is_channel = False
         rooms = RoomService.list_public_rooms(search=search, is_channel=is_channel)
-        serializer = PublicRoomSerializer(rooms, many=True)
-        return Response(serializer.data)
+        return Response(PublicRoomSerializer(rooms, many=True).data)
 
 
 class RoomByUsernameView(APIView):
-    """Get a room by its public username."""
+    """Get a public room by its username."""
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, username):
-        try:
-            room = RoomService.get_room_by_username(username)
-            if not room:
-                return Response(
-                    {"detail": "Room not found."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            return Response(RoomSerializer(room, context={"request": request}).data)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+    def get(self, request: Request, username: str) -> Response:
+        room = RoomService.get_room_by_username(username)
+        if not room:
+            raise NotFound("Room not found.")
+        return Response(_room_data(request, room))
 
 
 class JoinRoomByUsernameView(APIView):
@@ -381,15 +343,9 @@ class JoinRoomByUsernameView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, username):
-        try:
-            room = RoomService.join_by_username(request.user, username)
-            return Response(RoomSerializer(room, context={"request": request}).data)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+    def post(self, request: Request, username: str) -> Response:
+        room = RoomService.join_by_username(request.user, username)
+        return Response(_room_data(request, room))
 
 
 class RoomBanListView(APIView):
@@ -397,12 +353,11 @@ class RoomBanListView(APIView):
 
     permission_classes = [IsAuthenticated, IsRoomAdmin]
 
-    def get(self, request, pk):
+    def get(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
-        bans = room.bans.select_related("user", "banned_by").all()
-        serializer = RoomBanSerializer(bans, many=True)
-        return Response(serializer.data)
+        bans = room.bans.select_related("user", "user__profile", "banned_by", "banned_by__profile")
+        return Response(RoomBanSerializer(bans, many=True, context={"request": request}).data)
 
 
 class RoomBanView(APIView):
@@ -410,91 +365,48 @@ class RoomBanView(APIView):
 
     permission_classes = [IsAuthenticated, IsRoomAdmin]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
         serializer = BanUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        ban = RoomService.ban_user(
+            room=room,
+            user=_get_user(serializer.validated_data["user_id"]),
+            banned_by=request.user,
+            reason=serializer.validated_data.get("reason", ""),
+        )
+        return Response(
+            RoomBanSerializer(ban, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-
-        try:
-            target_user = User.objects.get(pk=serializer.validated_data["user_id"])
-        except User.DoesNotExist:
-            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            ban = RoomService.ban_user(
-                room=room,
-                user=target_user,
-                banned_by=request.user,
-                reason=serializer.validated_data.get("reason", ""),
-            )
-            return Response(RoomBanSerializer(ban).data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
-
-    def delete(self, request, pk):
+    def delete(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
         user_id = request.query_params.get("user_id")
         if not user_id:
             return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-
-        try:
-            target_user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            RoomService.unban_user(room, target_user)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+        RoomService.unban_user(room, _get_user(user_id))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RoomUpdateRoleView(APIView):
-    """Update participant role (admin/member)."""
+    """Update participant role (admin/member). Owner only."""
 
     permission_classes = [IsAuthenticated, IsRoomOwner]
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         room = get_object_or_404(Room, pk=pk)
         self.check_object_permissions(request, room)
         serializer = UpdateRoleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         user_id = request.data.get("user_id")
         if not user_id:
             return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-
-        try:
-            target_user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            participant = RoomService.update_role(
-                room=room,
-                user=target_user,
-                new_role=serializer.validated_data["role"],
-            )
-            return Response(RoomParticipantSerializer(participant, context={"request": request}).data)
-        except Exception as e:
-            from core.exceptions import ValidationError
-            if isinstance(e, ValidationError):
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-            raise
+        participant = RoomService.update_role(
+            room=room,
+            user=_get_user(user_id),
+            new_role=serializer.validated_data["role"],
+        )
+        return Response(RoomParticipantSerializer(participant, context={"request": request}).data)

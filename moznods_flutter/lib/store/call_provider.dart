@@ -1,441 +1,290 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
+
 import '../api/dio_client.dart';
-import '../api/ws_service.dart';
+import 'chat_provider.dart' show describeError;
 
-class CallParticipant {
-  final int id;
-  final String username;
-  final String state;
-  final bool isMuted;
-  final bool isVideoEnabled;
+enum CallStatus { idle, connecting, connected, reconnecting }
 
-  CallParticipant({
-    required this.id,
-    required this.username,
-    required this.state,
-    this.isMuted = false,
-    this.isVideoEnabled = true,
-  });
-
-  CallParticipant copyWith({
-    int? id,
-    String? username,
-    String? state,
-    bool? isMuted,
-    bool? isVideoEnabled,
-  }) {
-    return CallParticipant(
-      id: id ?? this.id,
-      username: username ?? this.username,
-      state: state ?? this.state,
-      isMuted: isMuted ?? this.isMuted,
-      isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
-    );
-  }
-}
-
-class PeerFlags {
-  bool makingOffer = false;
-  bool ignoreOffer = false;
-  bool isSettingRemoteAnswerPending = false;
-  bool polite = false;
-
-  PeerFlags({required this.polite});
-}
+/// Why the last call ended without the user hanging up (shown once in the UI).
+enum CallEndReason { removed, joinedElsewhere, failed }
 
 class CallState {
-  final bool isActive;
-  final bool isJoined;
-  final MediaStream? localStream;
-  final Map<int, MediaStream> remoteStreams;
-  final Map<int, RTCPeerConnection> peers;
-  final Map<int, CallParticipant> participants;
-  final Map<int, PeerFlags> peerFlags;
+  final CallStatus status;
+  final int? roomId;
+  final String roomTitle;
+  final lk.Room? room;
   final String? error;
-  final String? audioDeviceId;
-  final String? videoDeviceId;
+  final CallEndReason? endReason;
 
-  CallState({
-    this.isActive = false,
-    this.isJoined = false,
-    this.localStream,
-    this.remoteStreams = const {},
-    this.peers = const {},
-    this.participants = const {},
-    this.peerFlags = const {},
+  /// Browsers block audio until a user gesture; true -> show "enable audio".
+  final bool audioBlocked;
+
+  /// Bumped on every LiveKit room change so widgets rebuild.
+  final int revision;
+
+  const CallState({
+    this.status = CallStatus.idle,
+    this.roomId,
+    this.roomTitle = '',
+    this.room,
     this.error,
-    this.audioDeviceId,
-    this.videoDeviceId,
+    this.endReason,
+    this.audioBlocked = false,
+    this.revision = 0,
   });
 
+  bool get isActive => status != CallStatus.idle;
+
+  lk.LocalParticipant? get local => room?.localParticipant;
+
+  bool get micEnabled => local?.isMicrophoneEnabled() ?? false;
+  bool get cameraEnabled => local?.isCameraEnabled() ?? false;
+  bool get screenShareEnabled => local?.isScreenShareEnabled() ?? false;
+
+  /// Local participant first, then remote participants by join order.
+  List<lk.Participant> get participants {
+    final r = room;
+    if (r == null) return const [];
+    return [
+      if (r.localParticipant != null) r.localParticipant!,
+      ...r.remoteParticipants.values,
+    ];
+  }
+
   CallState copyWith({
-    bool? isActive,
-    bool? isJoined,
-    MediaStream? localStream,
-    Map<int, MediaStream>? remoteStreams,
-    Map<int, RTCPeerConnection>? peers,
-    Map<int, CallParticipant>? participants,
-    Map<int, PeerFlags>? peerFlags,
+    CallStatus? status,
+    int? roomId,
+    String? roomTitle,
+    lk.Room? room,
     String? error,
-    String? audioDeviceId,
-    String? videoDeviceId,
+    CallEndReason? endReason,
+    bool? audioBlocked,
+    int? revision,
   }) {
     return CallState(
-      isActive: isActive ?? this.isActive,
-      isJoined: isJoined ?? this.isJoined,
-      localStream: localStream ?? this.localStream,
-      remoteStreams: remoteStreams ?? this.remoteStreams,
-      peers: peers ?? this.peers,
-      participants: participants ?? this.participants,
-      peerFlags: peerFlags ?? this.peerFlags,
-      error: error ?? this.error,
-      audioDeviceId: audioDeviceId ?? this.audioDeviceId,
-      videoDeviceId: videoDeviceId ?? this.videoDeviceId,
+      status: status ?? this.status,
+      roomId: roomId ?? this.roomId,
+      roomTitle: roomTitle ?? this.roomTitle,
+      room: room ?? this.room,
+      error: error,
+      endReason: endReason ?? this.endReason,
+      audioBlocked: audioBlocked ?? this.audioBlocked,
+      revision: revision ?? this.revision,
     );
   }
 }
 
+/// Calls on the LiveKit SFU.
+///
+/// AICODE-NOTE: LiveKit handles signaling, ICE/TURN, reconnects and simulcast; this notifier
+/// only fetches an access token from Django, joins, and exposes the room to the UI.
 class CallNotifier extends StateNotifier<CallState> {
-  final WebSocketService _wsService = WebSocketService();
-  final Map<String, dynamic> _iceServers = {
-    'iceServers': [
-      {'urls': 'stun:stun.l.google.com:19302'},
-    ],
-  };
+  CallNotifier() : super(const CallState());
 
-  CallNotifier() : super(CallState());
+  final DioClient _client = DioClient();
+  lk.EventsListener<lk.RoomEvent>? _listener;
+  // Guards against a join finishing after the user already left / switched rooms.
+  int _session = 0;
 
-  Future<void> joinCall(
-    int roomId,
-    String token,
-    int myUserId,
-    String myUsername, {
-    bool withVideo = true,
+  Future<void> joinCall({
+    required int roomId,
+    required String roomTitle,
+    bool withVideo = false,
   }) async {
+    if (state.isActive && state.roomId == roomId) return;
+    await leaveCall();
+    final session = ++_session;
+    state = CallState(status: CallStatus.connecting, roomId: roomId, roomTitle: roomTitle);
+
+    lk.Room? room;
     try {
-      final constraints = {
-        'audio': true,
-        'video': withVideo
-            ? {
-                'facingMode': 'user',
-                'width': {'ideal': 640},
-                'height': {'ideal': 480},
-              }
-            : false,
-      };
+      final response = await _client.dio.post('/api/calls/token/', data: {'room_id': roomId});
+      if (session != _session) return;
+      final url = response.data['url'] as String;
+      final token = response.data['token'] as String;
 
-      final stream = await navigator.mediaDevices.getUserMedia(constraints);
-      state = state.copyWith(localStream: stream, isActive: true);
-
-      final wsUrl = '${DioClient.wsBaseUrl}/ws/call/$roomId';
-      _wsService.connect(wsUrl, token);
-
-      _wsService.messages.listen((message) async {
-        final type = message['type'];
-        final data = message['data'];
-
-        if (type == 'user_joined') {
-          final userId = data['user']['id'];
-          final username = data['user']['username'];
-          final isMuted = data['user']['is_muted'] ?? false;
-          final isVideoEnabled = data['user']['is_video_enabled'] ?? true;
-          final participant = CallParticipant(
-            id: userId,
-            username: username,
-            state: 'connected',
-            isMuted: isMuted,
-            isVideoEnabled: isVideoEnabled,
-          );
-          state = state.copyWith(
-            participants: {...state.participants, userId: participant},
-          );
-          await _createPeerConnection(userId, stream, myUserId, username);
-        } else if (type == 'user_left') {
-          final userId = data['user_id'];
-          await _removePeerConnection(userId);
-        } else if (type == 'offer' || type == 'answer') {
-          final userId = message['from_user_id'];
-          await _handleSdp(userId, data, type);
-        } else if (type == 'ice_candidate') {
-          final userId = message['from_user_id'];
-          await _handleIceCandidate(userId, data);
-        } else if (type == 'toggle_audio') {
-          final userId = data['user_id'];
-          final isMuted = data['is_muted'];
-          if (state.participants.containsKey(userId)) {
-            final participant = state.participants[userId]!;
-            state = state.copyWith(
-              participants: {
-                ...state.participants,
-                userId: participant.copyWith(isMuted: isMuted),
-              },
-            );
-          }
-        } else if (type == 'toggle_video') {
-          final userId = data['user_id'];
-          final isVideoEnabled = data['is_video_enabled'];
-          if (state.participants.containsKey(userId)) {
-            final participant = state.participants[userId]!;
-            state = state.copyWith(
-              participants: {
-                ...state.participants,
-                userId: participant.copyWith(isVideoEnabled: isVideoEnabled),
-              },
-            );
-          }
-        }
-      });
-
-      _wsService.sendMessage({
-        'type': 'join_call',
-        'data': {'user_id': myUserId, 'username': myUsername},
-      });
-      state = state.copyWith(isJoined: true);
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
-    }
-  }
-
-  Future<void> _createPeerConnection(
-    int targetUserId,
-    MediaStream stream,
-    int myUserId,
-    String username,
-  ) async {
-    final pc = await createPeerConnection(_iceServers);
-
-    final isPolite = myUserId < targetUserId;
-    final flags = PeerFlags(polite: isPolite);
-
-    state = state.copyWith(
-      peers: {...state.peers, targetUserId: pc},
-      peerFlags: {...state.peerFlags, targetUserId: flags},
-      participants: {
-        ...state.participants,
-        targetUserId: CallParticipant(
-          id: targetUserId,
-          username: username,
-          state: 'connecting',
+      room = lk.Room(
+        roomOptions: const lk.RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+          defaultCameraCaptureOptions: lk.CameraCaptureOptions(
+            params: lk.VideoParametersPresets.h540_169,
+          ),
         ),
-      },
-    );
-
-    stream.getTracks().forEach((track) {
-      pc.addTrack(track, stream);
-    });
-
-    pc.onIceCandidate = (candidate) {
-      _wsService.sendMessage({
-        'type': 'ice_candidate',
-        'data': {
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
-          'sdpMLineIndex': candidate.sdpMLineIndex,
-        },
-        'to_user_id': targetUserId,
-      });
-    };
-
-    pc.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
-        state = state.copyWith(
-          remoteStreams: {
-            ...state.remoteStreams,
-            targetUserId: event.streams[0],
-          },
-        );
-      }
-    };
-
-    pc.onConnectionState = (state) {
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-        _updateParticipantState(targetUserId, 'connected');
-      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-          state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        _updateParticipantState(targetUserId, 'disconnected');
-      }
-    };
-
-    pc.onRenegotiationNeeded = () async {
-      try {
-        flags.makingOffer = true;
-        final offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        final localDescription = await pc.getLocalDescription();
-        _wsService.sendMessage({
-          'type': 'offer',
-          'data': {
-            'sdp': localDescription?.sdp,
-            'type': localDescription?.type,
-          },
-          'to_user_id': targetUserId,
-        });
-      } catch (err) {
-        print('Negotiation error: $err');
-      } finally {
-        flags.makingOffer = false;
-      }
-    };
-  }
-
-  void _updateParticipantState(int userId, String newState) {
-    if (state.participants.containsKey(userId)) {
-      final participant = state.participants[userId]!;
-      state = state.copyWith(
-        participants: {
-          ...state.participants,
-          userId: participant.copyWith(state: newState),
-        },
       );
-    }
-  }
+      _attach(room, session);
+      state = state.copyWith(room: room);
 
-  Future<void> _removePeerConnection(int userId) async {
-    final pc = state.peers[userId];
-    if (pc != null) {
-      await pc.close();
-    }
-    final streams = Map<int, MediaStream>.from(state.remoteStreams);
-    streams.remove(userId);
-    final peers = Map<int, RTCPeerConnection>.from(state.peers);
-    peers.remove(userId);
-    final flags = Map<int, PeerFlags>.from(state.peerFlags);
-    flags.remove(userId);
-    final participants = Map<int, CallParticipant>.from(state.participants);
-    participants.remove(userId);
-
-    state = state.copyWith(
-      peers: peers,
-      remoteStreams: streams,
-      peerFlags: flags,
-      participants: participants,
-    );
-  }
-
-  Future<void> _handleSdp(int targetUserId, dynamic data, String type) async {
-    final pc = state.peers[targetUserId];
-    final flags = state.peerFlags[targetUserId];
-    if (pc == null || flags == null) return;
-
-    final description = RTCSessionDescription(data['sdp'], data['type']);
-    final offerCollision =
-        (type == 'offer') &&
-        (flags.makingOffer ||
-            pc.signalingState != RTCSignalingState.RTCSignalingStateStable);
-
-    flags.ignoreOffer = !flags.polite && offerCollision;
-    if (flags.ignoreOffer) return;
-
-    await pc.setRemoteDescription(description);
-    if (type == 'offer') {
-      final answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      final localDescription = await pc.getLocalDescription();
-      _wsService.sendMessage({
-        'type': 'answer',
-        'data': {'sdp': localDescription?.sdp, 'type': localDescription?.type},
-        'to_user_id': targetUserId,
-      });
-    }
-  }
-
-  Future<void> _handleIceCandidate(int targetUserId, dynamic data) async {
-    final pc = state.peers[targetUserId];
-    if (pc == null) return;
-    await pc.addCandidate(
-      RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
-    );
-  }
-
-  void leaveCall() {
-    _wsService.sendMessage({'type': 'leave_call'});
-    state.peers.values.forEach((pc) => pc.close());
-    state.localStream?.dispose();
-    _wsService.disconnect();
-    state = CallState();
-  }
-
-  void toggleAudio() {
-    if (state.localStream == null) return;
-    final audioTracks = state.localStream!.getAudioTracks();
-    if (audioTracks.isEmpty) return;
-
-    final isEnabled = audioTracks[0].enabled;
-    audioTracks[0].enabled = !isEnabled;
-
-    _wsService.sendMessage({
-      'type': 'toggle_audio',
-      'data': {'is_muted': isEnabled},
-    });
-  }
-
-  void toggleVideo() {
-    if (state.localStream == null) return;
-    final videoTracks = state.localStream!.getVideoTracks();
-    if (videoTracks.isEmpty) return;
-
-    final isEnabled = videoTracks[0].enabled;
-    videoTracks[0].enabled = !isEnabled;
-
-    _wsService.sendMessage({
-      'type': 'toggle_video',
-      'data': {'is_video_enabled': !isEnabled},
-    });
-  }
-
-  Future<bool> switchDevice({String? audioDeviceId, String? videoDeviceId}) async {
-    if (state.localStream == null) return false;
-
-    try {
-      final oldStream = state.localStream;
-      final newStream = await navigator.mediaDevices.getUserMedia({
-        'audio': audioDeviceId != null
-            ? {'deviceId': {'exact': audioDeviceId}}
-            : true,
-        'video': videoDeviceId != null
-            ? {
-                'deviceId': {'exact': videoDeviceId},
-                'facingMode': 'user',
-                'width': {'ideal': 640},
-                'height': {'ideal': 480},
-              }
-            : true,
-      });
-
-      final audioTracks = oldStream?.getAudioTracks() ?? [];
-      final videoTracks = oldStream?.getVideoTracks() ?? [];
-      audioTracks.forEach((t) => t.stop());
-      videoTracks.forEach((t) => t.stop());
-
-      final newAudioTracks = newStream.getAudioTracks();
-      final newVideoTracks = newStream.getVideoTracks();
-
-      for (final pc in state.peers.values) {
-        final senders = pc.getSenders();
-        for (final sender in senders) {
-          if (sender.track != null) {
-            if (sender.track!.kind == 'audio' && newAudioTracks.isNotEmpty) {
-              await sender.replaceTrack(newAudioTracks.first);
-            } else if (sender.track!.kind == 'video' && newVideoTracks.isNotEmpty) {
-              await sender.replaceTrack(newVideoTracks.first);
-            }
-          }
-        }
+      await room.connect(url, token);
+      if (session != _session) {
+        await room.disconnect();
+        return;
       }
-
       state = state.copyWith(
-        localStream: newStream,
-        audioDeviceId: audioDeviceId ?? state.audioDeviceId,
-        videoDeviceId: videoDeviceId ?? state.videoDeviceId,
+        status: CallStatus.connected,
+        audioBlocked: !room.canPlaybackAudio,
       );
-
-      return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      return false;
+      if (session != _session) return;
+      await _teardown();
+      state = CallState(error: describeError(e), endReason: CallEndReason.failed);
+      return;
     }
+
+    // Devices are best effort: no permission / no camera must not kill the call.
+    try {
+      await room.localParticipant?.setMicrophoneEnabled(true);
+    } catch (e) {
+      debugPrint('Microphone unavailable: $e');
+      if (session == _session) state = state.copyWith(error: describeError(e));
+    }
+    if (withVideo) {
+      try {
+        await room.localParticipant?.setCameraEnabled(true);
+      } catch (e) {
+        debugPrint('Camera unavailable: $e');
+        if (session == _session) state = state.copyWith(error: describeError(e));
+      }
+    }
+  }
+
+  void _attach(lk.Room room, int session) {
+    room.addListener(_bump);
+    final listener = room.createListener();
+    _listener = listener;
+    listener
+      ..on<lk.RoomReconnectingEvent>((_) {
+        if (session == _session) state = state.copyWith(status: CallStatus.reconnecting);
+      })
+      ..on<lk.RoomAttemptReconnectEvent>((_) {
+        if (session == _session) state = state.copyWith(status: CallStatus.reconnecting);
+      })
+      ..on<lk.RoomReconnectedEvent>((_) {
+        if (session == _session) state = state.copyWith(status: CallStatus.connected);
+      })
+      ..on<lk.AudioPlaybackStatusChanged>((event) {
+        if (session == _session) state = state.copyWith(audioBlocked: !event.isPlaying);
+      })
+      ..on<lk.RoomDisconnectedEvent>((event) async {
+        if (session != _session) return;
+        final reason = switch (event.reason) {
+          lk.DisconnectReason.clientInitiated => null,
+          lk.DisconnectReason.participantRemoved || lk.DisconnectReason.roomDeleted => CallEndReason.removed,
+          lk.DisconnectReason.duplicateIdentity => CallEndReason.joinedElsewhere,
+          _ => CallEndReason.failed,
+        };
+        _session++;
+        await _teardown();
+        state = CallState(endReason: reason);
+      });
+  }
+
+  void _bump() {
+    if (!mounted) return;
+    state = state.copyWith(revision: state.revision + 1);
+  }
+
+  Future<void> _teardown() async {
+    final room = state.room;
+    await _listener?.dispose();
+    _listener = null;
+    if (room != null) {
+      room.removeListener(_bump);
+      try {
+        await room.disconnect();
+      } catch (_) {}
+      await room.dispose();
+    }
+  }
+
+  Future<void> leaveCall() async {
+    if (!state.isActive && state.room == null) return;
+    _session++;
+    await _teardown();
+    state = const CallState();
+  }
+
+  Future<void> _run(Future<void> Function(lk.LocalParticipant local) action) async {
+    final local = state.local;
+    if (local == null) return;
+    try {
+      await action(local);
+    } catch (e) {
+      state = state.copyWith(error: describeError(e));
+    }
+    _bump();
+  }
+
+  Future<void> toggleMicrophone() =>
+      _run((local) => local.setMicrophoneEnabled(!local.isMicrophoneEnabled()));
+
+  Future<void> toggleCamera() => _run((local) => local.setCameraEnabled(!local.isCameraEnabled()));
+
+  Future<void> toggleScreenShare() =>
+      _run((local) => local.setScreenShareEnabled(!local.isScreenShareEnabled(), captureScreenAudio: true));
+
+  /// Front/back camera on phones.
+  Future<void> flipCamera() => _run((local) async {
+        final publication = local.videoTrackPublications
+            .where((p) => p.source == lk.TrackSource.camera)
+            .firstOrNull;
+        final track = publication?.track;
+        if (track is! lk.LocalVideoTrack) return;
+        final options = track.currentOptions;
+        if (options is! lk.CameraCaptureOptions) return;
+        await track.setCameraPosition(options.cameraPosition.switched());
+      });
+
+  Future<void> setSpeakerOn(bool on) async {
+    try {
+      await lk.AudioManager.instance.setSpeakerOutputPreferred(on);
+    } catch (e) {
+      state = state.copyWith(error: describeError(e));
+    }
+  }
+
+  Future<void> selectDevice(lk.MediaDevice device) async {
+    final room = state.room;
+    if (room == null) return;
+    try {
+      switch (device.kind) {
+        case 'audioinput':
+          await room.setAudioInputDevice(device);
+        case 'audiooutput':
+          await room.setAudioOutputDevice(device);
+        case 'videoinput':
+          await room.setVideoInputDevice(device);
+      }
+    } catch (e) {
+      state = state.copyWith(error: describeError(e));
+    }
+    _bump();
+  }
+
+  /// Web: resume audio after the browser blocked autoplay (needs a user tap).
+  Future<void> startAudio() async {
+    await state.room?.startAudio();
+    state = state.copyWith(audioBlocked: !(state.room?.canPlaybackAudio ?? true));
+  }
+
+  void clearMessage() => state = CallState(
+        status: state.status,
+        roomId: state.roomId,
+        roomTitle: state.roomTitle,
+        room: state.room,
+        audioBlocked: state.audioBlocked,
+        revision: state.revision,
+      );
+
+  @override
+  void dispose() {
+    _session++;
+    _teardown();
+    super.dispose();
   }
 }
 

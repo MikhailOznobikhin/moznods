@@ -1,6 +1,8 @@
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
 from core.ws_auth import get_user_from_scope
+
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     """
@@ -9,7 +11,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     """
     async def connect(self):
         self.user = await database_sync_to_async(get_user_from_scope)(self.scope)
-        
+
         if not self.user or not self.user.is_authenticated:
             await self.close(code=4403)
             return
@@ -21,6 +23,10 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     async def disconnect(self, close_code):
         if hasattr(self, "user_group_name"):
             await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+
+    async def receive_json(self, content, **kwargs):
+        if content.get("type") == "ping":
+            await self.send_json({"type": "pong"})
 
     async def notification(self, event):
         """Send notification to the client."""

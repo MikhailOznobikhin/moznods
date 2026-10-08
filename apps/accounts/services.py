@@ -2,6 +2,7 @@ from core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import Q, QuerySet
+from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 
@@ -43,6 +44,15 @@ class UserService:
             return user
         except IntegrityError as e:
             raise ValidationError(detail={"__all__": [str(e)]}) from e
+
+    @staticmethod
+    def change_password(user: User, *, old_password: str, new_password: str) -> Token:
+        if not user.check_password(old_password):
+            raise ValidationError(detail={"old_password": ["Wrong password."]})
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        Token.objects.filter(user=user).delete()
+        return Token.objects.create(user=user)
 
     @staticmethod
     def search(*, query: str, exclude_user_id: int | None = None, limit: int = USER_SEARCH_LIMIT) -> QuerySet:

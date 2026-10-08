@@ -22,30 +22,15 @@ MOznoDS спроектирован как легковесное решение,
 
 ---
 
-## 2. WebRTC (STUN/TURN)
+## 2. Звонки (LiveKit)
 
-Для работы звонков используются два типа серверов:
+Звонки идут через собственный LiveKit (SFU) из `docker-compose.production.yml`: он же сигналинг,
+TURN (UDP 3478 и TLS 5349 с сертификатом Let's Encrypt домена) и ICE по TCP. Подробности — [webrtc.md](webrtc.md).
 
-1. **STUN (Session Traversal Utilities for NAT)**: Помогает устройствам узнать свой внешний IP. Работает быстро, трафик через него не идет.
-   - **Для РФ**: В приложении уже настроены серверы Яндекса, Mail.ru и др. Это обеспечивает минимальную задержку при установке соединения.
-2. **TURN (Traversal Using Relays around NAT)**: Пересылает весь трафик через себя. **Необходим**, если устройства находятся за строгим NAT (мобильный интернет, офисные сети).
-
-### Coturn (ваш собственный TURN сервер)
-Хотя STUN серверы Яндекса помогают соединиться, они **не заменяют** TURN. Если у пользователя 4G/LTE, без вашего Coturn звонок может не начаться.
-
-### Минимальные требования:
-- **CPU**: 1 ядро.
-- **RAM**: 512 МБ.
-- **Канал**: 100 Мбит/с (безлимитный трафик).
-- **Порты**: 3478 (TCP/UDP), 5349 (TLS), и диапазон 49152-65535 (UDP).
-
-### Рекомендуемые требования:
-- **CPU**: 1-2 ядра (в зависимости от количества одновременных видео-звонков).
-- **RAM**: 1 ГБ.
-- **Канал**: 1 Гбит/с.
-- **Трафик**: WebRTC видео-звонки потребляют значительный объем трафика (~1-2 Мбит/с на участника). Убедитесь, что ваш хостинг-провайдер предоставляет достаточный лимит.
-
----
+### Минимальные требования
+- **RAM**: ~150–300 МБ для LiveKit при небольших звонках.
+- **Канал**: каждый участник отдаёт поток один раз; входящий трафик сервера растёт с числом участников.
+- **Порты (фаервол)**: 7881/tcp, 7882-7883/udp, 3478/udp, 5349/tcp, плюс 80/443.
 
 ## 3. Советы по развертыванию (Self-hosted)
 
@@ -69,8 +54,8 @@ MOznoDS спроектирован как легковесное решение,
 |---------|-------|---------|
 | web | Django + Flutter | Main application |
 | postgres | postgres:16-alpine | Database |
-| redis | redis:7-alpine | Channels, Celery broker |
-| coturn | coturn/coturn | TURN server for WebRTC |
+| redis | redis:7-alpine | Channels layer, cache, call presence |
+| livekit | livekit/livekit-server | Calls: SFU, signaling, TURN |
 | nginx | nginx:alpine | Reverse proxy, SSL |
 
 ### Quick Start
@@ -94,16 +79,12 @@ docker compose -f docker-compose.production.yml exec web python manage.py migrat
 # 5. Create superuser
 docker compose -f docker-compose.production.yml exec web python manage.py createsuperuser
 
-# 6. Collect static files
-docker compose -f docker-compose.production.yml exec web python manage.py collectstatic
+# collectstatic runs automatically when the web container starts.
 ```
 
 ### Media Files
 Media files are stored locally in `/app/media/` (Docker volume: `media_volume`).
 
-### TURN Server (Coturn)
-- Port: 3478 (UDP/TCP)
-- Realm: moznods
-- User/Password: moznods/moznods123 (configure via TURN_SECRET env)
-
-
+### Calls (LiveKit)
+- Set `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (≥ 32 chars) and `DOMAIN` in `.env`.
+- Logs: `make logs-livekit`.

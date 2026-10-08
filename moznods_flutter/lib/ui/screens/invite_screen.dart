@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../store/auth_provider.dart';
+import 'package:dio/dio.dart';
 import '../../store/room_provider.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -27,24 +26,9 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
     });
   }
 
-  Future<void> _processInvite() async {
-    final authState = ref.read(authProvider);
-
-    if (authState.user == null) {
-      await _savePendingInvite();
-      if (mounted) {
-        context.go('/login?invite=true');
-      }
-      return;
-    }
-
-    await _joinRoom();
-  }
-
-  Future<void> _savePendingInvite() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pending_invite_token', widget.token);
-  }
+  // The router only shows this screen to logged-in users (others go through
+  // /login?from=/invite/<token> and come back here).
+  Future<void> _processInvite() => _joinRoom();
 
   Future<void> _joinRoom() async {
     setState(() {
@@ -53,14 +37,17 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
     });
 
     try {
-      final room = await ref.read(roomProvider.notifier).joinRoomByUsername(widget.token);
+      final room = await ref.read(roomProvider.notifier).joinByInvite(widget.token);
       if (mounted) {
         context.go('/room/${room.id}');
       }
-    } catch (e) {
+    } on DioException catch (e) {
       if (mounted) {
+        final data = e.response?.data;
         setState(() {
-          _error = e.toString();
+          _error = data is Map && data.isNotEmpty
+              ? (data.values.first is List ? (data.values.first as List).first : data.values.first).toString()
+              : (e.message ?? e.toString());
           _isLoading = false;
         });
       }

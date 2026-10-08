@@ -2,22 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/dio_client.dart';
+import '../../store/auth_provider.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _inviteCodeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -27,6 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _inviteCodeController.dispose();
     super.dispose();
   }
 
@@ -46,13 +49,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final client = DioClient();
-      await client.dio.post(
+      final response = await client.dio.post(
         '/api/auth/register/',
         data: {
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
           'password_confirm': _confirmPasswordController.text,
+          if (_inviteCodeController.text.trim().isNotEmpty)
+            'invite_code': _inviteCodeController.text.trim(),
         },
       );
 
@@ -63,7 +68,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: const Color(0xFF248046),
           ),
         );
-        await _checkPendingInvite();
+        // Logged in right away; the router then continues to `from` (or home).
+        await ref.read(authProvider.notifier).applySession(
+              response.data['token'] as String,
+              Map<String, dynamic>.from(response.data['user'] as Map),
+            );
       }
     } on DioException catch (e) {
       setState(() {
@@ -82,21 +91,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _checkPendingInvite() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingToken = prefs.getString('pending_invite_token');
-
-    if (pendingToken != null) {
-      await prefs.remove('pending_invite_token');
-      if (mounted) {
-        context.go('/login?invite=$pendingToken');
-      }
-    } else {
-      if (mounted) {
-        context.go('/login');
-      }
-    }
+  String _withFrom(String path) {
+    final from = GoRouterState.of(context).uri.queryParameters['from'];
+    return from == null ? path : '$path?from=${Uri.encodeComponent(from)}';
   }
+
 
   String _extractErrorMessage(DioException error, String fallback) {
     final responseData = error.response?.data;
@@ -255,6 +254,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _inviteCodeController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration(
+                      label: l10n.inviteCodeOptional,
+                      icon: Icons.vpn_key_outlined,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
@@ -292,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: const TextStyle(color: Color(0xFFB5BAC1)),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/login'),
+                        onPressed: () => context.go(_withFrom('/login')),
                         child: Text(
                           l10n.signIn,
                           style: const TextStyle(color: Color(0xFF5865F2)),

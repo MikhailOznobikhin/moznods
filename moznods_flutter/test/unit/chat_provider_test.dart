@@ -31,7 +31,7 @@ void main() {
       final newState = state.copyWith(isLoading: false);
 
       expect(newState.isLoading, isFalse);
-      expect(newState.error, equals('error'));
+      expect(newState.error, isNull); // copyWith clears stale errors
     });
 
     test('copyWith can clear replyingTo', () {

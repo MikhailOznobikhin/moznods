@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { WS_URL, ICE_SERVERS } from '../config';
+import apiClient from '../api/client';
 
 interface CallParticipant {
   id: number;
@@ -49,6 +50,22 @@ const ICE_SERVERS_DEFAULT = {
     { urls: 'stun:stun.l.google.com:19302' },
   ],
 };
+
+// AICODE-NOTE: TURN credentials are short-lived and issued by the backend
+// (/api/calls/ice-servers/). The static config is only a fallback.
+let iceConfig: RTCConfiguration = ICE_SERVERS || ICE_SERVERS_DEFAULT;
+
+async function loadIceConfig(): Promise<RTCConfiguration> {
+  try {
+    const { data } = await apiClient.get('/api/calls/ice-servers/');
+    if (Array.isArray(data?.ice_servers) && data.ice_servers.length > 0) {
+      return { iceServers: data.ice_servers };
+    }
+  } catch (err) {
+    console.warn('Failed to load ICE servers, using static config:', err);
+  }
+  return ICE_SERVERS || ICE_SERVERS_DEFAULT;
+}
 
 // AICODE-NOTE: Dynamic Quality Presets for WebRTC Mesh (#Mesh_Optimization)
 const QUALITY_PRESETS = {
@@ -151,6 +168,8 @@ export const useCallStore = create<CallState>((set, get) => ({
         isVideoEnabled: withVideo,
         isAudioEnabled: true 
       });
+
+      iceConfig = await loadIceConfig();
 
       // 2. Connect Signaling WebSocket
       const ws = new WebSocket(`${WS_URL}/ws/call/${roomId}/?token=${token}`);
@@ -575,7 +594,7 @@ async function createPeerConnection(
   get: any,
   myUserId: number
 ): Promise<RTCPeerConnection> {
-  const peer = new RTCPeerConnection(ICE_SERVERS || ICE_SERVERS_DEFAULT);
+  const peer = new RTCPeerConnection(iceConfig);
   
   // AICODE-NOTE: Set initial Perfect Negotiation flags (#WebRTC)
   set((state: CallState) => {

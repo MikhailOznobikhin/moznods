@@ -115,11 +115,111 @@ class TestRoomAPI:
     def test_join_room_200(self, api_client: APIClient):
         owner = create_user(username="owner")
         other = create_user(username="other")
-        room = create_room(owner=owner, name="R1")
+        room = create_room(owner=owner, name="R1", is_public=True, username="r1")
         api_client.force_authenticate(user=other)
         response = api_client.post(reverse("rooms:join", kwargs={"pk": room.pk}))
         assert response.status_code == status.HTTP_200_OK
         assert response.data["participant_count"] == 2
+
+    def test_join_private_room_403(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        other = create_user(username="other")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=other)
+        response = api_client.post(reverse("rooms:join", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert not room.participants.filter(user=other).exists()
+
+    def test_join_direct_room_403(self, api_client: APIClient):
+        a = create_user(username="a")
+        b = create_user(username="b")
+        c = create_user(username="c")
+        from apps.rooms.services import RoomService
+        room = RoomService.get_or_create_direct_room(a, b)
+        api_client.force_authenticate(user=c)
+        response = api_client.post(reverse("rooms:join", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_join_public_room_banned_403(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        other = create_user(username="other")
+        room = create_room(owner=owner, name="R1", is_public=True, username="r1")
+        from apps.rooms.models import RoomBan
+        RoomBan.objects.create(room=room, user=other, banned_by=owner)
+        api_client.force_authenticate(user=other)
+        response = api_client.post(reverse("rooms:join", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_invite_create_non_participant_403(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        other = create_user(username="other")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=other)
+        response = api_client.post(reverse("rooms:invite-create", kwargs={"pk": room.pk}))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_invite_join_banned_400(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        other = create_user(username="other")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.models import RoomBan
+        from apps.rooms.services import InvitationService
+        invitation = InvitationService.create_invitation(room, owner)
+        RoomBan.objects.create(room=room, user=other, banned_by=owner)
+        api_client.force_authenticate(user=other)
+        response = api_client.post(
+            reverse("rooms:invite-join", kwargs={"token": invitation.token})
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not room.participants.filter(user=other).exists()
+
+    def test_admin_cannot_ban_owner(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        admin = create_user(username="admin")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.models import RoomParticipant
+        RoomParticipant.objects.create(room=room, user=admin, role=RoomParticipant.ROLE_ADMIN)
+        api_client.force_authenticate(user=admin)
+        response = api_client.post(
+            reverse("rooms:ban", kwargs={"pk": room.pk}), {"user_id": owner.id}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert room.participants.filter(user=owner).exists()
+
+    def test_admin_cannot_ban_other_admin(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        admin1 = create_user(username="admin1")
+        admin2 = create_user(username="admin2")
+        room = create_room(owner=owner, name="R1")
+        from apps.rooms.models import RoomParticipant
+        RoomParticipant.objects.create(room=room, user=admin1, role=RoomParticipant.ROLE_ADMIN)
+        RoomParticipant.objects.create(room=room, user=admin2, role=RoomParticipant.ROLE_ADMIN)
+        api_client.force_authenticate(user=admin1)
+        response = api_client.post(
+            reverse("rooms:ban", kwargs={"pk": room.pk}), {"user_id": admin2.id}
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_owner_can_ban_non_member(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        stranger = create_user(username="stranger")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=owner)
+        response = api_client.post(
+            reverse("rooms:ban", kwargs={"pk": room.pk}), {"user_id": stranger.id}
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_update_role_non_participant_400(self, api_client: APIClient):
+        owner = create_user(username="owner")
+        stranger = create_user(username="stranger")
+        room = create_room(owner=owner, name="R1")
+        api_client.force_authenticate(user=owner)
+        response = api_client.post(
+            reverse("rooms:update-role", kwargs={"pk": room.pk}),
+            {"user_id": stranger.id, "role": "admin"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_join_room_already_participant_400(self, api_client: APIClient):
         user = create_user(username="u")
@@ -221,3 +321,36 @@ class TestRoomAPI:
         url = reverse("rooms:remove-participant", kwargs={"pk": room.pk})
         response = api_client.post(url, {"id": target.id})
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestRoomListFields:
+    def test_direct_room_title_peer_and_last_message(self, api_client: APIClient):
+        from apps.chat.services import MessageService
+        from apps.rooms.services import RoomService
+
+        alice = create_user(username="alice", email="a@example.com")
+        bob = create_user(username="bob", email="b@example.com")
+        room = RoomService.get_or_create_direct_room(alice, bob)
+        MessageService.send_message(room, bob, "hello alice")
+        api_client.force_authenticate(user=alice)
+        data = api_client.get(reverse("rooms:list-create")).data["results"][0]
+        assert data["title"] == "bob"
+        assert data["peer"]["username"] == "bob"
+        assert data["last_message"]["content"] == "hello alice"
+        assert data["unread_count"] == 1
+        assert data["can_manage"] is True  # alice created the DM
+
+    def test_can_manage_for_admin_not_member(self, api_client: APIClient):
+        from apps.rooms.models import RoomParticipant
+
+        owner = create_user(username="owner", email="o@example.com")
+        admin = create_user(username="admin", email="ad@example.com")
+        member = create_user(username="member", email="m@example.com")
+        room = create_room(owner=owner, name="R")
+        RoomParticipant.objects.create(room=room, user=admin, role=RoomParticipant.ROLE_ADMIN)
+        RoomParticipant.objects.create(room=room, user=member)
+        api_client.force_authenticate(user=admin)
+        assert api_client.get(reverse("rooms:detail", kwargs={"pk": room.pk})).data["can_manage"] is True
+        api_client.force_authenticate(user=member)
+        assert api_client.get(reverse("rooms:detail", kwargs={"pk": room.pk})).data["can_manage"] is False

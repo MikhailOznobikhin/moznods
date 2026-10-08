@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../store/chat_provider.dart' show describeError;
 import '../../store/room_provider.dart';
 
 class CreateRoomDialog extends ConsumerStatefulWidget {
@@ -15,6 +17,7 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
   final _usernameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  String? _error;
   bool _isPublic = false;
   bool _isChannel = false;
 
@@ -27,19 +30,27 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
 
   Future<void> _createRoom() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-
-    await ref
-        .read(roomProvider.notifier)
-        .createRoom(
-          name: _nameController.text.trim(),
-          isPublic: _isPublic,
-          isChannel: _isChannel,
-          username: _isPublic ? _usernameController.text.trim() : null,
-        );
-
-    if (mounted) {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final room = await ref.read(roomProvider.notifier).createRoom(
+            name: _nameController.text.trim(),
+            isPublic: _isPublic,
+            isChannel: _isChannel,
+            username: _isPublic ? _usernameController.text.trim() : null,
+          );
+      if (!mounted) return;
       Navigator.pop(context);
+      GoRouter.of(context).go('/room/${room.id}');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = describeError(e);
+        });
+      }
     }
   }
 
@@ -135,6 +146,10 @@ class _CreateRoomDialogState extends ConsumerState<CreateRoomDialog> {
                       ? null
                       : (value) => setState(() => _isChannel = value ?? false),
                 ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!, style: const TextStyle(color: Color(0xFFED4245))),
               ],
             ],
           ),

@@ -36,5 +36,15 @@ services:
 #    depends_on:
 #      - web
 
+  # Dev SFU for calls: devkey / secret. Webhooks are not configured in --dev mode,
+  # so the "in call" sidebar indicator does not update locally.
+  livekit:
+    image: livekit/livekit-server:v1.13.9
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
 volumes:
   postgres_data: {}

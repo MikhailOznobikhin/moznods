@@ -320,6 +320,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancel => 'Отмена';
 
   @override
+  String get cancelLabel => 'Отмена';
+
+  @override
+  String get saveLabel => 'Сохранить';
+
+  @override
   String get language => 'Язык';
 
   @override
@@ -383,6 +389,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get connectedLabel => 'Подключено';
+
+  @override
+  String get reconnectingLabel => 'Переподключение…';
 
   @override
   String get muteAction => 'Выключить микрофон';
@@ -462,4 +471,243 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appVersion => 'MOznoDS v1.0.0';
+
+  @override
+  String get deviceSettings => 'Настройки устройств';
+
+  @override
+  String get microphone => 'Микрофон';
+
+  @override
+  String get camera => 'Камера';
+
+  @override
+  String get noDevicesFound => 'Устройства не найдены';
+
+  @override
+  String get selectDevice => 'Выбрать устройство';
+
+  @override
+  String get shareRoom => 'Поделиться комнатой';
+
+  @override
+  String get linkExpiration => 'Срок действия ссылки';
+
+  @override
+  String get hour1 => '1 час';
+
+  @override
+  String get hours6 => '6 часов';
+
+  @override
+  String get hours24 => '24 часа';
+
+  @override
+  String get days7 => '7 дней';
+
+  @override
+  String get never => 'Бессрочно';
+
+  @override
+  String get createLink => 'Создать ссылку';
+
+  @override
+  String get copied => 'Скопировано';
+
+  @override
+  String get copy => 'Копировать';
+
+  @override
+  String get newLink => 'Новая ссылка';
+
+  @override
+  String get editRoomName => 'Изменить название';
+
+  @override
+  String get inviteCodeOptional => 'Код приглашения (если нужен)';
+
+  @override
+  String get currentPassword => 'Текущий пароль';
+
+  @override
+  String get newPassword => 'Новый пароль';
+
+  @override
+  String get passwordChanged => 'Пароль изменён';
+
+  @override
+  String get pushUnsupported => 'Пока не поддерживается на этом устройстве';
+
+  @override
+  String get pushDenied => 'Уведомления запрещены в настройках браузера';
+
+  @override
+  String get pushNotConfigured => 'Пуш-уведомления не настроены на сервере';
+
+  @override
+  String get pushFailed => 'Не удалось включить уведомления';
+
+  @override
+  String get newDirectMessage => 'Новое личное сообщение';
+
+  @override
+  String get directMessages => 'Личные сообщения';
+
+  @override
+  String get roomsSection => 'Комнаты';
+
+  @override
+  String get pin => 'Закрепить';
+
+  @override
+  String get unpin => 'Открепить';
+
+  @override
+  String get inviteLink => 'Ссылка-приглашение';
+
+  @override
+  String get addMember => 'Добавить участника';
+
+  @override
+  String get renameRoom => 'Переименовать';
+
+  @override
+  String get leaveRoom => 'Покинуть комнату';
+
+  @override
+  String get deleteRoom => 'Удалить комнату';
+
+  @override
+  String get deleteRoomConfirm =>
+      'Удалить комнату и все её сообщения для всех?';
+
+  @override
+  String get leaveRoomConfirm => 'Покинуть комнату?';
+
+  @override
+  String get youPrefix => 'Вы';
+
+  @override
+  String get attachment => 'Вложение';
+
+  @override
+  String get messageDeleted => 'Сообщение удалено';
+
+  @override
+  String get edited => 'изменено';
+
+  @override
+  String get editMessage => 'Изменить';
+
+  @override
+  String get copyText => 'Копировать текст';
+
+  @override
+  String get editingMessage => 'Редактирование сообщения';
+
+  @override
+  String get deleteMessageConfirm => 'Удалить сообщение?';
+
+  @override
+  String typingOne(String name) {
+    return '$name печатает…';
+  }
+
+  @override
+  String get typingMany => 'Несколько человек печатают…';
+
+  @override
+  String get loadingOlder => 'Загрузка…';
+
+  @override
+  String get jumpToLatest => 'К последним';
+
+  @override
+  String inCall(String names) {
+    return 'В звонке: $names';
+  }
+
+  @override
+  String get noRoomsYet =>
+      'Пока нет бесед. Создайте комнату или напишите кому-нибудь лично.';
+
+  @override
+  String get roomMenu => 'Меню комнаты';
+
+  @override
+  String get openRooms => 'Комнаты';
+
+  @override
+  String get send => 'Отправить';
+
+  @override
+  String get readBy => 'Прочитано';
+
+  @override
+  String get sent => 'Отправлено';
+
+  @override
+  String get retry => 'Повторить';
+
+  @override
+  String get callConnecting => 'Подключение…';
+
+  @override
+  String get callReconnecting => 'Переподключение…';
+
+  @override
+  String get callEndedRemoved => 'Вас удалили из звонка';
+
+  @override
+  String get callJoinedElsewhere =>
+      'Вы подключились к звонку с другого устройства';
+
+  @override
+  String get callFailed => 'Не удалось подключиться к звонку';
+
+  @override
+  String get enableAudio => 'Нажмите, чтобы включить звук';
+
+  @override
+  String get shareScreen => 'Демонстрация';
+
+  @override
+  String get stopShare => 'Остановить';
+
+  @override
+  String get flipCamera => 'Камера';
+
+  @override
+  String get speakerLabel => 'Динамик';
+
+  @override
+  String get noActiveCall => 'Нет активного звонка';
+
+  @override
+  String get openCall => 'Открыть звонок';
+
+  @override
+  String get joinCallAction => 'Присоединиться';
+
+  @override
+  String get audioOutput => 'Вывод звука';
+
+  @override
+  String screenOf(String name) {
+    return '$name (экран)';
+  }
+
+  @override
+  String callParticipantsCount(int count) {
+    return '$count в звонке';
+  }
+
+  @override
+  String get weakConnection => 'Слабое соединение';
+
+  @override
+  String get close => 'Закрыть';
+
+  @override
+  String get minimize => 'Свернуть';
 }

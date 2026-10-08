@@ -54,7 +54,9 @@
   "participantsWithCount": "Участники — {count}",
   "@participantsWithCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "bannedUsers": "Заблокированные",
@@ -76,7 +78,9 @@
   "messageHint": "Сообщение в #{room}",
   "@messageHint": {
     "placeholders": {
-      "room": {"type": "String"}
+      "room": {
+        "type": "String"
+      }
     }
   },
   "couldNotReadFile": "Не удалось прочитать выбранный файл",
@@ -133,11 +137,14 @@
   "membersCount": "{count} участн.",
   "@membersCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "voiceChannel": "Голосовой канал",
   "connectedLabel": "Подключено",
+  "reconnectingLabel": "Переподключение…",
   "muteAction": "Выключить микрофон",
   "unmuteAction": "Включить микрофон",
   "startVideo": "Включить видео",
@@ -150,7 +157,9 @@
   "userPlaceholder": "Участник {id}",
   "@userPlaceholder": {
     "placeholders": {
-      "id": {"type": "int"}
+      "id": {
+        "type": "int"
+      }
     }
   },
   "noActiveVideoStreams": "Нет активных видеопотоков",
@@ -181,8 +190,67 @@
   "days7": "7 дней",
   "never": "Бессрочно",
   "createLink": "Создать ссылку",
-  "copied": "Скопировано!",
+  "copied": "Скопировано",
   "copy": "Копировать",
   "newLink": "Новая ссылка",
-  "editRoomName": "Изменить название"
+  "editRoomName": "Изменить название",
+  "inviteCodeOptional": "Код приглашения (если нужен)",
+  "currentPassword": "Текущий пароль",
+  "newPassword": "Новый пароль",
+  "passwordChanged": "Пароль изменён",
+  "pushUnsupported": "Пока не поддерживается на этом устройстве",
+  "pushDenied": "Уведомления запрещены в настройках браузера",
+  "pushNotConfigured": "Пуш-уведомления не настроены на сервере",
+  "pushFailed": "Не удалось включить уведомления",
+  "newDirectMessage": "Новое личное сообщение",
+  "directMessages": "Личные сообщения",
+  "roomsSection": "Комнаты",
+  "pin": "Закрепить",
+  "unpin": "Открепить",
+  "inviteLink": "Ссылка-приглашение",
+  "addMember": "Добавить участника",
+  "renameRoom": "Переименовать",
+  "leaveRoom": "Покинуть комнату",
+  "deleteRoom": "Удалить комнату",
+  "deleteRoomConfirm": "Удалить комнату и все её сообщения для всех?",
+  "leaveRoomConfirm": "Покинуть комнату?",
+  "youPrefix": "Вы",
+  "attachment": "Вложение",
+  "messageDeleted": "Сообщение удалено",
+  "edited": "изменено",
+  "editMessage": "Изменить",
+  "copyText": "Копировать текст",
+  "editingMessage": "Редактирование сообщения",
+  "deleteMessageConfirm": "Удалить сообщение?",
+  "typingOne": "{name} печатает…",
+  "typingMany": "Несколько человек печатают…",
+  "loadingOlder": "Загрузка…",
+  "jumpToLatest": "К последним",
+  "inCall": "В звонке: {names}",
+  "noRoomsYet": "Пока нет бесед. Создайте комнату или напишите кому-нибудь лично.",
+  "roomMenu": "Меню комнаты",
+  "openRooms": "Комнаты",
+  "send": "Отправить",
+  "readBy": "Прочитано",
+  "sent": "Отправлено",
+  "retry": "Повторить",
+  "callConnecting": "Подключение…",
+  "callReconnecting": "Переподключение…",
+  "callEndedRemoved": "Вас удалили из звонка",
+  "callJoinedElsewhere": "Вы подключились к звонку с другого устройства",
+  "callFailed": "Не удалось подключиться к звонку",
+  "enableAudio": "Нажмите, чтобы включить звук",
+  "shareScreen": "Демонстрация",
+  "stopShare": "Остановить",
+  "flipCamera": "Камера",
+  "speakerLabel": "Динамик",
+  "noActiveCall": "Нет активного звонка",
+  "openCall": "Открыть звонок",
+  "joinCallAction": "Присоединиться",
+  "audioOutput": "Вывод звука",
+  "screenOf": "{name} (экран)",
+  "callParticipantsCount": "{count} в звонке",
+  "weakConnection": "Слабое соединение",
+  "close": "Закрыть",
+  "minimize": "Свернуть"
 }

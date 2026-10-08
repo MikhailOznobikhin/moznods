@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../store/call_provider.dart';
-import '../widgets/video_grid.dart';
+import 'package:go_router/go_router.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
+import 'package:moznods_flutter/l10n/app_localizations.dart';
 
+import '../../store/call_provider.dart';
+import '../screens/call_screen.dart' show CallControlButton;
+import 'participant_tile.dart';
+
+/// Floating mini call window shown over the chat while a call is active.
 class CallOverlay extends ConsumerStatefulWidget {
   const CallOverlay({super.key});
 
@@ -12,77 +17,105 @@ class CallOverlay extends ConsumerStatefulWidget {
 }
 
 class _CallOverlayState extends ConsumerState<CallOverlay> {
-  Offset _offset = const Offset(20, 20);
-  bool _isMinimized = false;
+  Offset _offset = const Offset(16, 16);
+
+  /// Who to show: someone speaking, else the first remote participant, else me.
+  CallTile? _focusTile(CallState call) {
+    final tiles = buildCallTiles(call);
+    if (tiles.isEmpty) return null;
+    if (tiles.first.isScreenShare) return tiles.first;
+    return tiles.where((t) => t.participant.isSpeaking && t.participant is! lk.LocalParticipant).firstOrNull ??
+        tiles.where((t) => t.participant is! lk.LocalParticipant).firstOrNull ??
+        tiles.first;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final callState = ref.watch(callProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final call = ref.watch(callProvider);
+    final notifier = ref.read(callProvider.notifier);
 
-    if (!callState.isActive) return const SizedBox.shrink();
+    ref.listen<CallState>(callProvider, (previous, next) {
+      final String? message = switch (next.endReason) {
+        CallEndReason.removed => l10n.callEndedRemoved,
+        CallEndReason.joinedElsewhere => l10n.callJoinedElsewhere,
+        CallEndReason.failed => next.error != null ? '${l10n.callFailed}: ${next.error}' : l10n.callFailed,
+        null => next.error,
+      };
+      if (message != null && (next.endReason != previous?.endReason || next.error != previous?.error)) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        notifier.clearMessage();
+      }
+    });
+
+    if (!call.isActive) return const SizedBox.shrink();
+    final focus = _focusTile(call);
+    final size = MediaQuery.of(context).size;
+    const width = 220.0;
+    const height = 124.0;
 
     return Positioned(
-      right: _offset.dx,
-      bottom: _offset.dy,
+      right: _offset.dx.clamp(0, size.width - width),
+      bottom: _offset.dy.clamp(0, size.height - height - 60),
       child: GestureDetector(
-        onPanUpdate: (details) {
-          setState(() {
-            _offset += details.delta;
-          });
-        },
-        child: Container(
-          width: _isMinimized ? 120 : 320,
-          height: _isMinimized ? 80 : 240,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2B2D31),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 15,
-                spreadRadius: 2,
-              ),
-            ],
-            border: Border.all(color: const Color(0xFF1E1F22), width: 1),
-          ),
+        onPanUpdate: (details) => setState(() => _offset -= details.delta),
+        onTap: () => context.push('/call'),
+        child: Material(
+          elevation: 12,
+          color: const Color(0xFF111214),
+          borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              Container(
-                height: 32,
-                color: const Color(0xFF1E1F22),
-                child: Row(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Icon(Icons.call, size: 16, color: Colors.green),
-                    ),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context)!.activeCall,
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(_isMinimized ? Icons.expand_less : Icons.expand_more, size: 16, color: Colors.white),
-                      onPressed: () => setState(() => _isMinimized = !_isMinimized),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                      onPressed: () => ref.read(callProvider.notifier).leaveCall(),
-                    ),
-                  ],
+          child: SizedBox(
+            width: width,
+            height: height + 44,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: height,
+                  child: focus == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : ParticipantTile(tile: focus, compact: true),
                 ),
-              ),
-              if (!_isMinimized)
-                Expanded(
-                  child: VideoGrid(
-                    remoteStreams: callState.remoteStreams,
-                    localStream: callState.localStream,
-                    participants: callState.participants,
+                SizedBox(
+                  height: 44,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          call.status == CallStatus.connected
+                              ? call.roomTitle
+                              : (call.status == CallStatus.reconnecting ? l10n.callReconnecting : l10n.callConnecting),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: call.status == CallStatus.connected ? Colors.white : const Color(0xFFFAA61A),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      CallControlButton(
+                        size: 32,
+                        icon: call.micEnabled ? Icons.mic : Icons.mic_off,
+                        label: call.micEnabled ? l10n.muteAction : l10n.unmuteAction,
+                        highlighted: !call.micEnabled,
+                        onTap: notifier.toggleMicrophone,
+                      ),
+                      const SizedBox(width: 6),
+                      CallControlButton(
+                        size: 32,
+                        icon: Icons.call_end,
+                        label: l10n.leaveCall,
+                        destructive: true,
+                        onTap: notifier.leaveCall,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

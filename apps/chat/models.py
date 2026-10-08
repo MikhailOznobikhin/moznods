@@ -25,9 +25,20 @@ class Message(TimestampedModel):
         related_name="read_messages",
         blank=True,
     )
+    reply_to = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="replies",
+    )
+    edited_at = models.DateTimeField(null=True, blank=True)
+    # Soft delete keeps the row so replies and read state stay consistent.
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [models.Index(fields=["room", "-created_at"])]
 
     def __str__(self) -> str:
         return f"{self.author} in {self.room}: {self.content[:50]}"
@@ -49,3 +60,25 @@ class MessageAttachment(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.file.name} on {self.message_id}"
+
+
+class MessageReaction(TimestampedModel):
+    """One user's emoji reaction to a message."""
+
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="reactions",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="message_reactions",
+    )
+    emoji = models.CharField(max_length=16)
+
+    class Meta:
+        unique_together = [["message", "user", "emoji"]]
+
+    def __str__(self) -> str:
+        return f"{self.user} {self.emoji} on {self.message_id}"

@@ -1,6 +1,6 @@
 """
 WebSocket authentication helpers.
-Resolve user from token in query string (used by chat and calls consumers).
+Resolve user from token in query string (used by the chat and notification consumers).
 """
 
 from urllib.parse import parse_qs
@@ -21,7 +21,7 @@ def get_user_from_scope(scope):
         # Check if it is a list and get the first element
         if isinstance(token_key, list):
             token_key = token_key[0]
-            
+
         token = Token.objects.get(key=token_key)
         return token.user
     except Token.DoesNotExist:

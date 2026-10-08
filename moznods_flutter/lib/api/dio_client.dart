@@ -29,6 +29,9 @@ class DioClient {
     return _defaultNativeApi;
   }
 
+  /// Origin for links people share (the web app is served from the API host).
+  static String get publicBaseUrl => baseUrl;
+
   static String get wsBaseUrl {
     final fromEnv = _envWsBase.trim();
     if (fromEnv.isNotEmpty) {

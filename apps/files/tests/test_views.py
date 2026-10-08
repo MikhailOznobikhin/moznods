@@ -65,7 +65,6 @@ class TestFileAPI:
         from django.core.files.base import ContentFile
 
         from apps.files.models import File
-        from apps.rooms.tests.factories import create_room
 
         uploader = create_user(username="uploader")
         other = create_user(username="other")

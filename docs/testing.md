@@ -240,62 +240,22 @@ class TestRoomAPI:
 
 ### WebSocket Tests
 
+Use `channels.testing.WebsocketCommunicator` with a real token in the query string and
+`@pytest.mark.django_db(transaction=True)` (the consumer reads the DB from another thread).
+Working example: `apps/chat/tests/test_consumer.py` (connect, typing, message broadcast, rejecting
+non-members).
+
 ```python
-# apps/calls/tests/test_consumers.py
-
-import pytest
-from channels.testing import WebsocketCommunicator
-from channels.routing import URLRouter
-from django.urls import path
-from apps.calls.consumers import SignalingConsumer
-from apps.accounts.tests.factories import UserFactory
-from apps.rooms.tests.factories import RoomFactory
-
-@pytest.mark.asyncio
-@pytest.mark.django_db(transaction=True)
-class TestSignalingConsumer:
-    async def test_connect(self):
-        user = await self.create_user()
-        room = await self.create_room(user)
-
-        application = URLRouter([
-            path('ws/room/<int:room_id>/', SignalingConsumer.as_asgi()),
-        ])
-
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/room/{room.id}/'
-        )
-        communicator.scope['user'] = user
-
-        connected, _ = await communicator.connect()
-        assert connected
-
-        await communicator.disconnect()
-
-    async def test_join_call(self):
-        user = await self.create_user()
-        room = await self.create_room(user)
-
-        # ... setup communicator ...
-
-        await communicator.send_json_to({
-            'type': 'join_call',
-            'data': {}
-        })
-
-        # Verify response or side effects
-
-    @staticmethod
-    @pytest.mark.django_db
-    def create_user():
-        return UserFactory()
-
-    @staticmethod
-    @pytest.mark.django_db
-    def create_room(user):
-        return RoomFactory(owner=user)
+application = URLRouter([path("ws/chat/<int:room_id>/", ChatConsumer.as_asgi())])
+communicator = WebsocketCommunicator(application, f"/ws/chat/{room_id}/?token={token}")
+connected, _ = await communicator.connect()
+await communicator.send_json_to({"type": "chat_message", "data": {"content": "hello"}})
+event = await communicator.receive_json_from(timeout=2)
+assert event["type"] == "message_created"
 ```
+
+Calls are tested at the API level (`apps/calls/tests/test_livekit.py`): token claims, signed
+webhooks, stale "left" events, removing kicked users.
 
 ## Test Configuration
 

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
-import 'package:moznods_flutter/l10n/app_localizations_en.dart';
+import 'package:moznods_flutter/store/auth_provider.dart';
 import 'package:moznods_flutter/ui/screens/login_screen.dart';
 
 Widget createTestWidget(Widget child) {
   return ProviderScope(
+    overrides: [
+      authProvider.overrideWith((ref) => AuthNotifier(loadSession: false)),
+    ],
     child: MaterialApp(
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -38,8 +41,8 @@ void main() {
       await tester.tap(loginButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Username is required'), findsOneWidget);
-      expect(find.text('Password is required'), findsOneWidget);
+      expect(find.text('Please enter your username'), findsOneWidget);
+      expect(find.text('Please enter your password'), findsOneWidget);
     });
 
     testWidgets('can enter username and password', (tester) async {
@@ -59,7 +62,8 @@ void main() {
       await tester.pumpWidget(createTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text("Don't have an account? Register"), findsOneWidget);
+      expect(find.text("Don't have an account?"), findsOneWidget);
+      expect(find.text('Register'), findsOneWidget);
     });
   });
 }

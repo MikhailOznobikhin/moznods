@@ -11,14 +11,30 @@ class AuthState {
   final bool isLoading;
   final String? error;
 
-  AuthState({this.user, this.token, this.isLoading = false, this.error});
+  /// False until the stored session has been restored (or found missing).
+  final bool initialized;
 
-  AuthState copyWith({User? user, String? token, bool? isLoading, String? error}) {
+  AuthState({
+    this.user,
+    this.token,
+    this.isLoading = false,
+    this.error,
+    this.initialized = true,
+  });
+
+  AuthState copyWith({
+    User? user,
+    String? token,
+    bool? isLoading,
+    String? error,
+    bool? initialized,
+  }) {
     return AuthState(
       user: user ?? this.user,
       token: token ?? this.token,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      initialized: initialized ?? this.initialized,
     );
   }
 }
@@ -27,25 +43,59 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final DioClient _client = DioClient();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  AuthNotifier() : super(AuthState()) {
-    _loadSession();
+  AuthNotifier({bool loadSession = true})
+      : super(AuthState(initialized: !loadSession)) {
+    if (loadSession) _loadSession();
   }
 
   Future<void> _loadSession() async {
+    try {
+      await _restoreSession();
+    } finally {
+      state = state.copyWith(initialized: true, isLoading: false);
+    }
+  }
+
+  Future<void> _restoreSession() async {
     state = state.copyWith(isLoading: true);
-    final token = await _storage.read(key: 'auth_token');
-    if (token != null) {
-      try {
-        final response = await _client.dio.get('/api/auth/me/');
-        final user = User.fromJson(response.data);
-        state = state.copyWith(user: user, token: token, isLoading: false);
-      } catch (e) {
-        await _storage.delete(key: 'auth_token');
+    String? token;
+    try {
+      token = await _storage.read(key: 'auth_token');
+    } catch (_) {
+      // Secure storage can fail (e.g. corrupted web storage); treat as logged out.
+      token = null;
+    }
+    if (token == null) {
+      state = state.copyWith(isLoading: false);
+      return;
+    }
+    try {
+      final response = await _client.dio.get('/api/auth/me/');
+      final user = User.fromJson(response.data);
+      state = state.copyWith(user: user, token: token, isLoading: false);
+    } on DioException catch (e) {
+      // Only a rejected token logs the user out; a network error keeps it.
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await _safeDeleteToken();
         state = AuthState();
+      } else {
+        state = state.copyWith(isLoading: false, error: 'Network error');
       }
-    } else {
+    } catch (_) {
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  /// Store a session returned by register/login endpoints.
+  Future<void> applySession(String token, Map<String, dynamic> userJson) async {
+    await _storage.write(key: 'auth_token', value: token);
+    state = AuthState(user: User.fromJson(userJson), token: token);
+  }
+
+  Future<void> _safeDeleteToken() async {
+    try {
+      await _storage.delete(key: 'auth_token');
+    } catch (_) {}
   }
 
   Future<bool> login(String username, String password) async {
@@ -68,8 +118,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'auth_token');
+    if (state.token != null) {
+      try {
+        // Invalidate the token server-side too.
+        await _client.dio.post('/api/auth/logout/');
+      } catch (_) {}
+    }
+    await _safeDeleteToken();
     state = AuthState();
+  }
+
+  /// Returns null on success, otherwise an error message from the server.
+  Future<String?> changePassword(String oldPassword, String newPassword) async {
+    try {
+      final response = await _client.dio.post('/api/auth/password/', data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      });
+      final token = response.data['token'] as String;
+      await _storage.write(key: 'auth_token', value: token);
+      state = state.copyWith(token: token);
+      return null;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.isNotEmpty) {
+        final first = data.values.first;
+        return first is List && first.isNotEmpty ? first.first.toString() : first.toString();
+      }
+      return e.message ?? 'Error';
+    }
   }
 
   Future<bool> updateProfile({

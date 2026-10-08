@@ -315,6 +315,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get cancelLabel => 'Cancel';
+
+  @override
+  String get saveLabel => 'Save';
+
+  @override
   String get language => 'Language';
 
   @override
@@ -378,6 +384,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectedLabel => 'Connected';
+
+  @override
+  String get reconnectingLabel => 'Reconnecting…';
 
   @override
   String get muteAction => 'Mute';
@@ -458,4 +467,243 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appVersion => 'MOznoDS v1.0.0';
+
+  @override
+  String get deviceSettings => 'Device Settings';
+
+  @override
+  String get microphone => 'Microphone';
+
+  @override
+  String get camera => 'Camera';
+
+  @override
+  String get noDevicesFound => 'No devices found';
+
+  @override
+  String get selectDevice => 'Select device';
+
+  @override
+  String get shareRoom => 'Share Room';
+
+  @override
+  String get linkExpiration => 'Link expiration';
+
+  @override
+  String get hour1 => '1 hour';
+
+  @override
+  String get hours6 => '6 hours';
+
+  @override
+  String get hours24 => '24 hours';
+
+  @override
+  String get days7 => '7 days';
+
+  @override
+  String get never => 'Never';
+
+  @override
+  String get createLink => 'Create Link';
+
+  @override
+  String get copied => 'Copied';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get newLink => 'New Link';
+
+  @override
+  String get editRoomName => 'Edit Room Name';
+
+  @override
+  String get inviteCodeOptional => 'Invite code (if required)';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get passwordChanged => 'Password changed';
+
+  @override
+  String get pushUnsupported => 'Not supported on this device yet';
+
+  @override
+  String get pushDenied => 'Notifications are blocked in the browser settings';
+
+  @override
+  String get pushNotConfigured =>
+      'Push notifications are not configured on the server';
+
+  @override
+  String get pushFailed => 'Could not enable notifications';
+
+  @override
+  String get newDirectMessage => 'New direct message';
+
+  @override
+  String get directMessages => 'Direct messages';
+
+  @override
+  String get roomsSection => 'Rooms';
+
+  @override
+  String get pin => 'Pin';
+
+  @override
+  String get unpin => 'Unpin';
+
+  @override
+  String get inviteLink => 'Invite link';
+
+  @override
+  String get addMember => 'Add member';
+
+  @override
+  String get renameRoom => 'Rename';
+
+  @override
+  String get leaveRoom => 'Leave room';
+
+  @override
+  String get deleteRoom => 'Delete room';
+
+  @override
+  String get deleteRoomConfirm =>
+      'Delete this room and all its messages for everyone?';
+
+  @override
+  String get leaveRoomConfirm => 'Leave this room?';
+
+  @override
+  String get youPrefix => 'You';
+
+  @override
+  String get attachment => 'Attachment';
+
+  @override
+  String get messageDeleted => 'Message deleted';
+
+  @override
+  String get edited => 'edited';
+
+  @override
+  String get editMessage => 'Edit';
+
+  @override
+  String get copyText => 'Copy text';
+
+  @override
+  String get editingMessage => 'Editing message';
+
+  @override
+  String get deleteMessageConfirm => 'Delete this message?';
+
+  @override
+  String typingOne(String name) {
+    return '$name is typing…';
+  }
+
+  @override
+  String get typingMany => 'Several people are typing…';
+
+  @override
+  String get loadingOlder => 'Loading…';
+
+  @override
+  String get jumpToLatest => 'Jump to latest';
+
+  @override
+  String inCall(String names) {
+    return 'In call: $names';
+  }
+
+  @override
+  String get noRoomsYet =>
+      'No conversations yet. Create a room or start a direct message.';
+
+  @override
+  String get roomMenu => 'Room menu';
+
+  @override
+  String get openRooms => 'Rooms';
+
+  @override
+  String get send => 'Send';
+
+  @override
+  String get readBy => 'Read';
+
+  @override
+  String get sent => 'Sent';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get callConnecting => 'Connecting…';
+
+  @override
+  String get callReconnecting => 'Reconnecting…';
+
+  @override
+  String get callEndedRemoved => 'You were removed from the call';
+
+  @override
+  String get callJoinedElsewhere => 'You joined this call from another device';
+
+  @override
+  String get callFailed => 'Call failed';
+
+  @override
+  String get enableAudio => 'Tap to enable sound';
+
+  @override
+  String get shareScreen => 'Share screen';
+
+  @override
+  String get stopShare => 'Stop sharing';
+
+  @override
+  String get flipCamera => 'Flip';
+
+  @override
+  String get speakerLabel => 'Speaker';
+
+  @override
+  String get noActiveCall => 'No active call';
+
+  @override
+  String get openCall => 'Open call';
+
+  @override
+  String get joinCallAction => 'Join call';
+
+  @override
+  String get audioOutput => 'Audio output';
+
+  @override
+  String screenOf(String name) {
+    return '$name (screen)';
+  }
+
+  @override
+  String callParticipantsCount(int count) {
+    return '$count in call';
+  }
+
+  @override
+  String get weakConnection => 'Weak connection';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get minimize => 'Minimize';
 }

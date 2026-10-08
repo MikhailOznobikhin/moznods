@@ -4,10 +4,46 @@ import 'user.dart';
 part 'room.g.dart';
 
 @JsonSerializable()
+class LastMessage {
+  final int id;
+  @JsonKey(name: 'author_id')
+  final int authorId;
+  @JsonKey(name: 'author_name')
+  final String authorName;
+  final String content;
+  @JsonKey(name: 'has_attachments', defaultValue: false)
+  final bool hasAttachments;
+  @JsonKey(name: 'is_deleted', defaultValue: false)
+  final bool isDeleted;
+  @JsonKey(name: 'created_at')
+  final DateTime createdAt;
+
+  LastMessage({
+    required this.id,
+    required this.authorId,
+    required this.authorName,
+    required this.content,
+    this.hasAttachments = false,
+    this.isDeleted = false,
+    required this.createdAt,
+  });
+
+  factory LastMessage.fromJson(Map<String, dynamic> json) => _$LastMessageFromJson(json);
+  Map<String, dynamic> toJson() => _$LastMessageToJson(this);
+}
+
+@JsonSerializable()
 class Room {
   final int id;
   final String name;
+  @JsonKey(defaultValue: '')
+  final String title;
   final User owner;
+  final User? peer;
+  @JsonKey(name: 'last_message')
+  final LastMessage? lastMessage;
+  @JsonKey(name: 'can_manage', defaultValue: false)
+  final bool canManage;
   @JsonKey(name: 'participant_count')
   final int participantCount;
   @JsonKey(name: 'active_call_participants')
@@ -32,7 +68,11 @@ class Room {
   Room({
     required this.id,
     required this.name,
+    this.title = '',
     required this.owner,
+    this.peer,
+    this.lastMessage,
+    this.canManage = false,
     required this.participantCount,
     required this.activeCallParticipants,
     this.unreadCount,
@@ -45,6 +85,40 @@ class Room {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Name to show: the other person for DMs, otherwise the room name.
+  String get displayTitle => title.isNotEmpty ? title : name;
+
+  Room copyWith({
+    int? unreadCount,
+    bool? isPinned,
+    List<String>? activeCallParticipants,
+    LastMessage? lastMessage,
+    DateTime? updatedAt,
+    String? name,
+    String? title,
+  }) {
+    return Room(
+      id: id,
+      name: name ?? this.name,
+      title: title ?? this.title,
+      owner: owner,
+      peer: peer,
+      lastMessage: lastMessage ?? this.lastMessage,
+      canManage: canManage,
+      participantCount: participantCount,
+      activeCallParticipants: activeCallParticipants ?? this.activeCallParticipants,
+      unreadCount: unreadCount ?? this.unreadCount,
+      isPinned: isPinned ?? this.isPinned,
+      isDirect: isDirect,
+      isPublic: isPublic,
+      isChannel: isChannel,
+      username: username,
+      avatar: avatar,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   factory Room.fromJson(Map<String, dynamic> json) => _$RoomFromJson(json);
   Map<String, dynamic> toJson() => _$RoomToJson(this);

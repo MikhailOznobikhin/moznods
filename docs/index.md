@@ -19,7 +19,7 @@ MOznoDS is a web application for group voice calls and messaging — a simplifie
 
 ### Core Features (MVP)
 
-- **Group Voice Calls** – WebRTC-based P2P mesh topology for low-latency audio
+- **Group Voice & Video Calls** – LiveKit SFU (simulcast, built-in TURN, automatic reconnects)
 - **Text Chat** – Real-time messaging with file attachments
 - **Room Management** – Create, join, and manage communication rooms
 - **User Authentication** – Secure user registration and login
@@ -72,7 +72,7 @@ daphne -b 0.0.0.0 -p 8001 config.asgi:application
 ┌─────────────────────────────────────────────────────────────┐
 │                      Client (Browser)                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   REST API  │  │  WebSocket  │  │   WebRTC (P2P)      │  │
+│  │   REST API  │  │  WebSocket  │  │   Call tokens       │  │
 │  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
 └─────────┼────────────────┼────────────────────┼─────────────┘
           │                │                    │
@@ -97,11 +97,10 @@ daphne -b 0.0.0.0 -p 8001 config.asgi:application
 └─────────────────────────────────────────┘    │
                                                │
           ┌────────────────────────────────────┘
-          │ (Signaling only, media is P2P)
+          │ (tokens + webhooks; media goes through the SFU)
           ▼
 ┌─────────────────────────────────────────┐
-│           TURN/STUN Server              │
-│              (coturn)                   │
+│         LiveKit SFU (+ TURN)            │
 └─────────────────────────────────────────┘
 ```
 

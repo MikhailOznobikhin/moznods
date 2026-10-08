@@ -2,29 +2,26 @@
 Low memory server settings (375MB RAM)
 """
 import os
-from .base import *
+
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
-from logtail import LogtailHandler
-import logging
 
-# Sentry initialization for Better Stack Error tracking
-sentry_sdk.init(
-    dsn=os.environ.get("SENTRY_DSN"),
-    integrations=[DjangoIntegration()],
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production.
-    traces_sample_rate=1.0,
-    # If you wish to associate users to errors (highly recommended)
-    send_default_pii=True,
-)
+from .base import *
+
+if os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN"],
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        send_default_pii=False,
+    )
 
 # Загружаем .env
 from dotenv import load_dotenv
+
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("1", "true", "yes")
 
 # Основные настройки
 SECRET_KEY = os.environ["SECRET_KEY"]
@@ -45,7 +42,11 @@ DATABASES = {
 # Статика - важно для админки!
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Pre-compressed (.gz) copies for nginx gzip_static; no hashed names (Flutter uses fixed ones).
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Whitenoise для статики
 _base_middleware = MIDDLEWARE  # Сохраняем исходный список
@@ -58,9 +59,9 @@ MIDDLEWARE.extend([m for m in _base_middleware if m != 'django.middleware.securi
 
 # CSRF настройки - РАБОЧИЙ ВАРИАНТ!
 CSRF_TRUSTED_ORIGINS = [
-    'http://193.124.117.231', 
+    'http://193.124.117.231',
     'https://193.124.117.231',
-    'http://localhost', 
+    'http://localhost',
     'http://127.0.0.1',
     "https://myservice2025.ru",
     "https://www.myservice2025.ru",
@@ -83,8 +84,6 @@ CHANNEL_LAYERS = {
     }
 }
 
-CELERY_BROKER_URL = None
-CELERY_RESULT_BACKEND = None
 
 LOGTAIL_SOURCE_TOKEN = os.environ.get("LOGTAIL_SOURCE_TOKEN")
 

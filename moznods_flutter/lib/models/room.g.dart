@@ -6,10 +6,39 @@ part of 'room.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+LastMessage _$LastMessageFromJson(Map<String, dynamic> json) => LastMessage(
+  id: (json['id'] as num).toInt(),
+  authorId: (json['author_id'] as num).toInt(),
+  authorName: json['author_name'] as String,
+  content: json['content'] as String,
+  hasAttachments: json['has_attachments'] as bool? ?? false,
+  isDeleted: json['is_deleted'] as bool? ?? false,
+  createdAt: DateTime.parse(json['created_at'] as String),
+);
+
+Map<String, dynamic> _$LastMessageToJson(LastMessage instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'author_id': instance.authorId,
+      'author_name': instance.authorName,
+      'content': instance.content,
+      'has_attachments': instance.hasAttachments,
+      'is_deleted': instance.isDeleted,
+      'created_at': instance.createdAt.toIso8601String(),
+    };
+
 Room _$RoomFromJson(Map<String, dynamic> json) => Room(
   id: (json['id'] as num).toInt(),
   name: json['name'] as String,
+  title: json['title'] as String? ?? '',
   owner: User.fromJson(json['owner'] as Map<String, dynamic>),
+  peer: json['peer'] == null
+      ? null
+      : User.fromJson(json['peer'] as Map<String, dynamic>),
+  lastMessage: json['last_message'] == null
+      ? null
+      : LastMessage.fromJson(json['last_message'] as Map<String, dynamic>),
+  canManage: json['can_manage'] as bool? ?? false,
   participantCount: (json['participant_count'] as num).toInt(),
   activeCallParticipants: (json['active_call_participants'] as List<dynamic>)
       .map((e) => e as String)
@@ -28,7 +57,11 @@ Room _$RoomFromJson(Map<String, dynamic> json) => Room(
 Map<String, dynamic> _$RoomToJson(Room instance) => <String, dynamic>{
   'id': instance.id,
   'name': instance.name,
+  'title': instance.title,
   'owner': instance.owner,
+  'peer': instance.peer,
+  'last_message': instance.lastMessage,
+  'can_manage': instance.canManage,
   'participant_count': instance.participantCount,
   'active_call_participants': instance.activeCallParticipants,
   'unread_count': instance.unreadCount,

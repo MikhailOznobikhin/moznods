@@ -114,9 +114,6 @@ REST_FRAMEWORK = {
     },
 }
 
-# Celery
-CELERY_BROKER_URL = "redis://localhost:6379/1"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/2"
 
 # Cache (Redis)
 CACHES = {
@@ -181,11 +178,6 @@ LOGGING = {
     },
 }
 
-# Call state (presence) for voice calls UI — Redis hash per room
-CALL_STATE_REDIS_URL = "redis://localhost:6379/3"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
 
 # Channels (Phase 3+)
 CHANNEL_LAYERS = {
@@ -194,3 +186,22 @@ CHANNEL_LAYERS = {
         "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
     }
 }
+
+# Calls run on a LiveKit SFU (see docs/webrtc.md).
+# Public URL the apps connect to (nginx proxies /rtc to LiveKit), e.g. wss://moznods.ru
+LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "").strip()
+# Server API reachable from Django (for removing kicked users from calls).
+LIVEKIT_API_URL = os.environ.get("LIVEKIT_API_URL", "http://127.0.0.1:7880").strip()
+LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "").strip()
+LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+LIVEKIT_TOKEN_TTL = int(os.environ.get("LIVEKIT_TOKEN_TTL", str(6 * 3600)))
+
+# Closed registration: when set, /api/auth/register/ requires this invite_code.
+REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "").strip()
+
+# Web Push (VAPID). Generate keys: `npx web-push generate-vapid-keys` or py_vapid.
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "admin@example.com").strip()
+# Tests send inline instead of the background pool.
+PUSH_SEND_SYNC = False

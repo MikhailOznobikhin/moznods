@@ -1,3 +1,4 @@
+from core.throttling import LoginThrottle
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -5,8 +6,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.throttling import LoginThrottle
+from .models import PushSubscription
 from .serializers import (
+    ChangePasswordSerializer,
     LoginSerializer,
     PushSubscriptionCreateSerializer,
     PushSubscriptionSerializer,
@@ -26,10 +28,15 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        user = UserService.register(**data)
+        user = UserService.register(
+            username=data["username"],
+            email=data["email"],
+            password=data["password"],
+            display_name=data.get("display_name", ""),
+        )
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
-            {"token": token.key, "user": UserSerializer(user, context={"request": request}).data},
+            {"token": token.key, "user": UserSerializer(user, context={"request": request, "is_self": True}).data},
             status=status.HTTP_201_CREATED,
         )
 
@@ -60,7 +67,7 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user": UserSerializer(user, context={"request": request}).data})
+        return Response({"token": token.key, "user": UserSerializer(user, context={"request": request, "is_self": True}).data})
 
 
 class LogoutView(APIView):
@@ -69,6 +76,22 @@ class LogoutView(APIView):
     def post(self, request):
         Token.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangePasswordView(APIView):
+    """Change own password. Other sessions are logged out; a fresh token is returned."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = UserService.change_password(
+            request.user,
+            old_password=serializer.validated_data["old_password"],
+            new_password=serializer.validated_data["new_password"],
+        )
+        return Response({"token": token.key})
 
 
 class MeView(APIView):
@@ -106,6 +129,17 @@ class UserSearchView(APIView):
         return Response(
             UserSerializer(users, many=True, context={"request": request}).data
         )
+
+
+class VapidPublicKeyView(APIView):
+    """Public VAPID key for subscribing to web push; empty when push is not configured."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .push_service import get_vapid_public_key, is_configured
+
+        return Response({"public_key": get_vapid_public_key() if is_configured() else ""})
 
 
 class PushSubscriptionView(APIView):

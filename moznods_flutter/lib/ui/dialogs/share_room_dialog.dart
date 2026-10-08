@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../api/dio_client.dart';
 import 'package:flutter/services.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,21 +20,6 @@ class _ShareRoomDialogState extends ConsumerState<ShareRoomDialog> {
   bool _copied = false;
   int _expiresInHours = 24;
 
-  String get _expiresInLabel {
-    switch (_expiresInHours) {
-      case 1:
-        return AppLocalizations.of(context)!.hour1;
-      case 6:
-        return AppLocalizations.of(context)!.hours6;
-      case 24:
-        return AppLocalizations.of(context)!.hours24;
-      case 168:
-        return AppLocalizations.of(context)!.days7;
-      default:
-        return AppLocalizations.of(context)!.never;
-    }
-  }
-
   Future<void> _generateLink() async {
     setState(() => _isLoading = true);
     try {
@@ -43,7 +29,7 @@ class _ShareRoomDialogState extends ConsumerState<ShareRoomDialog> {
       );
       if (mounted) {
         setState(() {
-          _inviteUrl = '/invite/$token';
+          _inviteUrl = '${DioClient.publicBaseUrl}/invite/$token';
           _isLoading = false;
         });
       }
@@ -94,7 +80,7 @@ class _ShareRoomDialogState extends ConsumerState<ShareRoomDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                value: _expiresInHours,
+                initialValue: _expiresInHours,
                 dropdownColor: const Color(0xFF1E1F22),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(

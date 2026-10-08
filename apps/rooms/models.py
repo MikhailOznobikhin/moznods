@@ -1,8 +1,9 @@
 import uuid
-from django.utils import timezone
+
 from core.models import TimestampedModel
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Room(TimestampedModel):

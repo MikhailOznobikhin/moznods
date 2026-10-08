@@ -1,184 +1,113 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:moznods_flutter/l10n/app_localizations.dart';
-import 'package:moznods_flutter/services/device_service.dart';
 
-class DeviceSelectionDialog extends StatefulWidget {
-  final DeviceInfo? currentAudioDevice;
-  final DeviceInfo? currentVideoDevice;
+import '../../store/call_provider.dart';
 
-  const DeviceSelectionDialog({
-    super.key,
-    this.currentAudioDevice,
-    this.currentVideoDevice,
-  });
+/// Pick microphone, camera and (where supported) audio output for the current call.
+class DeviceSelectionDialog extends ConsumerStatefulWidget {
+  const DeviceSelectionDialog({super.key});
 
   @override
-  State<DeviceSelectionDialog> createState() => _DeviceSelectionDialogState();
+  ConsumerState<DeviceSelectionDialog> createState() => _DeviceSelectionDialogState();
 }
 
-class _DeviceSelectionDialogState extends State<DeviceSelectionDialog> {
-  final DeviceService _deviceService = DeviceService();
-  List<DeviceInfo> _devices = [];
-  String? _selectedAudioDeviceId;
-  String? _selectedVideoDeviceId;
-  bool _isLoading = true;
+class _DeviceSelectionDialogState extends ConsumerState<DeviceSelectionDialog> {
+  List<lk.MediaDevice> _devices = const [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _selectedAudioDeviceId = widget.currentAudioDevice?.deviceId;
-    _selectedVideoDeviceId = widget.currentVideoDevice?.deviceId;
-    _loadDevices();
+    _load();
   }
 
-  Future<void> _loadDevices() async {
-    final devices = await _deviceService.getDevices();
-    if (mounted) {
-      setState(() {
-        _devices = devices;
-        _isLoading = false;
-      });
+  Future<void> _load() async {
+    try {
+      final devices = await lk.Hardware.instance.enumerateDevices();
+      if (mounted) setState(() => _devices = devices);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  List<DeviceInfo> get _audioInputDevices =>
-      _devices.where((d) => d.kind == 0).toList();
+  String? _selectedId(String kind) {
+    final hardware = lk.Hardware.instance;
+    return switch (kind) {
+      'audioinput' => hardware.selectedAudioInput?.deviceId,
+      'audiooutput' => hardware.selectedAudioOutput?.deviceId,
+      'videoinput' => hardware.selectedVideoInput?.deviceId,
+      _ => null,
+    };
+  }
 
-  List<DeviceInfo> get _videoInputDevices =>
-      _devices.where((d) => d.kind == 2).toList();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return AlertDialog(
-      backgroundColor: const Color(0xFF2B2D31),
-      title: Row(
-        children: [
-          const Icon(Icons.settings, color: Colors.white70),
-          const SizedBox(width: 12),
-          Text(
-            l10n.deviceSettings,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 400,
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF5865F2)),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDeviceSection(
-                    icon: Icons.mic,
-                    title: l10n.microphone,
-                    devices: _audioInputDevices,
-                    selectedDeviceId: _selectedAudioDeviceId,
-                    onChanged: (id) {
-                      setState(() => _selectedAudioDeviceId = id);
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  _buildDeviceSection(
-                    icon: Icons.videocam,
-                    title: l10n.camera,
-                    devices: _videoInputDevices,
-                    selectedDeviceId: _selectedVideoDeviceId,
-                    onChanged: (id) {
-                      setState(() => _selectedVideoDeviceId = id);
-                    },
-                  ),
-                ],
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancelLabel,
-            style: const TextStyle(color: Colors.white70),
+  Widget _section(String title, IconData icon, String kind) {
+    final devices = _devices.where((d) => d.kind == kind && d.deviceId.isNotEmpty).toList();
+    if (devices.isEmpty) return const SizedBox.shrink();
+    final selected = _selectedId(kind);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFFB5BAC1)),
+              const SizedBox(width: 6),
+              Text(title, style: const TextStyle(color: Color(0xFFB5BAC1), fontWeight: FontWeight.w600)),
+            ],
           ),
         ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF5865F2),
+        for (final device in devices)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              device.deviceId == selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: device.deviceId == selected ? const Color(0xFF5865F2) : const Color(0xFF80848E),
+            ),
+            title: Text(
+              device.label.isNotEmpty ? device.label : device.deviceId,
+              style: const TextStyle(color: Colors.white),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () async {
+              await ref.read(callProvider.notifier).selectDevice(device);
+              if (mounted) setState(() {});
+            },
           ),
-          onPressed: () {
-            final audioDevice = _audioInputDevices.firstWhere(
-              (d) => d.deviceId == _selectedAudioDeviceId,
-              orElse: () => _audioInputDevices.first,
-            );
-            final videoDevice = _videoInputDevices.firstWhere(
-              (d) => d.deviceId == _selectedVideoDeviceId,
-              orElse: () => _videoInputDevices.first,
-            );
-            Navigator.pop(context, {
-              'audioDeviceId': _selectedAudioDeviceId,
-              'videoDeviceId': _selectedVideoDeviceId,
-              'audioDevice': audioDevice,
-              'videoDevice': videoDevice,
-            });
-          },
-          child: Text(l10n.saveLabel),
-        ),
       ],
     );
   }
 
-  Widget _buildDeviceSection({
-    required IconData icon,
-    required String title,
-    required List<DeviceInfo> devices,
-    required String? selectedDeviceId,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: Colors.white70, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (devices.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 28),
-            child: Text(
-              AppLocalizations.of(context)!.noDevicesFound,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: 28),
-            child: DropdownButton<String>(
-              value: selectedDeviceId,
-              isExpanded: true,
-              dropdownColor: const Color(0xFF1E1F22),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              items: devices.map((device) {
-                return DropdownMenuItem<String>(
-                  value: device.deviceId,
-                  child: Text(device.label),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      backgroundColor: const Color(0xFF2B2D31),
+      title: Text(l10n.deviceSettings, style: const TextStyle(color: Colors.white)),
+      content: SizedBox(
+        width: 420,
+        child: _loading
+            ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
+            : _devices.isEmpty
+                ? Text(l10n.noDevicesFound, style: const TextStyle(color: Color(0xFFB5BAC1)))
+                : SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _section(l10n.microphone, Icons.mic, 'audioinput'),
+                        _section(l10n.camera, Icons.videocam, 'videoinput'),
+                        _section(l10n.audioOutput, Icons.volume_up, 'audiooutput'),
+                      ],
+                    ),
+                  ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close)),
       ],
     );
   }
