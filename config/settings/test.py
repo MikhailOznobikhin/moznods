@@ -17,7 +17,6 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
 
-CELERY_TASK_ALWAYS_EAGER = True
 
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
@@ -29,3 +28,4 @@ TURN_USERNAME = ""
 TURN_PASSWORD = ""
 TURN_URLS = []
 STUN_URLS = ["stun:stun.example.org:3478"]
+REGISTRATION_INVITE_CODE = ""

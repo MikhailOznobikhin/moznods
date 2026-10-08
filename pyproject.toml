@@ -3,7 +3,7 @@ name = "moznods"
 version = "0.1.0"
 description = "MOznoDS — group voice calls and chat"
 readme = "README.md"
-requires-python = "==3.14"
+requires-python = ">=3.12"
 
 [tool.ruff]
 target-version = "py312"
@@ -12,7 +12,11 @@ src = ["config", "core", "apps"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501", "UP045"]
+ignore = ["E501", "UP045", "N806"]  # N806: `User = get_user_model()` idiom
+
+[tool.ruff.lint.per-file-ignores]
+"config/settings/*.py" = ["F403", "F405", "E402"]
+"config/asgi.py" = ["E402"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"

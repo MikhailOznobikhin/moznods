@@ -71,7 +71,7 @@ class _EditRoomDialogState extends ConsumerState<EditRoomDialog> {
         children: [
           const Icon(Icons.edit, color: Colors.white70),
           const SizedBox(width: 12),
-          Text(l10n.editRoomName ?? 'Edit Room', style: const TextStyle(color: Colors.white)),
+          Text(l10n.editRoomName, style: const TextStyle(color: Colors.white)),
         ],
       ),
       content: SizedBox(

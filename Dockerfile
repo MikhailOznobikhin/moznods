@@ -10,7 +10,7 @@ RUN dart run build_runner build --delete-conflicting-outputs
 RUN flutter build web --release
 
 # Stage 2: Python dependencies
-FROM python:3.11-slim AS build-python
+FROM python:3.12-slim AS build-python
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ COPY requirements/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 3: Production Django App
-FROM python:3.11-slim AS production
+FROM python:3.12-slim AS production
 
 LABEL maintainer="MOznoDS"
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash appuser
 
-COPY --from=build-python /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=build-python /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=build-python /usr/local/bin /usr/local/bin
 
 COPY --chown=appuser:appuser . .

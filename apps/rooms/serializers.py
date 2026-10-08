@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
 
-from .models import Room, RoomParticipant, RoomBan
+from .models import Room, RoomBan, RoomParticipant
 
 User = get_user_model()
 

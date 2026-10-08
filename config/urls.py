@@ -2,11 +2,11 @@
 URL configuration for MOznoDS.
 """
 
-from django.contrib import admin
-from django.urls import include, path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView, RedirectView
+from django.contrib import admin
+from django.urls import include, path, re_path
+from django.views.generic import RedirectView, TemplateView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -15,10 +15,10 @@ urlpatterns = [
     path("api/files/", include("apps.files.urls")),
     path("api/calls/", include("apps.calls.urls")),
     path("api/downloads/", include("apps.downloads.urls")),
-    
+
     # Fix Flutter assets double-path issue
     re_path(r'^static/assets/assets/(?P<path>.*)$', RedirectView.as_view(url='/static/assets/%(path)s', permanent=False)),
-    
+
     # Flutter Web integration
     re_path(r'^(?!api/|admin/|static/|media/).*$', TemplateView.as_view(template_name="index.html")),
 ]

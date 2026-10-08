@@ -6,9 +6,11 @@ TTL on key so stale entries expire if consumer crashes without disconnect.
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
+from django.core.cache import cache
 
 CALL_STATE_KEY_PREFIX = "call:state:"
 CALL_STATE_TTL_SECONDS = 3600  # 1 hour
@@ -19,8 +21,7 @@ STATE_ACTIVE = "active"
 STATE_ENDED = "ended"
 
 
-# AICODE-NOTE: Using Django cache as a fallback for Redis-less environments (SQLite/Low Memory)
-from django.core.cache import cache
+# AICODE-NOTE: Stored in the Django cache (Redis in production, locmem in tests/low-memory).
 
 LOCK_TIMEOUT_SECONDS = 5
 LOCK_WAIT_SECONDS = 2.0

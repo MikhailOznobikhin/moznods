@@ -1,11 +1,10 @@
+from core.throttling import LoginThrottle
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from core.throttling import LoginThrottle
 
 from .models import PushSubscription
 from .serializers import (
@@ -28,7 +27,12 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        user = UserService.register(**data)
+        user = UserService.register(
+            username=data["username"],
+            email=data["email"],
+            password=data["password"],
+            display_name=data.get("display_name", ""),
+        )
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
             {"token": token.key, "user": UserSerializer(user, context={"request": request}).data},

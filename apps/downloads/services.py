@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from django.conf import settings
-
 
 APK_FILENAME = "moznods.apk"
 APK_DOWNLOAD_NAME = "moznods.apk"
@@ -61,7 +60,7 @@ def get_apk_info() -> ApkInfo:
     path = find_apk_path()
     if path is not None:
         stat = path.stat()
-        modified_iso = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+        modified_iso = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
         return ApkInfo(
             available=True,
             size=stat.st_size,

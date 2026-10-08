@@ -14,6 +14,7 @@ class TestAuthAPI:
             "username": "newuser",
             "email": "new@example.com",
             "password": "securepass123",
+            "password_confirm": "securepass123",
         }
         response = api_client.post(url, data)
         assert response.status_code == status.HTTP_201_CREATED

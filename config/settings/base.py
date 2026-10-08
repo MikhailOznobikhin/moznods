@@ -114,9 +114,6 @@ REST_FRAMEWORK = {
     },
 }
 
-# Celery
-CELERY_BROKER_URL = "redis://localhost:6379/1"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/2"
 
 # Cache (Redis)
 CACHES = {
@@ -181,11 +178,6 @@ LOGGING = {
     },
 }
 
-# Call state (presence) for voice calls UI — Redis hash per room
-CALL_STATE_REDIS_URL = "redis://localhost:6379/3"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
 
 # Channels (Phase 3+)
 CHANNEL_LAYERS = {
@@ -215,3 +207,6 @@ STUN_URLS = [
 TURN_CREDENTIAL_TTL = int(os.environ.get("TURN_CREDENTIAL_TTL", str(12 * 3600)))
 # Seconds a dropped call socket may take to reconnect before others get user_left.
 CALL_RECONNECT_GRACE_SECONDS = float(os.environ.get("CALL_RECONNECT_GRACE_SECONDS", "15"))
+
+# Closed registration: when set, /api/auth/register/ requires this invite_code.
+REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "").strip()

@@ -522,4 +522,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editRoomName => 'Изменить название';
+
+  @override
+  String get inviteCodeOptional => 'Код приглашения (если нужен)';
 }

@@ -1,17 +1,16 @@
-from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
-
 import logging
 
+from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from core.ws_auth import get_user_from_scope
 from rest_framework.exceptions import APIException
 
-from core.ws_auth import get_user_from_scope
 from apps.rooms.models import Room
 from apps.rooms.services import RoomService, member_group_name
 
-logger = logging.getLogger(__name__)
-
 from .services import MessageService
+
+logger = logging.getLogger(__name__)
 
 
 @database_sync_to_async

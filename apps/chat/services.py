@@ -1,8 +1,8 @@
-from typing import List, Optional
+from typing import Optional
 
 from core.exceptions import ValidationError
-from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import PermissionDenied
 
 from apps.files.models import File
 from apps.rooms.models import Room
@@ -20,7 +20,7 @@ class MessageService:
         room: Room,
         author: User,
         content: str,
-        attachment_file_ids: Optional[List[int]] = None,
+        attachment_file_ids: Optional[list[int]] = None,
     ) -> Message:
         """Create a message; validate room membership and file ownership."""
         from apps.rooms.services import RoomService

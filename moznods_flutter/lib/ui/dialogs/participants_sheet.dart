@@ -35,7 +35,7 @@ class _ParticipantsSheetState extends ConsumerState<ParticipantsSheet> {
         backgroundColor: const Color(0xFF2B2D31),
         title: Text(l10n.removeFromRoom, style: const TextStyle(color: Colors.white)),
         content: Text(
-          '${l10n.removeFromRoom} ${user.displayName ?? user.username}?',
+          '${l10n.removeFromRoom} ${(user.displayName.isNotEmpty ? user.displayName : user.username)}?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -143,7 +143,7 @@ class _ParticipantsSheetState extends ConsumerState<ParticipantsSheet> {
                           title: Row(
                             children: [
                               Text(
-                                user.displayName ?? user.username,
+                                (user.displayName.isNotEmpty ? user.displayName : user.username),
                                 style: const TextStyle(color: Colors.white),
                               ),
                               if (isAdmin) ...[

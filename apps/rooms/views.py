@@ -1,3 +1,4 @@
+from core.throttling import RoomsThrottle
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -5,23 +6,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.calls.call_state import get_room_aggregate_state, get_room_state
-from core.throttling import RoomsThrottle
 
 from .models import Room, RoomParticipant
+from .permissions import IsRoomAdmin, IsRoomOwner, IsRoomParticipant
 from .serializers import (
-    CreateRoomSerializer,
     AddParticipantSerializer,
+    BanUserSerializer,
+    CreateRoomSerializer,
+    PublicRoomSerializer,
     RemoveParticipantSerializer,
+    RoomBanSerializer,
     RoomParticipantSerializer,
     RoomSerializer,
-    UpdateRoomSerializer,
-    PublicRoomSerializer,
-    RoomBanSerializer,
     UpdateRoleSerializer,
-    BanUserSerializer,
+    UpdateRoomSerializer,
 )
-from .services import RoomService, InvitationService
-from .permissions import IsRoomOwner, IsRoomParticipant, IsRoomAdmin
+from .services import InvitationService, RoomService
 
 MAX_PAGE_SIZE = 100
 
@@ -337,13 +337,13 @@ class DirectRoomCreateView(APIView):
     def post(self, request):
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        
+
         user_id = request.data.get("user_id")
         if not user_id:
             return Response({"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         target_user = get_object_or_404(User, pk=user_id)
-        
+
         try:
             room = RoomService.get_or_create_direct_room(request.user, target_user)
             return Response(RoomSerializer(room, context={"request": request}).data)

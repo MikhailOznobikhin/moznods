@@ -92,8 +92,6 @@ CSRF_USE_SESSIONS = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Redis defaults for local
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2")
 
 # Set USE_INMEMORY_CHANNELS=1 to run without Redis (WebSocket in-memory only, single process)
 if os.environ.get("USE_INMEMORY_CHANNELS"):

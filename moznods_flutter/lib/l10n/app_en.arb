@@ -54,7 +54,9 @@
   "participantsWithCount": "Participants — {count}",
   "@participantsWithCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "bannedUsers": "Banned users",
@@ -76,7 +78,9 @@
   "messageHint": "Message #{room}",
   "@messageHint": {
     "placeholders": {
-      "room": {"type": "String"}
+      "room": {
+        "type": "String"
+      }
     }
   },
   "couldNotReadFile": "Could not read selected file",
@@ -133,7 +137,9 @@
   "membersCount": "{count} members",
   "@membersCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "voiceChannel": "Voice Channel",
@@ -151,7 +157,9 @@
   "userPlaceholder": "User {id}",
   "@userPlaceholder": {
     "placeholders": {
-      "id": {"type": "int"}
+      "id": {
+        "type": "int"
+      }
     }
   },
   "noActiveVideoStreams": "No active video streams",
@@ -185,5 +193,6 @@
   "copied": "Copied!",
   "copy": "Copy",
   "newLink": "New Link",
-  "editRoomName": "Edit Room Name"
+  "editRoomName": "Edit Room Name",
+  "inviteCodeOptional": "Invite code (if required)"
 }

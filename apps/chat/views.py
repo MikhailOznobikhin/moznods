@@ -1,3 +1,4 @@
+from core.throttling import MessagesThrottle
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -6,7 +7,6 @@ from rest_framework.views import APIView
 
 from apps.rooms.models import Room
 from apps.rooms.services import RoomService
-from core.throttling import MessagesThrottle
 
 from .models import Message
 from .permissions import can_send_message

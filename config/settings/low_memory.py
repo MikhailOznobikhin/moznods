@@ -2,11 +2,11 @@
 Low memory server settings (375MB RAM)
 """
 import os
-from .base import *
+
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
-from logtail import LogtailHandler
-import logging
+
+from .base import *
 
 # Sentry initialization for Better Stack Error tracking
 sentry_sdk.init(
@@ -22,6 +22,7 @@ sentry_sdk.init(
 
 # Загружаем .env
 from dotenv import load_dotenv
+
 load_dotenv(BASE_DIR / ".env")
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("1", "true", "yes")
@@ -58,9 +59,9 @@ MIDDLEWARE.extend([m for m in _base_middleware if m != 'django.middleware.securi
 
 # CSRF настройки - РАБОЧИЙ ВАРИАНТ!
 CSRF_TRUSTED_ORIGINS = [
-    'http://193.124.117.231', 
+    'http://193.124.117.231',
     'https://193.124.117.231',
-    'http://localhost', 
+    'http://localhost',
     'http://127.0.0.1',
     "https://myservice2025.ru",
     "https://www.myservice2025.ru",
@@ -83,8 +84,6 @@ CHANNEL_LAYERS = {
     }
 }
 
-CELERY_BROKER_URL = None
-CELERY_RESULT_BACKEND = None
 
 LOGTAIL_SOURCE_TOKEN = os.environ.get("LOGTAIL_SOURCE_TOKEN")
 

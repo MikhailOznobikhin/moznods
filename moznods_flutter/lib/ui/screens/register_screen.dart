@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _inviteCodeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _inviteCodeController.dispose();
     super.dispose();
   }
 
@@ -53,6 +55,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
           'password_confirm': _confirmPasswordController.text,
+          if (_inviteCodeController.text.trim().isNotEmpty)
+            'invite_code': _inviteCodeController.text.trim(),
         },
       );
 
@@ -254,6 +258,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _inviteCodeController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration(
+                      label: l10n.inviteCodeOptional,
+                      icon: Icons.vpn_key_outlined,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

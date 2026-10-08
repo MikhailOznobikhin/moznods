@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../store/auth_provider.dart';
 import '../../store/room_provider.dart';
 import '../../models/user.dart';
 import '../dialogs/search_users_dialog.dart';
@@ -128,7 +129,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => ParticipantsSheet(
         roomId: widget.roomId,
-        isOwner: currentRoom.owner?.id == roomState.currentRoom?.owner?.id,
+        isOwner: currentRoom.owner.id == ref.read(authProvider).user?.id,
       ),
     );
   }

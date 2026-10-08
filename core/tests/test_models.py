@@ -12,5 +12,5 @@ class TestTimestampedModel:
         assert TimestampedModel._meta.abstract is True
 
     def test_has_created_at_and_updated_at(self) -> None:
-        assert isinstance(TimestampedModel.created_at, models.DateTimeField)
-        assert isinstance(TimestampedModel.updated_at, models.DateTimeField)
+        assert isinstance(TimestampedModel._meta.get_field("created_at"), models.DateTimeField)
+        assert isinstance(TimestampedModel._meta.get_field("updated_at"), models.DateTimeField)

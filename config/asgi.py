@@ -3,6 +3,7 @@ ASGI config for MOznoDS.
 """
 
 import os
+
 import django
 from django.core.asgi import get_asgi_application
 
@@ -11,14 +12,13 @@ django.setup()
 
 django_asgi_app = get_asgi_application()
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from django.urls import path
+from apps.calls.consumers import SignalingConsumer
 
 # Import consumers after setup
 from apps.chat.consumers import ChatConsumer
-from apps.calls.consumers import SignalingConsumer
+from channels.routing import ProtocolTypeRouter, URLRouter
 from core.consumers import NotificationConsumer
-
+from django.urls import path
 
 websocket_urlpatterns = [
     path("ws/chat/<int:room_id>/", ChatConsumer.as_asgi()),

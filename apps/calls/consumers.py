@@ -8,11 +8,11 @@ import asyncio
 import logging
 
 from asgiref.sync import sync_to_async
-from django.conf import settings
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
-
 from core.ws_auth import get_user_from_scope
+from django.conf import settings
+
 from apps.rooms.models import Room, RoomParticipant
 from apps.rooms.services import RoomService, member_group_name
 
@@ -21,7 +21,11 @@ from .call_state import (
     STATE_CONNECTING,
     get_room_aggregate_state,
     get_room_state,
+)
+from .call_state import (
     remove_user as call_state_remove_user,
+)
+from .call_state import (
     set_user_state as call_state_set_user_state,
 )
 
@@ -210,7 +214,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         """Send call_state to all in group so UI can show presence (idle/connecting/active/ended)."""
         participants = await sync_to_async(get_room_state)(self.room_id)
         room_state = await sync_to_async(get_room_aggregate_state)(self.room_id)
-        
+
         # 1. Notify participants in the call
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -223,7 +227,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
 
         # 2. Notify all room members for sidebar update (#UI_Presence)
         active_usernames = [p["username"] for p in participants if p.get("state") in (STATE_ACTIVE, STATE_CONNECTING)]
-        
+
         # Broadcast to all users in the room (via their personal user_{id} groups)
         # We need to fetch all participant IDs for this room
         # filter() instead of get(): the room may already be deleted during disconnect.

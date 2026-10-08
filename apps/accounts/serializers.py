@@ -1,7 +1,9 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.crypto import constant_time_compare
 from rest_framework import serializers
 
-from .models import Profile, PushSubscription
+from .models import PushSubscription
 
 User = get_user_model()
 
@@ -16,6 +18,7 @@ class RegisterSerializer(serializers.Serializer):
     display_name = serializers.CharField(
         max_length=150, required=False, default=""
     )
+    invite_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate_username(self, value: str) -> str:
         if not value.strip():
@@ -25,6 +28,9 @@ class RegisterSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("password") != attrs.get("password_confirm"):
             raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+        required_code = settings.REGISTRATION_INVITE_CODE
+        if required_code and not constant_time_compare(attrs.get("invite_code", ""), required_code):
+            raise serializers.ValidationError({"invite_code": "Invalid invite code."})
         return attrs
 
 

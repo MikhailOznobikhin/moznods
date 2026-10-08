@@ -518,4 +518,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editRoomName => 'Edit Room Name';
+
+  @override
+  String get inviteCodeOptional => 'Invite code (if required)';
 }

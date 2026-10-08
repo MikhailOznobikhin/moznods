@@ -54,7 +54,9 @@
   "participantsWithCount": "Участники — {count}",
   "@participantsWithCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "bannedUsers": "Заблокированные",
@@ -76,7 +78,9 @@
   "messageHint": "Сообщение в #{room}",
   "@messageHint": {
     "placeholders": {
-      "room": {"type": "String"}
+      "room": {
+        "type": "String"
+      }
     }
   },
   "couldNotReadFile": "Не удалось прочитать выбранный файл",
@@ -133,7 +137,9 @@
   "membersCount": "{count} участн.",
   "@membersCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "voiceChannel": "Голосовой канал",
@@ -151,7 +157,9 @@
   "userPlaceholder": "Участник {id}",
   "@userPlaceholder": {
     "placeholders": {
-      "id": {"type": "int"}
+      "id": {
+        "type": "int"
+      }
     }
   },
   "noActiveVideoStreams": "Нет активных видеопотоков",
@@ -185,5 +193,6 @@
   "copied": "Скопировано!",
   "copy": "Копировать",
   "newLink": "Новая ссылка",
-  "editRoomName": "Изменить название"
+  "editRoomName": "Изменить название",
+  "inviteCodeOptional": "Код приглашения (если нужен)"
 }

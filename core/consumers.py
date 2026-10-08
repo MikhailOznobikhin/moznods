@@ -1,6 +1,8 @@
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
 from core.ws_auth import get_user_from_scope
+
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     """
@@ -9,7 +11,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     """
     async def connect(self):
         self.user = await database_sync_to_async(get_user_from_scope)(self.scope)
-        
+
         if not self.user or not self.user.is_authenticated:
             await self.close(code=4403)
             return

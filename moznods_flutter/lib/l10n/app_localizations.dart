@@ -1093,6 +1093,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit Room Name'**
   String get editRoomName;
+
+  /// No description provided for @inviteCodeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code (if required)'**
+  String get inviteCodeOptional;
 }
 
 class _AppLocalizationsDelegate
