@@ -23,10 +23,8 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
-TURN_SECRET = ""
-TURN_USERNAME = ""
-TURN_PASSWORD = ""
-TURN_URLS = []
-STUN_URLS = ["stun:stun.example.org:3478"]
+LIVEKIT_URL = "wss://livekit.test"
+LIVEKIT_API_KEY = "test-key"
+LIVEKIT_API_SECRET = "test-secret-that-is-long-enough-123"
 REGISTRATION_INVITE_CODE = ""
 PUSH_SEND_SYNC = True

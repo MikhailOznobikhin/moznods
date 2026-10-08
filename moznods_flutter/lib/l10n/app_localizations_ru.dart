@@ -648,4 +648,66 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get retry => 'Повторить';
+
+  @override
+  String get callConnecting => 'Подключение…';
+
+  @override
+  String get callReconnecting => 'Переподключение…';
+
+  @override
+  String get callEndedRemoved => 'Вас удалили из звонка';
+
+  @override
+  String get callJoinedElsewhere =>
+      'Вы подключились к звонку с другого устройства';
+
+  @override
+  String get callFailed => 'Не удалось подключиться к звонку';
+
+  @override
+  String get enableAudio => 'Нажмите, чтобы включить звук';
+
+  @override
+  String get shareScreen => 'Демонстрация';
+
+  @override
+  String get stopShare => 'Остановить';
+
+  @override
+  String get flipCamera => 'Камера';
+
+  @override
+  String get speakerLabel => 'Динамик';
+
+  @override
+  String get noActiveCall => 'Нет активного звонка';
+
+  @override
+  String get openCall => 'Открыть звонок';
+
+  @override
+  String get joinCallAction => 'Присоединиться';
+
+  @override
+  String get audioOutput => 'Вывод звука';
+
+  @override
+  String screenOf(String name) {
+    return '$name (экран)';
+  }
+
+  @override
+  String callParticipantsCount(int count) {
+    return '$count в звонке';
+  }
+
+  @override
+  String get weakConnection => 'Слабое соединение';
+
+  @override
+  String get close => 'Закрыть';
+
+  @override
+  String get minimize => 'Свернуть';
 }

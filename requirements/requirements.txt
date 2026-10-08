@@ -30,3 +30,4 @@ pywebpush==2.0.3
 
 # LiveKit access tokens / webhook verification
 PyJWT==2.9.0
+requests>=2.31,<3

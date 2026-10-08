@@ -645,4 +645,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get callConnecting => 'Connecting…';
+
+  @override
+  String get callReconnecting => 'Reconnecting…';
+
+  @override
+  String get callEndedRemoved => 'You were removed from the call';
+
+  @override
+  String get callJoinedElsewhere => 'You joined this call from another device';
+
+  @override
+  String get callFailed => 'Call failed';
+
+  @override
+  String get enableAudio => 'Tap to enable sound';
+
+  @override
+  String get shareScreen => 'Share screen';
+
+  @override
+  String get stopShare => 'Stop sharing';
+
+  @override
+  String get flipCamera => 'Flip';
+
+  @override
+  String get speakerLabel => 'Speaker';
+
+  @override
+  String get noActiveCall => 'No active call';
+
+  @override
+  String get openCall => 'Open call';
+
+  @override
+  String get joinCallAction => 'Join call';
+
+  @override
+  String get audioOutput => 'Audio output';
+
+  @override
+  String screenOf(String name) {
+    return '$name (screen)';
+  }
+
+  @override
+  String callParticipantsCount(int count) {
+    return '$count in call';
+  }
+
+  @override
+  String get weakConnection => 'Weak connection';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get minimize => 'Minimize';
 }

@@ -1333,6 +1333,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
+
+  /// No description provided for @callConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get callConnecting;
+
+  /// No description provided for @callReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting…'**
+  String get callReconnecting;
+
+  /// No description provided for @callEndedRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'You were removed from the call'**
+  String get callEndedRemoved;
+
+  /// No description provided for @callJoinedElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'You joined this call from another device'**
+  String get callJoinedElsewhere;
+
+  /// No description provided for @callFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Call failed'**
+  String get callFailed;
+
+  /// No description provided for @enableAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to enable sound'**
+  String get enableAudio;
+
+  /// No description provided for @shareScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Share screen'**
+  String get shareScreen;
+
+  /// No description provided for @stopShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get stopShare;
+
+  /// No description provided for @flipCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Flip'**
+  String get flipCamera;
+
+  /// No description provided for @speakerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker'**
+  String get speakerLabel;
+
+  /// No description provided for @noActiveCall.
+  ///
+  /// In en, this message translates to:
+  /// **'No active call'**
+  String get noActiveCall;
+
+  /// No description provided for @openCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Open call'**
+  String get openCall;
+
+  /// No description provided for @joinCallAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Join call'**
+  String get joinCallAction;
+
+  /// No description provided for @audioOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio output'**
+  String get audioOutput;
+
+  /// No description provided for @screenOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (screen)'**
+  String screenOf(String name);
+
+  /// No description provided for @callParticipantsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} in call'**
+  String callParticipantsCount(int count);
+
+  /// No description provided for @weakConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak connection'**
+  String get weakConnection;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @minimize.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get minimize;
 }
 
 class _AppLocalizationsDelegate

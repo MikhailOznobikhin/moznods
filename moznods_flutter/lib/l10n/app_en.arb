@@ -247,5 +247,38 @@
         "type": "String"
       }
     }
-  }
+  },
+  "callConnecting": "Connecting…",
+  "callReconnecting": "Reconnecting…",
+  "callEndedRemoved": "You were removed from the call",
+  "callJoinedElsewhere": "You joined this call from another device",
+  "callFailed": "Call failed",
+  "enableAudio": "Tap to enable sound",
+  "shareScreen": "Share screen",
+  "stopShare": "Stop sharing",
+  "flipCamera": "Flip",
+  "speakerLabel": "Speaker",
+  "noActiveCall": "No active call",
+  "openCall": "Open call",
+  "joinCallAction": "Join call",
+  "audioOutput": "Audio output",
+  "screenOf": "{name} (screen)",
+  "callParticipantsCount": "{count} in call",
+  "weakConnection": "Weak connection",
+  "@screenOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@callParticipantsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "close": "Close",
+  "minimize": "Minimize"
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../store/auth_provider.dart';
+import '../ui/screens/call_screen.dart';
 import '../ui/screens/dashboard_layout.dart';
 import '../ui/screens/discovery_screen.dart';
 import '../ui/screens/download_screen.dart';
@@ -81,6 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(path: '/call', builder: (context, state) => const CallScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',

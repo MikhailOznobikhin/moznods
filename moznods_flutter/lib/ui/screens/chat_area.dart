@@ -299,18 +299,25 @@ class _CallButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final call = ref.watch(callProvider);
+    final inThisCall = call.isActive && call.roomId == room.id;
+    if (inThisCall && withVideo) return const SizedBox.shrink();
     return IconButton(
-      icon: Icon(withVideo ? Icons.videocam_outlined : Icons.call_outlined, color: const Color(0xFFB5BAC1)),
+      tooltip: inThisCall ? l10n.openCall : l10n.joinCallAction,
+      icon: Icon(
+        inThisCall ? Icons.open_in_full : (withVideo ? Icons.videocam_outlined : Icons.call_outlined),
+        color: inThisCall ? const Color(0xFF23A55A) : const Color(0xFFB5BAC1),
+      ),
       onPressed: () {
-        final auth = ref.read(authProvider);
-        if (auth.user == null || auth.token == null) return;
-        ref.read(callProvider.notifier).joinCall(
-              room.id,
-              auth.token!,
-              auth.user!.id,
-              auth.user!.username,
-              withVideo: withVideo,
-            );
+        if (!inThisCall) {
+          ref.read(callProvider.notifier).joinCall(
+                roomId: room.id,
+                roomTitle: room.displayTitle,
+                withVideo: withVideo,
+              );
+        }
+        context.push('/call');
       },
     );
   }

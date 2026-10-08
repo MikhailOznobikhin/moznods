@@ -1,7 +1,7 @@
 """
-Call presence state in Redis for UI (idle, connecting, active, ended).
-Key: call:state:{room_id} = hash of user_id -> JSON { state, username }.
-TTL on key so stale entries expire if consumer crashes without disconnect.
+Who is in each room's call, for the UI (sidebar, header). Fed by LiveKit webhooks.
+Key: call:state:{room_id} = {user_id: {state, username, channel}}.
+The TTL only cleans up after a lost "room_finished" webhook.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 from django.core.cache import cache
 
 CALL_STATE_KEY_PREFIX = "call:state:"
-CALL_STATE_TTL_SECONDS = 3600  # 1 hour
+CALL_STATE_TTL_SECONDS = 12 * 3600
 
 STATE_IDLE = "idle"
 STATE_CONNECTING = "connecting"
@@ -60,7 +60,8 @@ def set_user_state(
 ) -> None:
     """Set one user's call state in a room.
 
-    channel_name identifies the user's current socket; omitted -> keep the stored one.
+    channel_name identifies the user's current connection (LiveKit participant sid);
+    omitted -> keep the stored one.
     """
     key = _get_cache_key(room_id)
     with _room_lock(room_id):
@@ -77,8 +78,8 @@ def set_user_state(
 def remove_user(room_id: int, user_id: int, channel_name: str | None = None) -> bool:
     """Remove user from room call state. Returns True if the user was removed.
 
-    With channel_name, removes only if that socket is still the user's current one,
-    so a stale disconnect does not kick a user who already reconnected.
+    With channel_name, removes only if that connection is still the user's current one,
+    so a stale "left" does not remove a user who already reconnected.
     """
     key = _get_cache_key(room_id)
     with _room_lock(room_id):
@@ -94,6 +95,12 @@ def remove_user(room_id: int, user_id: int, channel_name: str | None = None) -> 
         else:
             cache.set(key, room_data, CALL_STATE_TTL_SECONDS)
         return True
+
+
+def clear_room(room_id: int) -> None:
+    """Forget everyone in the room's call (the call ended)."""
+    with _room_lock(room_id):
+        cache.delete(_get_cache_key(room_id))
 
 
 def get_room_state(room_id: int) -> list[dict[str, Any]]:

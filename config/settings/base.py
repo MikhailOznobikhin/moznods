@@ -187,26 +187,14 @@ CHANNEL_LAYERS = {
     }
 }
 
-# WebRTC ICE servers (see apps/calls/services.py, plans/003-call-stability.md)
-# TURN_SECRET must match coturn's --static-auth-secret (use-auth-secret mode).
-TURN_SECRET = os.environ.get("TURN_SECRET", "").strip()
-# Legacy static credentials, used only when TURN_SECRET is empty.
-TURN_USERNAME = os.environ.get("TURN_USERNAME", "").strip()
-TURN_PASSWORD = os.environ.get("TURN_PASSWORD", "").strip()
-# Comma-separated, e.g. "turn:moznods.ru:3478?transport=udp,turn:moznods.ru:3478?transport=tcp".
-# Empty -> derived from the request host.
-TURN_URLS = [u.strip() for u in os.environ.get("TURN_URLS", "").split(",") if u.strip()]
-STUN_URLS = [
-    u.strip()
-    for u in os.environ.get(
-        "STUN_URLS",
-        "stun:stun.voip.yandex.net:3478,stun:stun.l.google.com:19302",
-    ).split(",")
-    if u.strip()
-]
-TURN_CREDENTIAL_TTL = int(os.environ.get("TURN_CREDENTIAL_TTL", str(12 * 3600)))
-# Seconds a dropped call socket may take to reconnect before others get user_left.
-CALL_RECONNECT_GRACE_SECONDS = float(os.environ.get("CALL_RECONNECT_GRACE_SECONDS", "15"))
+# Calls run on a LiveKit SFU (see docs/webrtc.md).
+# Public URL the apps connect to (nginx proxies /rtc to LiveKit), e.g. wss://moznods.ru
+LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "").strip()
+# Server API reachable from Django (for removing kicked users from calls).
+LIVEKIT_API_URL = os.environ.get("LIVEKIT_API_URL", "http://127.0.0.1:7880").strip()
+LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "").strip()
+LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+LIVEKIT_TOKEN_TTL = int(os.environ.get("LIVEKIT_TOKEN_TTL", str(6 * 3600)))
 
 # Closed registration: when set, /api/auth/register/ requires this invite_code.
 REGISTRATION_INVITE_CODE = os.environ.get("REGISTRATION_INVITE_CODE", "").strip()

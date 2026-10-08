@@ -1,6 +1,6 @@
 """
 WebSocket authentication helpers.
-Resolve user from token in query string (used by chat and calls consumers).
+Resolve user from token in query string (used by the chat and notification consumers).
 """
 
 from urllib.parse import parse_qs

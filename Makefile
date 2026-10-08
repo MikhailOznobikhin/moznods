@@ -25,7 +25,7 @@ endef
 
 .PHONY: help manage makemigrations migrate createsuperuser collectstatic test cleancache \
 	check check-deploy start stop down restart build build-web build-all pull up \
-	deploy list logs logs-web logs-nginx logs-postgres logs-redis logs-coturn \
+	deploy list logs logs-web logs-nginx logs-postgres logs-redis logs-livekit \
 	bash shell dbshell psql redis-cli dump-db restore-dump reload-nginx \
 	flutter-volumes flutter-shell sync-main lint ruff-format pytest
 
@@ -121,8 +121,8 @@ logs-postgres: ## Логи postgres
 logs-redis: ## Логи redis
 	$(DC) logs -f redis
 
-logs-coturn: ## Логи coturn
-	$(DC) logs -f coturn
+logs-livekit: ## Логи LiveKit (звонки)
+	$(DC) logs -f livekit
 
 ## Shell
 

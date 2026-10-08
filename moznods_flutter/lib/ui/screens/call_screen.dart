@@ -1,75 +1,105 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:moznods_flutter/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moznods_flutter/l10n/app_localizations.dart';
+
 import '../../store/call_provider.dart';
-import '../../services/device_service.dart';
-import '../widgets/video_grid.dart';
 import '../dialogs/device_selection_dialog.dart';
+import '../widgets/participant_tile.dart';
 
-class CallScreen extends ConsumerWidget {
-  final int roomId;
+bool get _isMobilePlatform =>
+    !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
-  const CallScreen({super.key, required this.roomId});
+/// Screen sharing works in browsers and on desktop; Android/iOS need extra native setup.
+bool get _canShareScreen => kIsWeb || !_isMobilePlatform;
+
+class CallScreen extends ConsumerStatefulWidget {
+  const CallScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final callState = ref.watch(callProvider);
+  ConsumerState<CallScreen> createState() => _CallScreenState();
+}
+
+class _CallScreenState extends ConsumerState<CallScreen> {
+  bool _speakerOn = true;
+
+  void _close() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      final roomId = ref.read(callProvider).roomId;
+      context.go(roomId != null ? '/room/$roomId' : '/');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final statusColor = callState.isReconnecting
-        ? const Color(0xFFFEE75C)
-        : const Color(0xFF57F287);
+    final call = ref.watch(callProvider);
+    final notifier = ref.read(callProvider.notifier);
+
+    ref.listen<CallState>(callProvider, (previous, next) {
+      if (previous?.isActive == true && !next.isActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _close();
+        });
+      }
+    });
+
+    if (!call.isActive) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF111214),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.noActiveCall, style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              TextButton(onPressed: _close, child: Text(l10n.close)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tiles = buildCallTiles(call);
+    final statusText = switch (call.status) {
+      CallStatus.connecting => l10n.callConnecting,
+      CallStatus.reconnecting => l10n.callReconnecting,
+      _ => l10n.callParticipantsCount(call.participants.length),
+    };
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1F22),
+      backgroundColor: const Color(0xFF111214),
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => context.go('/room/$roomId'),
+                    tooltip: l10n.minimize,
+                    icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                    onPressed: _close,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.voiceChannel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
                         Text(
-                          callState.isReconnecting
-                              ? l10n.reconnectingLabel
-                              : l10n.connectedLabel,
+                          call.roomTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          statusText,
                           style: TextStyle(
-                            color: statusColor,
+                            color: call.status == CallStatus.connected
+                                ? const Color(0xFF23A55A)
+                                : const Color(0xFFFAA61A),
                             fontSize: 12,
                           ),
                         ),
@@ -79,14 +109,37 @@ class CallScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: VideoGrid(
-                remoteStreams: callState.remoteStreams,
-                localStream: callState.localStream,
-                participants: callState.participants,
+            if (call.audioBlocked)
+              Material(
+                color: const Color(0xFF5865F2),
+                child: InkWell(
+                  onTap: notifier.startAudio,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.volume_up, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Text(l10n.enableAudio, style: const TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
+            Expanded(
+              child: call.status == CallStatus.connecting && tiles.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : CallStage(tiles: tiles),
             ),
-            _CallControls(roomId: roomId),
+            _CallControls(
+              call: call,
+              speakerOn: _speakerOn,
+              onSpeaker: () {
+                setState(() => _speakerOn = !_speakerOn);
+                notifier.setSpeakerOn(_speakerOn);
+              },
+            ),
           ],
         ),
       ),
@@ -95,159 +148,135 @@ class CallScreen extends ConsumerWidget {
 }
 
 class _CallControls extends ConsumerWidget {
-  final int roomId;
+  final CallState call;
+  final bool speakerOn;
+  final VoidCallback onSpeaker;
 
-  const _CallControls({required this.roomId});
+  const _CallControls({required this.call, required this.speakerOn, required this.onSpeaker});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final callState = ref.watch(callProvider);
-    final callNotifier = ref.read(callProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
-
-    final isMuted = _isLocalMuted(callState);
-    final isVideoOff = !_isLocalVideoEnabled(callState);
+    final notifier = ref.read(callProvider.notifier);
+    final connected = call.status != CallStatus.connecting;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF2B2D31),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      color: const Color(0xFF1E1F22),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 14,
+        runSpacing: 10,
         children: [
-          _ControlButton(
-            icon: isMuted ? Icons.mic_off : Icons.mic,
-            label: isMuted ? l10n.unmuteAction : l10n.muteAction,
-            isActive: isMuted,
-            onTap: () => callNotifier.toggleAudio(),
+          CallControlButton(
+            icon: call.micEnabled ? Icons.mic : Icons.mic_off,
+            label: call.micEnabled ? l10n.muteAction : l10n.unmuteAction,
+            highlighted: !call.micEnabled,
+            onTap: connected ? notifier.toggleMicrophone : null,
           ),
-          _ControlButton(
-            icon: isVideoOff ? Icons.videocam_off : Icons.videocam,
-            label: isVideoOff ? l10n.startVideo : l10n.stopVideo,
-            isActive: isVideoOff,
-            onTap: () => callNotifier.toggleVideo(),
+          CallControlButton(
+            icon: call.cameraEnabled ? Icons.videocam : Icons.videocam_off,
+            label: call.cameraEnabled ? l10n.stopVideo : l10n.startVideo,
+            highlighted: !call.cameraEnabled,
+            onTap: connected ? notifier.toggleCamera : null,
           ),
-          _ControlButton(
+          if (_isMobilePlatform && call.cameraEnabled)
+            CallControlButton(
+              icon: Icons.cameraswitch,
+              label: l10n.flipCamera,
+              onTap: notifier.flipCamera,
+            ),
+          if (_isMobilePlatform)
+            CallControlButton(
+              icon: speakerOn ? Icons.volume_up : Icons.hearing,
+              label: l10n.speakerLabel,
+              onTap: onSpeaker,
+            ),
+          if (_canShareScreen)
+            CallControlButton(
+              icon: call.screenShareEnabled ? Icons.stop_screen_share : Icons.screen_share,
+              label: call.screenShareEnabled ? l10n.stopShare : l10n.shareScreen,
+              active: call.screenShareEnabled,
+              onTap: connected ? notifier.toggleScreenShare : null,
+            ),
+          if (!_isMobilePlatform)
+            CallControlButton(
+              icon: Icons.settings,
+              label: l10n.deviceSettings,
+              onTap: () => showDialog(context: context, builder: (_) => const DeviceSelectionDialog()),
+            ),
+          CallControlButton(
             icon: Icons.call_end,
             label: l10n.leaveCall,
-            isDestructive: true,
-            onTap: () {
-              callNotifier.leaveCall();
-              context.go('/room/$roomId');
-            },
-          ),
-          _ControlButton(
-            icon: Icons.chat_bubble_outline,
-            label: l10n.chatLabel,
-            onTap: () {},
-          ),
-          _ControlButton(icon: Icons.group_add, label: l10n.inviteLabel, onTap: () {}),
-          _ControlButton(
-            icon: Icons.settings,
-            label: l10n.deviceSettings,
-            onTap: () => _showDeviceSettings(context, ref),
+            destructive: true,
+            onTap: notifier.leaveCall,
           ),
         ],
       ),
     );
   }
-
-  Future<void> _showDeviceSettings(BuildContext context, WidgetRef ref) async {
-    final callState = ref.read(callProvider);
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => DeviceSelectionDialog(
-        currentAudioDevice: callState.audioDeviceId != null
-            ? DeviceInfo(deviceId: callState.audioDeviceId!, label: '', kind: 0)
-            : null,
-        currentVideoDevice: callState.videoDeviceId != null
-            ? DeviceInfo(deviceId: callState.videoDeviceId!, label: '', kind: 2)
-            : null,
-      ),
-    );
-
-    if (result != null && context.mounted) {
-      final audioDeviceId = result['audioDeviceId'] as String?;
-      final videoDeviceId = result['videoDeviceId'] as String?;
-
-      final success = await ref.read(callProvider.notifier).switchDevice(
-        audioDeviceId: audioDeviceId,
-        videoDeviceId: videoDeviceId,
-      );
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success
-                ? AppLocalizations.of(context)!.saveLabel
-                : AppLocalizations.of(context)!.updateFailed),
-            backgroundColor: success ? const Color(0xFF57F287) : const Color(0xFFED4245),
-          ),
-        );
-      }
-    }
-  }
-
-  bool _isLocalMuted(CallState state) {
-    if (state.localStream == null) return false;
-    final audioTracks = state.localStream!.getAudioTracks();
-    if (audioTracks.isEmpty) return false;
-    return !audioTracks[0].enabled;
-  }
-
-  bool _isLocalVideoEnabled(CallState state) {
-    if (state.localStream == null) return true;
-    final videoTracks = state.localStream!.getVideoTracks();
-    if (videoTracks.isEmpty) return true;
-    return videoTracks[0].enabled;
-  }
 }
 
-class _ControlButton extends StatelessWidget {
+class CallControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
-  final bool isActive;
-  final bool isDestructive;
+  final VoidCallback? onTap;
+  final bool highlighted;
+  final bool active;
+  final bool destructive;
+  final double size;
 
-  const _ControlButton({
+  const CallControlButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-    this.isActive = false,
-    this.isDestructive = false,
+    this.highlighted = false,
+    this.active = false,
+    this.destructive = false,
+    this.size = 52,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDestructive
-        ? const Color(0xFFED4245)
-        : (isActive ? const Color(0xFFED4245) : const Color(0xFF4E5058));
+    final Color background;
+    if (destructive) {
+      background = const Color(0xFFED4245);
+    } else if (active) {
+      background = const Color(0xFF5865F2);
+    } else if (highlighted) {
+      background = const Color(0xFFF2F3F5);
+    } else {
+      background = const Color(0xFF35373C);
+    }
+    final foreground = highlighted && !destructive ? const Color(0xFF111214) : Colors.white;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive
-                  ? const Color(0xFFED4245)
-                  : const Color(0xFFB5BAC1),
-              fontSize: 12,
+    return Tooltip(
+      message: label,
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Material(
+              color: background,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onTap,
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: Icon(icon, color: foreground, size: size * 0.46),
+                ),
+              ),
             ),
-          ),
-        ],
+            if (size >= 48) ...[
+              const SizedBox(height: 4),
+              Text(label, style: const TextStyle(color: Color(0xFFB5BAC1), fontSize: 11)),
+            ],
+          ],
+        ),
       ),
     );
   }

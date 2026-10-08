@@ -5,5 +5,6 @@ from . import views
 app_name = "calls"
 
 urlpatterns = [
-    path("ice-servers/", views.IceServersView.as_view(), name="ice-servers"),
+    path("token/", views.CallTokenView.as_view(), name="token"),
+    path("livekit-webhook/", views.LiveKitWebhookView.as_view(), name="livekit-webhook"),
 ]

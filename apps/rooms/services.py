@@ -154,6 +154,9 @@ class RoomService:
             raise ValidationError(detail={"user": ["User is not a participant in this room."]})
         RoomService._invalidate_room_cache(room.id)
         RoomService._disconnect_member_sockets(room.id, user.id)
+        from apps.calls.services import LiveKitService
+
+        LiveKitService.remove_from_call(room.id, user.id)
 
     @staticmethod
     def _disconnect_member_sockets(room_id: int, user_id: int) -> None:
