@@ -698,6 +698,18 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancel;
 
+  /// No description provided for @cancelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelLabel;
+
+  /// No description provided for @saveLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get saveLabel;
+
   /// No description provided for @language.
   ///
   /// In en, this message translates to:
@@ -823,6 +835,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connected'**
   String get connectedLabel;
+
+  /// No description provided for @reconnectingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting…'**
+  String get reconnectingLabel;
 
   /// No description provided for @muteAction.
   ///
@@ -973,6 +991,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'MOznoDS v1.0.0'**
   String get appVersion;
+
+  /// No description provided for @deviceSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Settings'**
+  String get deviceSettings;
+
+  /// No description provided for @microphone.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get microphone;
+
+  /// No description provided for @camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get camera;
+
+  /// No description provided for @noDevicesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices found'**
+  String get noDevicesFound;
+
+  /// No description provided for @selectDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Select device'**
+  String get selectDevice;
+
+  /// No description provided for @shareRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Room'**
+  String get shareRoom;
+
+  /// No description provided for @linkExpiration.
+  ///
+  /// In en, this message translates to:
+  /// **'Link expiration'**
+  String get linkExpiration;
+
+  /// No description provided for @hour1.
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get hour1;
+
+  /// No description provided for @hours6.
+  ///
+  /// In en, this message translates to:
+  /// **'6 hours'**
+  String get hours6;
+
+  /// No description provided for @hours24.
+  ///
+  /// In en, this message translates to:
+  /// **'24 hours'**
+  String get hours24;
+
+  /// No description provided for @days7.
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get days7;
+
+  /// No description provided for @never.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get never;
+
+  /// No description provided for @createLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Link'**
+  String get createLink;
+
+  /// No description provided for @copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied!'**
+  String get copied;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @newLink.
+  ///
+  /// In en, this message translates to:
+  /// **'New Link'**
+  String get newLink;
+
+  /// No description provided for @editRoomName.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Room Name'**
+  String get editRoomName;
 }
 
 class _AppLocalizationsDelegate

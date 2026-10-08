@@ -105,6 +105,12 @@ User payload includes `avatar_url` (may be empty string if no avatar).
 
 ---
 
+### Calls
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/calls/ice-servers/` | STUN/TURN servers with short-lived TURN credentials (see [webrtc.md](webrtc.md)) |
+
 ## WebSocket API
 
 ### Connection
@@ -179,13 +185,14 @@ WebSocket: `ws://host/ws/call/{room_id}/?token={auth_token}`
 | `join_call` | `{}` | Join active call |
 | `leave_call` | `{}` | Leave active call |
 | `request_mic` | `{"target_user_id": int}` | Admin requests user to unmute (#15) |
-| `offer` | `{"target_user_id": int, "sdp": str}` | WebRTC offer |
-| `answer` | `{"target_user_id": int, "sdp": str}` | WebRTC answer |
-| `ice_candidate`| `{"target_user_id": int, "candidate": obj}` | ICE candidate |
+| `ping` | `{}` | Heartbeat; server answers `pong` (also supported by the chat socket) |
+| `offer` | `{"target_user_id": int, "sdp": {"type": str, "sdp": str}, "pc_id": str}` | WebRTC offer |
+| `answer` | `{"target_user_id": int, "sdp": {"type": str, "sdp": str}}` | WebRTC answer |
+| `ice_candidate`| `{"target_user_id": int, "candidate": {"candidate": str, "sdpMid": str, "sdpMLineIndex": int}}` | ICE candidate |
 | `toggle_audio` | `{"is_muted": bool}` | Broadcast own mute state to others |
 | `toggle_video` | `{"is_video_enabled": bool}` | Broadcast own camera state to others |
 
-`target_user_id` may also be sent as top-level `to_user_id` (Flutter client).
+`target_user_id` may also be sent as top-level `to_user_id` (old Flutter builds).
 
 #### Message Types (Send to Client)
 

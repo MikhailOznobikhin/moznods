@@ -16,6 +16,9 @@ class CallScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final callState = ref.watch(callProvider);
     final l10n = AppLocalizations.of(context)!;
+    final statusColor = callState.isReconnecting
+        ? const Color(0xFFFEE75C)
+        : const Color(0xFF57F287);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E1F22),
@@ -46,7 +49,7 @@ class CallScreen extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF57F287).withValues(alpha: 0.2),
+                      color: statusColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -55,16 +58,18 @@ class CallScreen extends ConsumerWidget {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF57F287),
+                          decoration: BoxDecoration(
+                            color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          l10n.connectedLabel,
-                          style: const TextStyle(
-                            color: Color(0xFF57F287),
+                          callState.isReconnecting
+                              ? l10n.reconnectingLabel
+                              : l10n.connectedLabel,
+                          style: TextStyle(
+                            color: statusColor,
                             fontSize: 12,
                           ),
                         ),

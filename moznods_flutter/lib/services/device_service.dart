@@ -31,19 +31,34 @@ class DeviceService {
     try {
       final devices = await mediaDevices.enumerateDevices();
       return devices.map((d) {
+        final kind = _kindIndex(d.kind);
         String label = d.label;
         if (label.isEmpty) {
-          label = _defaultLabel(d.kind, d.deviceId);
+          label = _defaultLabel(kind, d.deviceId);
         }
         return DeviceInfo(
           deviceId: d.deviceId,
           label: label,
-          kind: d.kind,
+          kind: kind,
         );
       }).toList();
     } catch (e) {
       debugPrint('Error enumerating devices: $e');
       return [];
+    }
+  }
+
+  /// MediaDeviceInfo.kind is 'audioinput' / 'audiooutput' / 'videoinput'.
+  int _kindIndex(String? kind) {
+    switch (kind) {
+      case 'audioinput':
+        return 0;
+      case 'audiooutput':
+        return 1;
+      case 'videoinput':
+        return 2;
+      default:
+        return -1;
     }
   }
 

@@ -63,29 +63,33 @@ services:
     image: coturn/coturn:latest
     container_name: moznods_coturn
     restart: unless-stopped
+    # Host networking: publishing a large UDP range through docker-proxy is slow and
+    # memory-hungry, and NAT inside the bridge breaks relay addresses.
+    network_mode: host
+    # use-auth-secret: clients get short-lived credentials from /api/calls/ice-servers/
+    # (HMAC of TURN_SECRET), so no static password ships in the apps.
     command: |
       turnserver
-      --verbose
-      --lt-cred-mech
       --fingerprint
-      --no-tls
-      --no-dtls
+      --use-auth-secret
+      --static-auth-secret=${TURN_SECRET:?TURN_SECRET must be set in .env}
       --realm=${TURN_REALM:-moznods.ru}
       --external-ip=${TURN_EXTERNAL_IP:-217.197.115.122}
-      --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      --listening-port=3478
+      --no-tls
+      --no-dtls
+      --min-port=49152
+      --max-port=49999
       --total-quota=100
       --user-quota=10
-      --min-port=49152
-      --max-port=65535
       --no-multicast-peers
+      --no-cli
+      --denied-peer-ip=10.0.0.0-10.255.255.255
+      --denied-peer-ip=172.16.0.0-172.31.255.255
+      --denied-peer-ip=192.168.0.0-192.168.255.255
+      --log-file=stdout
     volumes:
       - coturn_data:/var/lib/coturn
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "49152-65535:49152-65535/udp"
-    networks:
-      - moznods_network
 
   nginx:
     image: nginx:alpine

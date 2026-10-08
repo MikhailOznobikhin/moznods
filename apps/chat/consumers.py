@@ -105,7 +105,11 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def receive_json(self, content):
         msg_type = content.get("type")
-        
+
+        if msg_type == "ping":
+            await self.send_json({"type": "pong"})
+            return
+
         if msg_type == "chat_message":
             data = content.get("data", {})
             content_text = data.get("content", "")

@@ -253,7 +253,7 @@ For UI presence (who is in the call, idle vs active), the server stores call sta
 - **States:** `idle`, `connecting`, `active`, `ended`.
 - **TTL:** 1 hour on the key so stale entries expire if the consumer disconnects without cleanup.
 
-On WebSocket connect the user is set to `connecting`; on `join_call` to `active`; on `leave_call` or disconnect the user is removed. After each change, a `call_state` message is broadcast to the room group so all connected clients can update the UI.
+On WebSocket connect the user is set to `connecting`; on `join_call` to `active`; on `leave_call` the user is removed immediately. If the socket just drops, the user is removed (and `user_left` sent) only after `CALL_RECONNECT_GRACE_SECONDS` (default 15s) if no new socket of this user has connected; kicked users are removed immediately. After each change, a `call_state` message is broadcast to the room group so all connected clients can update the UI.
 
 REST endpoint `GET /api/rooms/{id}/call-state/` (room participants only) returns current participants and `room_state` for polling without WebSocket.
 
@@ -265,7 +265,7 @@ The signaling consumer lives in `apps/calls/consumers.py` (`SignalingConsumer`).
 
 - **URL:** `ws://host/ws/call/<room_id>/?token=<auth_token>` (see [api.md](api.md#websocket-api)).
 - **Auth:** User is resolved from `token` query parameter; only room participants can connect (same pattern as chat).
-- **Group:** `call_{room_id}`. On connect the consumer joins the group; on disconnect it sends `user_left` and leaves.
+- **Group:** `call_{room_id}`. On connect the consumer joins the group; on disconnect it leaves and sends `user_left` after the reconnect grace period (see above).
 - **Incoming:** `join_call` → broadcast `user_joined` (excluding self); `leave_call` → broadcast `user_left`; `offer`, `answer`, `ice_candidate` → relay to `target_user_id` via group event `signaling_relay`. SDP/ICE payloads are forwarded unchanged.
 - **Handlers:** `user_joined`, `user_left` broadcast to all in group (with exclude for join); `signaling_relay` sends only to the target user.
 
@@ -285,57 +285,40 @@ User A ──► TURN Server ──► User B
 
 ### coturn Setup
 
-coturn уже настроен в `docker-compose.production.yml`:
-- Образ: `coturn/coturn:latest`
-- Порт: 3478 (UDP/TCP)
-- Long-term credentials mech включён
+coturn описан в `docker-compose.production.yml`:
+- `network_mode: host`, порты 3478 (UDP/TCP) и relay 49152–49999/UDP — их нужно открыть в фаерволе;
+- режим `use-auth-secret` с `--static-auth-secret=${TURN_SECRET}`;
+- `TURN_EXTERNAL_IP` — публичный IP сервера.
 
-#### Конфигурация TURN в Flutter
+### Выдача ICE-серверов клиентам
 
-```dart
-// lib/store/call_provider.dart
-final Map<String, dynamic> _iceServers = {
-  'iceServers': [
-    {'urls': 'stun:stun.l.google.com:19302'},
-    {
-      'urls': 'turn:<your-turn-server>:3478',
-      'username': '<configured-username>',
-      'credential': '<configured-password>',
-    },
-  ],
-};
+`GET /api/calls/ice-servers/` (нужна авторизация) возвращает:
+
+```json
+{"ice_servers": [
+  {"urls": ["stun:..."]},
+  {"urls": ["turn:host:3478?transport=udp", "turn:host:3478?transport=tcp"],
+   "username": "<expiry>:<user_id>", "credential": "<base64 hmac-sha1>"}
+], "ttl": 43200}
 ```
 
-#### Переменные окружения (.env)
+Учётные данные TURN временные (coturn REST API): `username = "<unix_expiry>:<user_id>"`,
+`credential = base64(HMAC-SHA1(TURN_SECRET, username))`. Код: `apps/calls/services.py`.
 
-```
-TURN_SERVER_URL=turn:your-turn-server.com:3478
-TURN_SERVER_USERNAME=your-username
-TURN_SERVER_PASSWORD=your-password
-```
+Переменные окружения: `TURN_SECRET`, `TURN_URLS` (по умолчанию — хост запроса, udp+tcp),
+`STUN_URLS`, `TURN_CREDENTIAL_TTL`. Если `TURN_SECRET` пуст, но заданы `TURN_USERNAME`/`TURN_PASSWORD`,
+отдаются статичные учётные данные.
 
-### ICE Server Configuration
+Flutter и веб-клиент запрашивают этот эндпоинт перед звонком; при ошибке используют только STUN.
 
-В `moznods_flutter/lib/store/call_provider.dart`:
-```python
-# config/settings/base.py
+### Клиентская логика (Flutter, `call_provider.dart`)
 
-WEBRTC_ICE_SERVERS = [
-    {'urls': 'stun:stun.l.google.com:19302'},
-    {
-        'urls': env('TURN_SERVER_URL', default='turn:localhost:3478'),
-        'username': env('TURN_SERVER_USERNAME', default='turnuser'),
-        'credential': env('TURN_SERVER_PASSWORD', default='turnpassword'),
-    },
-]
-```
-
-### Рекомендация
-
-Для production рекомендуется:
-1. Использовать свой coturn сервер (уже настроен в docker-compose)
-2. Включить TLS (порт 5349) для corporate сетей
-3. Использовать short-lived credentials via REST API coturn
+- Соединение инициирует тот, кто уже в звонке (получил `user_joined`); новичок создаёт `RTCPeerConnection` при входящем offer.
+- Сообщения сигналинга обрабатываются строго последовательно; ICE-кандидаты до `setRemoteDescription` копятся в очереди.
+- Offer содержит `pc_id` соединения. Новый `pc_id` от собеседника → пересоздать своё соединение; тот же → обычная ренеготиация / ICE restart.
+- `failed` или `disconnected` дольше 5 с → инициатор делает ICE restart.
+- Сокет сигналинга: ping каждые 20 с, тишина 45 с = мёртвый сокет; переподключение с экспоненциальной паузой (до 30 с), кроме кода 4403. После переподключения клиент снова шлёт `join_call`; собеседники с живым соединением его игнорируют.
+- Формат SDP/ICE: `{"sdp": {"type", "sdp"}, "pc_id"}` и `{"candidate": {"candidate", "sdpMid", "sdpMLineIndex"}}` (совместим с веб-клиентом).
 
 ## Scaling Considerations
 

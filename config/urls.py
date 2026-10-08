@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/rooms/", include("apps.rooms.urls")),
     path("api/files/", include("apps.files.urls")),
+    path("api/calls/", include("apps.calls.urls")),
     path("api/downloads/", include("apps.downloads.urls")),
     
     # Fix Flutter assets double-path issue

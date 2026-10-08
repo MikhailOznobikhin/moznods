@@ -4,7 +4,11 @@ Relays offer, answer, ice_candidate to target user; broadcasts user_joined / use
 Call state (idle, connecting, active, ended) is stored in Redis for presence/UI.
 """
 
+import asyncio
+import logging
+
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
@@ -43,6 +47,12 @@ def _parse_user_id(value) -> int | None:
         return None
 
 
+logger = logging.getLogger(__name__)
+
+# Strong refs to pending grace-period tasks so they are not garbage-collected.
+_pending_disconnects: set[asyncio.Task] = set()
+
+
 # Keys the server sets on relayed messages; never taken from client payloads.
 RESERVED_RELAY_KEYS = ("from_user_id", "from_username", "target_user_id", "to_user_id")
 
@@ -66,33 +76,48 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
         self.member_group_name = member_group_name(self.room_id, self.user_id)
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.channel_layer.group_add(self.member_group_name, self.channel_name)
+        self._left_call = False
+        self._removed = False
         await sync_to_async(call_state_set_user_state)(
-            self.room_id, self.user_id, self._username, STATE_CONNECTING
+            self.room_id, self.user_id, self._username, STATE_CONNECTING, self.channel_name
         )
         await self.accept()
 
     async def disconnect(self, close_code):
-        if hasattr(self, "room_group_name"):
-            await sync_to_async(call_state_remove_user)(self.room_id, self.user_id)
+        if not hasattr(self, "room_group_name"):
+            return
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard(self.member_group_name, self.channel_name)
+        if self._left_call:
+            return
+        # AICODE-NOTE: A dropped socket (mobile network switch, proxy idle timeout) must not
+        # tear down a call whose media is still flowing P2P. Others get user_left only if
+        # the user has not reconnected within the grace period.
+        grace = 0.0 if self._removed else settings.CALL_RECONNECT_GRACE_SECONDS
+        task = asyncio.ensure_future(self._finalize_disconnect(grace))
+        _pending_disconnects.add(task)
+        task.add_done_callback(_pending_disconnects.discard)
+
+    async def _finalize_disconnect(self, grace: float) -> None:
+        try:
+            if grace > 0:
+                await asyncio.sleep(grace)
+            removed = await sync_to_async(call_state_remove_user)(
+                self.room_id, self.user_id, self.channel_name
+            )
+            if not removed:
+                return  # reconnected on a new socket (or already left)
             await self._broadcast_call_state()
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {
-                    "type": "user_left",
-                    "user_id": self.user_id,
-                },
+                {"type": "user_left", "user_id": self.user_id},
             )
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name,
-            )
-            await self.channel_layer.group_discard(
-                self.member_group_name,
-                self.channel_name,
-            )
+        except Exception:
+            logger.exception("Failed to finalize call disconnect in room %s", self.room_id)
 
     async def member_removed(self, event):
         """User was kicked/banned or the room was deleted: drop the socket."""
+        self._removed = True
         await self.close(code=4403)
 
     async def receive_json(self, content):
@@ -151,8 +176,9 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
 
     async def _broadcast_user_joined(self):
         """Notify other participants that this user joined the call; update Redis state to active."""
+        self._left_call = False
         await sync_to_async(call_state_set_user_state)(
-            self.room_id, self.user_id, self._username, STATE_ACTIVE
+            self.room_id, self.user_id, self._username, STATE_ACTIVE, self.channel_name
         )
         await self._broadcast_call_state()
         await self.channel_layer.group_send(
@@ -169,6 +195,7 @@ class SignalingConsumer(AsyncJsonWebsocketConsumer):
 
     async def _broadcast_user_left(self):
         """Notify others that this user left the call (explicit leave_call); remove from Redis."""
+        self._left_call = True
         await sync_to_async(call_state_remove_user)(self.room_id, self.user_id)
         await self._broadcast_call_state()
         await self.channel_layer.group_send(

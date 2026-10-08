@@ -50,27 +50,49 @@ def _room_lock(room_id: int) -> Iterator[None]:
             cache.delete(lock_key)
 
 
-def set_user_state(room_id: int, user_id: int, username: str, state: str) -> None:
-    """Set one user's call state in a room."""
+def set_user_state(
+    room_id: int,
+    user_id: int,
+    username: str,
+    state: str,
+    channel_name: str | None = None,
+) -> None:
+    """Set one user's call state in a room.
+
+    channel_name identifies the user's current socket; omitted -> keep the stored one.
+    """
     key = _get_cache_key(room_id)
     with _room_lock(room_id):
         room_data = cache.get(key, {})
-        room_data[str(user_id)] = {"state": state, "username": username}
+        previous = room_data.get(str(user_id), {})
+        room_data[str(user_id)] = {
+            "state": state,
+            "username": username,
+            "channel": channel_name if channel_name is not None else previous.get("channel"),
+        }
         cache.set(key, room_data, CALL_STATE_TTL_SECONDS)
 
 
-def remove_user(room_id: int, user_id: int) -> None:
-    """Remove user from room call state."""
+def remove_user(room_id: int, user_id: int, channel_name: str | None = None) -> bool:
+    """Remove user from room call state. Returns True if the user was removed.
+
+    With channel_name, removes only if that socket is still the user's current one,
+    so a stale disconnect does not kick a user who already reconnected.
+    """
     key = _get_cache_key(room_id)
     with _room_lock(room_id):
         room_data = cache.get(key, {})
-        if str(user_id) not in room_data:
-            return
+        entry = room_data.get(str(user_id))
+        if entry is None:
+            return False
+        if channel_name is not None and entry.get("channel") not in (None, channel_name):
+            return False
         del room_data[str(user_id)]
         if not room_data:
             cache.delete(key)
         else:
             cache.set(key, room_data, CALL_STATE_TTL_SECONDS)
+        return True
 
 
 def get_room_state(room_id: int) -> list[dict[str, Any]]:

@@ -83,11 +83,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _currentRoomId = roomId;
     _wsService.disconnect();
     final url = '${DioClient.wsBaseUrl}/ws/chat/$roomId/';
+    var hasConnectedBefore = false;
     _wsService.connect(
       url,
       token,
       onConnected: () {
         state = state.copyWith(isConnected: true, error: null);
+        // Messages sent while we were offline are not replayed over the socket.
+        if (hasConnectedBefore && _currentRoomId == roomId) {
+          fetchMessages(roomId);
+        }
+        hasConnectedBefore = true;
       },
       onError: (error) {
         state = state.copyWith(

@@ -138,6 +138,7 @@
   },
   "voiceChannel": "Voice Channel",
   "connectedLabel": "Connected",
+  "reconnectingLabel": "Reconnecting…",
   "muteAction": "Mute",
   "unmuteAction": "Unmute",
   "startVideo": "Start Video",

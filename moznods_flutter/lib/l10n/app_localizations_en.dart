@@ -315,6 +315,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get cancelLabel => 'Cancel';
+
+  @override
+  String get saveLabel => 'Save';
+
+  @override
   String get language => 'Language';
 
   @override
@@ -378,6 +384,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectedLabel => 'Connected';
+
+  @override
+  String get reconnectingLabel => 'Reconnecting…';
 
   @override
   String get muteAction => 'Mute';
@@ -458,4 +467,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appVersion => 'MOznoDS v1.0.0';
+
+  @override
+  String get deviceSettings => 'Device Settings';
+
+  @override
+  String get microphone => 'Microphone';
+
+  @override
+  String get camera => 'Camera';
+
+  @override
+  String get noDevicesFound => 'No devices found';
+
+  @override
+  String get selectDevice => 'Select device';
+
+  @override
+  String get shareRoom => 'Share Room';
+
+  @override
+  String get linkExpiration => 'Link expiration';
+
+  @override
+  String get hour1 => '1 hour';
+
+  @override
+  String get hours6 => '6 hours';
+
+  @override
+  String get hours24 => '24 hours';
+
+  @override
+  String get days7 => '7 days';
+
+  @override
+  String get never => 'Never';
+
+  @override
+  String get createLink => 'Create Link';
+
+  @override
+  String get copied => 'Copied!';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get newLink => 'New Link';
+
+  @override
+  String get editRoomName => 'Edit Room Name';
 }

@@ -103,6 +103,8 @@ class RoomService:
     @staticmethod
     def join_room(room: Room, user: User) -> RoomParticipant:
         """Self-join by room id. Only public, non-direct rooms; banned users are rejected."""
+        if RoomService.is_participant(room, user):
+            raise ValidationError(detail={"user": ["User is already a participant in this room."]})
         if not room.is_public or room.is_direct:
             raise PermissionDenied("This room is private. Use an invitation link to join.")
         if RoomService.is_banned(room, user):

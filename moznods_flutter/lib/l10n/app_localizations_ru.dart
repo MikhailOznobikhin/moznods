@@ -320,6 +320,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancel => 'Отмена';
 
   @override
+  String get cancelLabel => 'Отмена';
+
+  @override
+  String get saveLabel => 'Сохранить';
+
+  @override
   String get language => 'Язык';
 
   @override
@@ -383,6 +389,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get connectedLabel => 'Подключено';
+
+  @override
+  String get reconnectingLabel => 'Переподключение…';
 
   @override
   String get muteAction => 'Выключить микрофон';
@@ -462,4 +471,55 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appVersion => 'MOznoDS v1.0.0';
+
+  @override
+  String get deviceSettings => 'Настройки устройств';
+
+  @override
+  String get microphone => 'Микрофон';
+
+  @override
+  String get camera => 'Камера';
+
+  @override
+  String get noDevicesFound => 'Устройства не найдены';
+
+  @override
+  String get selectDevice => 'Выбрать устройство';
+
+  @override
+  String get shareRoom => 'Поделиться комнатой';
+
+  @override
+  String get linkExpiration => 'Срок действия ссылки';
+
+  @override
+  String get hour1 => '1 час';
+
+  @override
+  String get hours6 => '6 часов';
+
+  @override
+  String get hours24 => '24 часа';
+
+  @override
+  String get days7 => '7 дней';
+
+  @override
+  String get never => 'Бессрочно';
+
+  @override
+  String get createLink => 'Создать ссылку';
+
+  @override
+  String get copied => 'Скопировано!';
+
+  @override
+  String get copy => 'Копировать';
+
+  @override
+  String get newLink => 'Новая ссылка';
+
+  @override
+  String get editRoomName => 'Изменить название';
 }

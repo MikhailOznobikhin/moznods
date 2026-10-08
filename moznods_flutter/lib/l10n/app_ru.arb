@@ -138,6 +138,7 @@
   },
   "voiceChannel": "Голосовой канал",
   "connectedLabel": "Подключено",
+  "reconnectingLabel": "Переподключение…",
   "muteAction": "Выключить микрофон",
   "unmuteAction": "Включить микрофон",
   "startVideo": "Включить видео",

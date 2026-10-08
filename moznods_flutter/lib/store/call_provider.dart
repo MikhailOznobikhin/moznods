@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../api/dio_client.dart';
@@ -41,13 +43,24 @@ class PeerFlags {
   bool ignoreOffer = false;
   bool isSettingRemoteAnswerPending = false;
   bool polite = false;
+  // The side that was already in the call creates offers (and ICE restarts);
+  // the newcomer only answers. This avoids offer glare on join.
+  final bool initiator;
+  bool remoteDescriptionSet = false;
+  bool tracksAdded = false;
+  // Identifies one RTCPeerConnection instance across signaling. A changed
+  // remote id means the other side re-created its connection.
+  final String localPcId =
+      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
+  String? remotePcId;
 
-  PeerFlags({required this.polite});
+  PeerFlags({required this.polite, required this.initiator});
 }
 
 class CallState {
   final bool isActive;
   final bool isJoined;
+  final bool isReconnecting;
   final MediaStream? localStream;
   final Map<int, MediaStream> remoteStreams;
   final Map<int, RTCPeerConnection> peers;
@@ -60,6 +73,7 @@ class CallState {
   CallState({
     this.isActive = false,
     this.isJoined = false,
+    this.isReconnecting = false,
     this.localStream,
     this.remoteStreams = const {},
     this.peers = const {},
@@ -73,6 +87,7 @@ class CallState {
   CallState copyWith({
     bool? isActive,
     bool? isJoined,
+    bool? isReconnecting,
     MediaStream? localStream,
     Map<int, MediaStream>? remoteStreams,
     Map<int, RTCPeerConnection>? peers,
@@ -85,6 +100,7 @@ class CallState {
     return CallState(
       isActive: isActive ?? this.isActive,
       isJoined: isJoined ?? this.isJoined,
+      isReconnecting: isReconnecting ?? this.isReconnecting,
       localStream: localStream ?? this.localStream,
       remoteStreams: remoteStreams ?? this.remoteStreams,
       peers: peers ?? this.peers,
@@ -98,14 +114,44 @@ class CallState {
 }
 
 class CallNotifier extends StateNotifier<CallState> {
-  final WebSocketService _wsService = WebSocketService();
-  final Map<String, dynamic> _iceServers = {
+  static const Map<String, dynamic> _fallbackIceConfig = {
     'iceServers': [
-      {'urls': 'stun:stun.l.google.com:19302'},
+      {
+        'urls': [
+          'stun:stun.voip.yandex.net:3478',
+          'stun:stun.l.google.com:19302',
+        ],
+      },
     ],
   };
+  static const Duration _iceRestartDelay = Duration(seconds: 5);
+  static const int _maxPendingCandidates = 200;
+
+  final WebSocketService _wsService = WebSocketService();
+  final DioClient _client = DioClient();
+  StreamSubscription<Map<String, dynamic>>? _signalingSubscription;
+  // AICODE-NOTE: Signaling messages must be applied strictly in order
+  // (offer -> candidates). listen(async ...) would interleave them.
+  Future<void> _signalingQueue = Future.value();
+  final Map<int, List<RTCIceCandidate>> _pendingCandidates = {};
+  final Map<int, Timer> _iceRestartTimers = {};
+  Map<String, dynamic> _iceConfig = _fallbackIceConfig;
+  int? _myUserId;
 
   CallNotifier() : super(CallState());
+
+  Future<Map<String, dynamic>> _loadIceConfig() async {
+    try {
+      final response = await _client.dio.get('/api/calls/ice-servers/');
+      final servers = response.data['ice_servers'];
+      if (servers is List && servers.isNotEmpty) {
+        return {'iceServers': servers};
+      }
+    } catch (e) {
+      debugPrint('Failed to load ICE servers, using STUN fallback: $e');
+    }
+    return _fallbackIceConfig;
+  }
 
   Future<void> joinCall(
     int roomId,
@@ -114,6 +160,10 @@ class CallNotifier extends StateNotifier<CallState> {
     String myUsername, {
     bool withVideo = true,
   }) async {
+    if (state.isActive) {
+      leaveCall();
+    }
+    _myUserId = myUserId;
     try {
       final constraints = {
         'audio': true,
@@ -127,119 +177,155 @@ class CallNotifier extends StateNotifier<CallState> {
       };
 
       final stream = await navigator.mediaDevices.getUserMedia(constraints);
+      _iceConfig = await _loadIceConfig();
       state = state.copyWith(localStream: stream, isActive: true);
 
+      _signalingSubscription?.cancel();
+      _signalingQueue = Future.value();
+      _signalingSubscription = _wsService.messages.listen((message) {
+        _signalingQueue = _signalingQueue
+            .then((_) => _handleSignal(message))
+            .catchError((Object e) {
+          debugPrint('Signaling error: $e');
+        });
+      });
+
       final wsUrl = '${DioClient.wsBaseUrl}/ws/call/$roomId';
-      _wsService.connect(wsUrl, token);
-
-      _wsService.messages.listen((message) async {
-        final type = message['type'];
-        final data = message['data'];
-
-        if (type == 'user_joined') {
-          final userId = data['user']['id'];
-          final username = data['user']['username'];
-          final isMuted = data['user']['is_muted'] ?? false;
-          final isVideoEnabled = data['user']['is_video_enabled'] ?? true;
-          final participant = CallParticipant(
-            id: userId,
-            username: username,
-            state: 'connected',
-            isMuted: isMuted,
-            isVideoEnabled: isVideoEnabled,
-          );
-          state = state.copyWith(
-            participants: {...state.participants, userId: participant},
-          );
-          await _createPeerConnection(userId, stream, myUserId, username);
-        } else if (type == 'user_left') {
-          final userId = data['user_id'];
-          await _removePeerConnection(userId);
-        } else if (type == 'offer' || type == 'answer') {
-          final userId = message['from_user_id'];
-          await _handleSdp(userId, data, type);
-        } else if (type == 'ice_candidate') {
-          final userId = message['from_user_id'];
-          await _handleIceCandidate(userId, data);
-        } else if (type == 'toggle_audio') {
-          final userId = data['user_id'];
-          final isMuted = data['is_muted'];
-          if (state.participants.containsKey(userId)) {
-            final participant = state.participants[userId]!;
-            state = state.copyWith(
-              participants: {
-                ...state.participants,
-                userId: participant.copyWith(isMuted: isMuted),
-              },
-            );
+      _wsService.connect(
+        wsUrl,
+        token,
+        onConnected: () {
+          // Sent on every (re)connect: peers whose connection to us died
+          // re-create it, healthy ones ignore it.
+          _wsService.sendMessage({'type': 'join_call'});
+          state = state.copyWith(isJoined: true, isReconnecting: false);
+        },
+        onReconnecting: (_) {
+          state = state.copyWith(isReconnecting: true);
+        },
+        onDone: () {
+          if (state.isActive) {
+            state = state.copyWith(isReconnecting: true);
           }
-        } else if (type == 'toggle_video') {
-          final userId = data['user_id'];
-          final isVideoEnabled = data['is_video_enabled'];
-          if (state.participants.containsKey(userId)) {
-            final participant = state.participants[userId]!;
-            state = state.copyWith(
-              participants: {
-                ...state.participants,
-                userId: participant.copyWith(isVideoEnabled: isVideoEnabled),
-              },
-            );
-          }
-        }
-      });
-
-      _wsService.sendMessage({
-        'type': 'join_call',
-        'data': {'user_id': myUserId, 'username': myUsername},
-      });
-      state = state.copyWith(isJoined: true);
+        },
+      );
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  Future<void> _createPeerConnection(
-    int targetUserId,
-    MediaStream stream,
-    int myUserId,
-    String username,
-  ) async {
-    final pc = await createPeerConnection(_iceServers);
+  Future<void> _handleSignal(Map<String, dynamic> message) async {
+    if (state.localStream == null) return;
+    final type = message['type'];
+    final rawData = message['data'];
+    final data = rawData is Map
+        ? Map<String, dynamic>.from(rawData)
+        : <String, dynamic>{};
 
-    final isPolite = myUserId < targetUserId;
-    final flags = PeerFlags(polite: isPolite);
+    if (type == 'user_joined') {
+      final user = data['user'];
+      if (user is! Map) return;
+      final userId = _asInt(user['id']);
+      if (userId == null || userId == _myUserId) return;
+      await _onUserJoined(userId, (user['username'] ?? '').toString());
+    } else if (type == 'user_left') {
+      final userId = _asInt(data['user_id']);
+      if (userId != null) await _removePeerConnection(userId);
+    } else if (type == 'offer' || type == 'answer') {
+      final fromId = _asInt(message['from_user_id'] ?? data['from_user_id']);
+      if (fromId == null || fromId == _myUserId) return;
+      await _handleSdp(
+        fromId,
+        data,
+        type as String,
+        (data['from_username'] ?? '').toString(),
+      );
+    } else if (type == 'ice_candidate') {
+      final fromId = _asInt(message['from_user_id'] ?? data['from_user_id']);
+      if (fromId == null) return;
+      await _handleIceCandidate(fromId, data);
+    } else if (type == 'toggle_audio') {
+      final userId = _asInt(data['user_id']);
+      final participant = state.participants[userId];
+      if (userId != null && participant != null) {
+        state = state.copyWith(
+          participants: {
+            ...state.participants,
+            userId: participant.copyWith(isMuted: data['is_muted'] == true),
+          },
+        );
+      }
+    } else if (type == 'toggle_video') {
+      final userId = _asInt(data['user_id']);
+      final participant = state.participants[userId];
+      if (userId != null && participant != null) {
+        state = state.copyWith(
+          participants: {
+            ...state.participants,
+            userId: participant.copyWith(
+              isVideoEnabled: data['is_video_enabled'] == true,
+            ),
+          },
+        );
+      }
+    }
+  }
+
+  Future<void> _onUserJoined(int userId, String username) async {
+    final existing = state.peers[userId];
+    if (existing != null) {
+      if (existing.connectionState ==
+          RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        return; // only their signaling socket reconnected; media is fine
+      }
+      await _removePeerConnection(userId);
+    }
+    await _createPeerConnection(userId, username, initiator: true);
+  }
+
+  Future<RTCPeerConnection> _createPeerConnection(
+    int targetUserId,
+    String username, {
+    required bool initiator,
+  }) async {
+    final pc = await createPeerConnection(_iceConfig);
+    final flags = PeerFlags(
+      polite: (_myUserId ?? 0) < targetUserId,
+      initiator: initiator,
+    );
+    final previous = state.participants[targetUserId];
 
     state = state.copyWith(
       peers: {...state.peers, targetUserId: pc},
       peerFlags: {...state.peerFlags, targetUserId: flags},
       participants: {
         ...state.participants,
-        targetUserId: CallParticipant(
-          id: targetUserId,
-          username: username,
-          state: 'connecting',
-        ),
+        targetUserId: previous?.copyWith(state: 'connecting') ??
+            CallParticipant(
+              id: targetUserId,
+              username: username,
+              state: 'connecting',
+            ),
       },
     );
 
-    stream.getTracks().forEach((track) {
-      pc.addTrack(track, stream);
-    });
-
     pc.onIceCandidate = (candidate) {
+      if (candidate.candidate == null) return;
       _wsService.sendMessage({
         'type': 'ice_candidate',
         'data': {
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
-          'sdpMLineIndex': candidate.sdpMLineIndex,
+          'target_user_id': targetUserId,
+          'candidate': {
+            'candidate': candidate.candidate,
+            'sdpMid': candidate.sdpMid,
+            'sdpMLineIndex': candidate.sdpMLineIndex,
+          },
         },
-        'to_user_id': targetUserId,
       });
     };
 
     pc.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
+      if (event.streams.isNotEmpty && state.peers[targetUserId] == pc) {
         state = state.copyWith(
           remoteStreams: {
             ...state.remoteStreams,
@@ -249,35 +335,82 @@ class CallNotifier extends StateNotifier<CallState> {
       }
     };
 
-    pc.onConnectionState = (state) {
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+    pc.onConnectionState = (connectionState) {
+      if (state.peers[targetUserId] != pc) return; // stale connection
+      if (connectionState ==
+          RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        _iceRestartTimers.remove(targetUserId)?.cancel();
         _updateParticipantState(targetUserId, 'connected');
-      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-          state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+      } else if (connectionState ==
+          RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         _updateParticipantState(targetUserId, 'disconnected');
+        _iceRestartTimers.remove(targetUserId)?.cancel();
+        if (flags.initiator) _makeOffer(targetUserId, iceRestart: true);
+      } else if (connectionState ==
+          RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+        // Often recovers by itself (network blip); restart ICE if it does not.
+        _updateParticipantState(targetUserId, 'reconnecting');
+        _iceRestartTimers.remove(targetUserId)?.cancel();
+        _iceRestartTimers[targetUserId] = Timer(_iceRestartDelay, () {
+          _iceRestartTimers.remove(targetUserId);
+          if (state.peers[targetUserId] != pc) return;
+          if (pc.connectionState !=
+                  RTCPeerConnectionState.RTCPeerConnectionStateConnected &&
+              flags.initiator) {
+            _makeOffer(targetUserId, iceRestart: true);
+          }
+        });
       }
     };
 
-    pc.onRenegotiationNeeded = () async {
-      try {
-        flags.makingOffer = true;
-        final offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        final localDescription = await pc.getLocalDescription();
-        _wsService.sendMessage({
-          'type': 'offer',
-          'data': {
-            'sdp': localDescription?.sdp,
-            'type': localDescription?.type,
-          },
-          'to_user_id': targetUserId,
-        });
-      } catch (err) {
-        print('Negotiation error: $err');
-      } finally {
-        flags.makingOffer = false;
-      }
+    pc.onRenegotiationNeeded = () {
+      if (flags.initiator) _makeOffer(targetUserId);
     };
+
+    if (initiator) {
+      _addLocalTracks(pc, flags);
+    }
+    return pc;
+  }
+
+  void _addLocalTracks(RTCPeerConnection pc, PeerFlags flags) {
+    final stream = state.localStream;
+    if (stream == null || flags.tracksAdded) return;
+    flags.tracksAdded = true;
+    for (final track in stream.getTracks()) {
+      pc.addTrack(track, stream);
+    }
+  }
+
+  Future<void> _makeOffer(int targetUserId, {bool iceRestart = false}) async {
+    final pc = state.peers[targetUserId];
+    final flags = state.peerFlags[targetUserId];
+    if (pc == null || flags == null) return;
+    try {
+      flags.makingOffer = true;
+      final offer = await pc.createOffer(
+        iceRestart
+            ? {
+                // Browser (RTCOfferOptions) and native (libwebrtc constraint) forms.
+                'iceRestart': true,
+                'mandatory': {'IceRestart': 'true'},
+              }
+            : <String, dynamic>{},
+      );
+      await pc.setLocalDescription(offer);
+      _wsService.sendMessage({
+        'type': 'offer',
+        'data': {
+          'target_user_id': targetUserId,
+          'sdp': {'type': offer.type, 'sdp': offer.sdp},
+          'pc_id': flags.localPcId,
+        },
+      });
+    } catch (err) {
+      debugPrint('Negotiation error with $targetUserId: $err');
+    } finally {
+      flags.makingOffer = false;
+    }
   }
 
   void _updateParticipantState(int userId, String newState) {
@@ -293,10 +426,10 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   Future<void> _removePeerConnection(int userId) async {
+    _iceRestartTimers.remove(userId)?.cancel();
+    _pendingCandidates.remove(userId);
     final pc = state.peers[userId];
-    if (pc != null) {
-      await pc.close();
-    }
+
     final streams = Map<int, MediaStream>.from(state.remoteStreams);
     streams.remove(userId);
     final peers = Map<int, RTCPeerConnection>.from(state.peers);
@@ -312,48 +445,208 @@ class CallNotifier extends StateNotifier<CallState> {
       peerFlags: flags,
       participants: participants,
     );
-  }
 
-  Future<void> _handleSdp(int targetUserId, dynamic data, String type) async {
-    final pc = state.peers[targetUserId];
-    final flags = state.peerFlags[targetUserId];
-    if (pc == null || flags == null) return;
-
-    final description = RTCSessionDescription(data['sdp'], data['type']);
-    final offerCollision =
-        (type == 'offer') &&
-        (flags.makingOffer ||
-            pc.signalingState != RTCSignalingState.RTCSignalingStateStable);
-
-    flags.ignoreOffer = !flags.polite && offerCollision;
-    if (flags.ignoreOffer) return;
-
-    await pc.setRemoteDescription(description);
-    if (type == 'offer') {
-      final answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      final localDescription = await pc.getLocalDescription();
-      _wsService.sendMessage({
-        'type': 'answer',
-        'data': {'sdp': localDescription?.sdp, 'type': localDescription?.type},
-        'to_user_id': targetUserId,
-      });
+    if (pc != null) {
+      try {
+        await pc.close();
+      } catch (e) {
+        debugPrint('Error closing peer connection: $e');
+      }
     }
   }
 
-  Future<void> _handleIceCandidate(int targetUserId, dynamic data) async {
-    final pc = state.peers[targetUserId];
-    if (pc == null) return;
-    await pc.addCandidate(
-      RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']),
+  Future<void> _handleSdp(
+    int fromUserId,
+    Map<String, dynamic> data,
+    String type,
+    String username,
+  ) async {
+    final description = _parseDescription(data, type);
+    if (description == null) return;
+
+    if (type == 'answer') {
+      final pc = state.peers[fromUserId];
+      final flags = state.peerFlags[fromUserId];
+      if (pc == null || flags == null) return;
+      if (pc.signalingState !=
+          RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        return; // late/duplicate answer
+      }
+      await pc.setRemoteDescription(description);
+      flags.remoteDescriptionSet = true;
+      await _flushPendingCandidates(fromUserId, pc);
+      return;
+    }
+
+    // Offer. Same remote pc_id -> renegotiation / ICE restart on the existing
+    // connection; a new pc_id -> the remote re-created its connection.
+    final remotePcId = data['pc_id']?.toString();
+    var pc = state.peers[fromUserId];
+    final existingFlags = state.peerFlags[fromUserId];
+    final knownRemotePcId = existingFlags?.remotePcId;
+    final remoteRecreated = remotePcId != null &&
+        knownRemotePcId != null &&
+        remotePcId != knownRemotePcId;
+    // We initiated a connection that never came up, and the other side has
+    // started its own: let theirs win instead of fighting over offers.
+    final roleConflict = existingFlags != null &&
+        existingFlags.initiator &&
+        pc?.connectionState !=
+            RTCPeerConnectionState.RTCPeerConnectionStateConnected;
+    if (pc != null && (remoteRecreated || roleConflict)) {
+      await _removePeerConnection(fromUserId);
+      pc = null;
+    }
+    final isNewPeer = pc == null;
+    pc ??= await _createPeerConnection(fromUserId, username, initiator: false);
+
+    try {
+      await _applyOffer(fromUserId, pc, description, remotePcId);
+    } catch (e) {
+      if (isNewPeer) rethrow;
+      // The remote side re-created its connection (new DTLS fingerprint):
+      // start over with a fresh one.
+      debugPrint('Offer did not apply to existing connection, recreating: $e');
+      await _removePeerConnection(fromUserId);
+      final fresh = await _createPeerConnection(
+        fromUserId,
+        username,
+        initiator: false,
+      );
+      await _applyOffer(fromUserId, fresh, description, remotePcId);
+    }
+  }
+
+  Future<void> _applyOffer(
+    int fromUserId,
+    RTCPeerConnection pc,
+    RTCSessionDescription description,
+    String? remotePcId,
+  ) async {
+    final flags = state.peerFlags[fromUserId];
+    if (flags == null) return;
+
+    final offerCollision =
+        flags.makingOffer ||
+        pc.signalingState != RTCSignalingState.RTCSignalingStateStable;
+    flags.ignoreOffer = !flags.polite && offerCollision;
+    if (flags.ignoreOffer) return;
+
+    if (offerCollision) {
+      try {
+        await pc.setLocalDescription(RTCSessionDescription('', 'rollback'));
+      } catch (e) {
+        debugPrint('Rollback failed: $e');
+      }
+    }
+
+    await pc.setRemoteDescription(description);
+    flags.remoteDescriptionSet = true;
+    flags.remotePcId = remotePcId ?? flags.remotePcId;
+    // Answerer adds tracks after the offer so they reuse the offered
+    // transceivers and no extra negotiation is triggered.
+    _addLocalTracks(pc, flags);
+    await _flushPendingCandidates(fromUserId, pc);
+
+    final answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    _wsService.sendMessage({
+      'type': 'answer',
+      'data': {
+        'target_user_id': fromUserId,
+        'sdp': {'type': answer.type, 'sdp': answer.sdp},
+      },
+    });
+  }
+
+  Future<void> _handleIceCandidate(
+    int fromUserId,
+    Map<String, dynamic> data,
+  ) async {
+    final candidate = _parseCandidate(data);
+    if (candidate == null) return;
+    final pc = state.peers[fromUserId];
+    final flags = state.peerFlags[fromUserId];
+    if (pc == null || flags == null || !flags.remoteDescriptionSet) {
+      // AICODE-NOTE: Candidates that arrive before the remote description
+      // cannot be added yet; they are applied in _flushPendingCandidates.
+      final queue = _pendingCandidates.putIfAbsent(fromUserId, () => []);
+      if (queue.length < _maxPendingCandidates) queue.add(candidate);
+      return;
+    }
+    try {
+      await pc.addCandidate(candidate);
+    } catch (e) {
+      debugPrint('addCandidate failed: $e');
+    }
+  }
+
+  Future<void> _flushPendingCandidates(
+    int userId,
+    RTCPeerConnection pc,
+  ) async {
+    final queue = _pendingCandidates.remove(userId);
+    if (queue == null) return;
+    for (final candidate in queue) {
+      try {
+        await pc.addCandidate(candidate);
+      } catch (e) {
+        debugPrint('addCandidate (queued) failed: $e');
+      }
+    }
+  }
+
+  /// Accepts both {sdp: {type, sdp}} (web/current) and {sdp: str, type: str}.
+  RTCSessionDescription? _parseDescription(
+    Map<String, dynamic> data,
+    String fallbackType,
+  ) {
+    final raw = data['sdp'];
+    if (raw is Map) {
+      final sdp = raw['sdp'];
+      if (sdp is! String) return null;
+      return RTCSessionDescription(sdp, (raw['type'] ?? fallbackType) as String);
+    }
+    if (raw is String) {
+      return RTCSessionDescription(raw, (data['type'] ?? fallbackType) as String);
+    }
+    return null;
+  }
+
+  /// Accepts both {candidate: {candidate, sdpMid, sdpMLineIndex}} and flat fields.
+  RTCIceCandidate? _parseCandidate(Map<String, dynamic> data) {
+    final raw = data['candidate'];
+    final Map source = raw is Map ? raw : data;
+    final candidate = source['candidate'];
+    if (candidate is! String || candidate.isEmpty) return null;
+    return RTCIceCandidate(
+      candidate,
+      source['sdpMid'] as String?,
+      _asInt(source['sdpMLineIndex']),
     );
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   void leaveCall() {
     _wsService.sendMessage({'type': 'leave_call'});
-    state.peers.values.forEach((pc) => pc.close());
-    state.localStream?.dispose();
+    _signalingSubscription?.cancel();
+    _signalingSubscription = null;
     _wsService.disconnect();
+    for (final timer in _iceRestartTimers.values) {
+      timer.cancel();
+    }
+    _iceRestartTimers.clear();
+    _pendingCandidates.clear();
+    for (final pc in state.peers.values) {
+      pc.close();
+    }
+    state.localStream?.dispose();
     state = CallState();
   }
 
@@ -413,7 +706,7 @@ class CallNotifier extends StateNotifier<CallState> {
       final newVideoTracks = newStream.getVideoTracks();
 
       for (final pc in state.peers.values) {
-        final senders = pc.getSenders();
+        final senders = await pc.getSenders();
         for (final sender in senders) {
           if (sender.track != null) {
             if (sender.track!.kind == 'audio' && newAudioTracks.isNotEmpty) {

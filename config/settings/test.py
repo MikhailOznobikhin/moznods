@@ -21,3 +21,11 @@ CELERY_TASK_ALWAYS_EAGER = True
 
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
+
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
+TURN_SECRET = ""
+TURN_USERNAME = ""
+TURN_PASSWORD = ""
+TURN_URLS = []
+STUN_URLS = ["stun:stun.example.org:3478"]
