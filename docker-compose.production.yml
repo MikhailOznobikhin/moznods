@@ -1,5 +1,12 @@
 version: '3.8'
 
+# Sized for a small VPS (1-2 vCPU, 2-4 GB RAM). See docs/infrastructure.md.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   web:
     # Built and published by .github/workflows/docker-image.yml; the server only pulls it.
@@ -10,8 +17,11 @@ services:
       dockerfile: Dockerfile
     container_name: moznods_web
     restart: unless-stopped
+    # Loopback only: Docker bypasses ufw, and nginx reaches web over the compose network.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    mem_limit: 512m
+    logging: *default-logging
     env_file:
       - .env
     environment:
@@ -38,6 +48,21 @@ services:
     image: postgres:16-alpine
     container_name: moznods_postgres
     restart: unless-stopped
+    # Tuned for ~2 GB host RAM; raise shared_buffers/effective_cache_size on bigger hosts.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=50
+    mem_limit: 512m
+    logging: *default-logging
     environment:
       - POSTGRES_DB=${PGDATABASE:-moznods}
       - POSTGRES_USER=${PGUSER:-moznods}
@@ -56,7 +81,10 @@ services:
     image: redis:7-alpine
     container_name: moznods_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    # Channel layer, cache and call state all set TTLs, so volatile-lru can evict safely.
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy volatile-lru
+    mem_limit: 192m
+    logging: *default-logging
     volumes:
       - redis_data:/data
     networks:
@@ -74,6 +102,8 @@ services:
     restart: unless-stopped
     # Host networking: WebRTC needs the real public IP/ports; no docker-proxy for UDP.
     network_mode: host
+    mem_limit: 512m
+    logging: *default-logging
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
@@ -104,6 +134,8 @@ services:
     image: nginx:alpine
     container_name: moznods_nginx
     restart: unless-stopped
+    mem_limit: 128m
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
