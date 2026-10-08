@@ -27,9 +27,12 @@ Content-Type: application/json
     "username": "newuser",
     "email": "user@example.com",
     "password": "password123",
-    "display_name": "Optional Display Name"
+    "password_confirm": "password123",
+    "invite_code": "only-if-REGISTRATION_INVITE_CODE-is-set"
 }
 ```
+
+Response `201`: `{"token": "...", "user": {...}}` — the user is logged in right away.
 
 ### Obtaining Token (login)
 
@@ -59,250 +62,118 @@ Response:
 
 ## REST API Endpoints
 
+Service errors are returned by DRF as `400` (`{"field": ["message"]}`) or `403/404` (`{"detail": "..."}`).
+
 ### Authentication
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register/` | Register new user |
+| POST | `/api/auth/register/` | Register (`username`, `email`, `password`, `password_confirm`, `invite_code` if `REGISTRATION_INVITE_CODE` is set). Returns `{token, user}` |
 | POST | `/api/auth/login/` | Login and get token |
 | POST | `/api/auth/logout/` | Logout (invalidate token) |
 | GET | `/api/auth/me/` | Get current user info |
 | PATCH | `/api/auth/profile/` | Update current profile (display_name, avatar) |
+| POST | `/api/auth/password/` | Change password (`old_password`, `new_password`); returns a new `{token}` |
+| GET | `/api/auth/search/?q=` | Search users |
+| GET/POST/DELETE | `/api/auth/push/` | Web push subscriptions (`endpoint`, `p256dh`, `auth`) |
+| GET | `/api/auth/push/vapid-key/` | `{public_key}`; empty when push is not configured |
 
-User payload includes `avatar_url` (may be empty string if no avatar).
+User payload includes `avatar_url` (may be empty). `email` is only filled for the user themself.
 
 ### Rooms
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/rooms/` | List user's rooms |
-| POST | `/api/rooms/` | Create new room |
-| POST | `/api/rooms/direct/` | Create or get a direct room (DM) with another user |
-| GET | `/api/rooms/{id}/` | Get room details |
-| PATCH | `/api/rooms/{id}/` | Update room |
-| DELETE | `/api/rooms/{id}/` | Delete room |
-| POST | `/api/rooms/{id}/join/` | Join a public room (403 for private/direct rooms or banned users; use invite links for private rooms) |
-| POST | `/api/rooms/{id}/leave/` | Leave room |
-| GET | `/api/rooms/{id}/participants/` | List room participants |
-| GET | `/api/rooms/{id}/call-state/` | Get current call presence (idle/active, participants in call) |
-| POST | `/api/rooms/{id}/add-participant/` | Add participant by id/username/email (owner only) |
-| POST | `/api/rooms/{id}/remove-participant/` | Remove participant by id/username/email (owner only) |
+| GET | `/api/rooms/` | User's rooms, most recent activity first (paginated, `page_size` ≤ 100) |
+| POST | `/api/rooms/` | Create room |
+| POST | `/api/rooms/direct/` | Create or get a direct room (DM) with `user_id` |
+| GET | `/api/rooms/public/?search=&is_channel=` | Public rooms for discovery |
+| GET | `/api/rooms/u/{username}/` · POST `.../join/` | Public room by username / join it |
+| GET | `/api/rooms/{id}/` | Room details |
+| PATCH | `/api/rooms/{id}/` | Rename (owner) |
+| DELETE | `/api/rooms/{id}/` | Delete (owner) |
+| POST | `/api/rooms/{id}/join/` | Join a public room (403 for private/direct rooms or banned users) |
+| POST | `/api/rooms/{id}/leave/` | Leave (the owner must delete instead) |
+| POST/DELETE | `/api/rooms/{id}/pin/` | Pin / unpin for the current user |
+| GET | `/api/rooms/{id}/participants/` | Participants |
+| POST | `/api/rooms/{id}/add-participant/` · `/remove-participant/` | By `id`/`username`/`email` (owner) |
+| POST | `/api/rooms/{id}/update-role/` | `{user_id, role: admin|member}` (owner) |
+| GET | `/api/rooms/{id}/bans/` · POST/DELETE `/ban/` | Bans (admins; only the owner can ban admins) |
+| POST | `/api/rooms/{id}/invite/` | Create invite link token (`expires_in_hours`) |
+| POST | `/api/rooms/join/{token}/` | Join via invite link |
+| GET | `/api/rooms/{id}/call-state/` | Who is in the room's call |
+
+Room payload (selected fields): `title` (the other person for DMs), `peer` (DM partner), `last_message`
+`{id, author_id, author_name, content, has_attachments, is_deleted, created_at}`, `unread_count`,
+`is_pinned`, `can_manage` (viewer is owner/admin), `active_call_participants`.
 
 ### Messages
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/rooms/{room_id}/messages/` | List messages in room |
-| POST | `/api/rooms/{room_id}/messages/` | Send message |
+| GET | `/api/rooms/{room_id}/messages/?before={id}&page_size=` | Newest first; `before` loads older pages |
+| POST | `/api/rooms/{room_id}/messages/` | Send `{content, attachment_ids, reply_to}` |
+| PATCH | `/api/rooms/{room_id}/messages/{id}/` | Edit own message `{content}` |
+| DELETE | `/api/rooms/{room_id}/messages/{id}/` | Delete (author or room admin; soft delete) |
+| POST | `/api/rooms/{room_id}/messages/{id}/reactions/` | Toggle own reaction `{emoji}` |
+| POST | `/api/rooms/{room_id}/messages/{id}/read/` | Mark read up to this message |
+
+Message payload: `id, room, author, content, attachments, created_at, edited_at, is_deleted, read_by_ids,
+reply_to {id, author, content, is_deleted}, reactions [{emoji, count, user_ids}]`.
 
 ### Files
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/files/upload/` | Upload file |
-| GET | `/api/files/{id}/` | Get file info (uploader or room participant with attachment) |
-| GET | `/api/files/{id}/download/` | Download file |
-
----
+| GET | `/api/files/{id}/` | File info (uploader or room participant with attachment) |
 
 ### Calls
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/calls/ice-servers/` | STUN/TURN servers with short-lived TURN credentials (see [webrtc.md](webrtc.md)) |
+| POST | `/api/calls/token/` | `{room_id}` → `{url, token, room}` LiveKit access token (room members; not in channels) |
+| POST | `/api/calls/livekit-webhook/` | LiveKit webhook (signed); updates call presence |
+
+See [webrtc.md](webrtc.md).
+
+---
 
 ## WebSocket API
 
-### Connection
+All sockets authenticate with `?token={auth_token}` and exchange `{"type": ..., "data": ...}`.
+Every socket answers `{"type": "ping"}` with `{"type": "pong"}` (client heartbeat).
+Room sockets are closed with code `4403` when the user is removed/banned or the room is deleted.
 
-Two WebSocket endpoints (ASGI):
+### Chat: `ws://host/ws/chat/{room_id}/`
 
-| Purpose | URL | Auth |
-|---------|-----|------|
-| Chat (messages) | `ws://host/ws/chat/{room_id}/?token={auth_token}` | Token in query; room participant |
-| Calls (WebRTC signaling) | `ws://host/ws/call/{room_id}/?token={auth_token}` | Token in query; room participant |
+Client → server:
 
-Example:
+| Type | Data | Description |
+|------|------|-------------|
+| `chat_message` | `{content, attachment_ids?, reply_to?}` | Send (clients may also use REST) |
+| `typing` | `{is_typing}` | Typing indicator (throttled server-side) |
+| `mark_read` | `{message_id?}` | Mark read up to a message (all if omitted) |
 
-```javascript
-const chatWs = new WebSocket('ws://localhost:8000/ws/chat/1/?token=abc123');
-const callWs = new WebSocket('ws://localhost:8000/ws/call/1/?token=abc123');
-```
+Server → client:
 
-### Message Format
+| Type | Data | Description |
+|------|------|-------------|
+| `message_created` | Message | New message |
+| `message_updated` | Message | Edited, deleted (`is_deleted`) or reactions changed |
+| `messages_read` | `{user_id, message_ids}` | Read receipts |
+| `typing` | `{user_id, display_name, is_typing}` | Someone else is typing |
+| `error` | `{detail}` (top level) | Rejected socket send |
 
-All WebSocket messages follow this format:
+### Notifications: `ws://host/ws/notifications/`
 
-```json
-{
-    "type": "message_type",
-    "data": { ... }
-}
-```
-
-### Chat Messages
-
-#### Send Message
-
-```json
-{
-    "type": "chat_message",
-    "data": {
-        "content": "Hello, world!",
-        "attachment_ids": [1, 2]  // File IDs
-    }
-}
-```
-
-#### Receive Message
-
-```json
-{
-    "type": "chat_message",
-    "data": {
-        "id": 123,
-        "author": {
-            "id": 1,
-            "username": "user",
-            "display_name": "User",
-            "avatar_url": "http://localhost:8000/media/avatars/...jpg"
-        },
-        "content": "Hello, world!",
-        "attachments": [...],
-        "created_at": "2024-01-01T12:00:00Z"
-    }
-}
-```
-
-### Signaling Consumer (Calls)
-
-WebSocket: `ws://host/ws/call/{room_id}/?token={auth_token}`
-
-#### Message Types (Receive)
-
-| Type | Data Payload | Description |
-|------|--------------|-------------|
-| `join_call` | `{}` | Join active call |
-| `leave_call` | `{}` | Leave active call |
-| `request_mic` | `{"target_user_id": int}` | Admin requests user to unmute (#15) |
-| `ping` | `{}` | Heartbeat; server answers `pong` (also supported by the chat socket) |
-| `offer` | `{"target_user_id": int, "sdp": {"type": str, "sdp": str}, "pc_id": str}` | WebRTC offer |
-| `answer` | `{"target_user_id": int, "sdp": {"type": str, "sdp": str}}` | WebRTC answer |
-| `ice_candidate`| `{"target_user_id": int, "candidate": {"candidate": str, "sdpMid": str, "sdpMLineIndex": int}}` | ICE candidate |
-| `toggle_audio` | `{"is_muted": bool}` | Broadcast own mute state to others |
-| `toggle_video` | `{"is_video_enabled": bool}` | Broadcast own camera state to others |
-
-`target_user_id` may also be sent as top-level `to_user_id` (old Flutter builds).
-
-#### Message Types (Send to Client)
-
-| Type | Data Payload | Description |
-|------|--------------|-------------|
-| `call_state` | `{"participants": list, "room_state": str}` | Current call members |
-| `user_joined` | `{"user": {"id": int, "username": str}}` | User entered the call |
-| `user_left` | `{"user_id": int}` | User left the call |
-| `request_mic` | `{"from_user_id": int, "from_username": str}` | Unmute request from admin |
-| `offer` / `answer` / `ice_candidate` | `{...payload, "from_user_id": int, "from_username": str}` | Forwarded WebRTC payload; `from_user_id` is set by the server (also duplicated at top level) |
-| `toggle_audio` / `toggle_video` | `{"user_id": int, "is_muted" \| "is_video_enabled": bool}` | Another member changed media state |
-
-The socket is closed with code `4403` when the user is removed/banned from the room or the room is deleted.
-
-### Chat Consumer (Messages & Presence)
-
-WebSocket: `ws://host/ws/chat/{room_id}/?token={auth_token}`
-
-#### Message Types (Send to Client)
-
-| Type | Data Payload | Description |
-|------|--------------|-------------|
-| `chat_message` | `Message object` | New message in room |
-| `room_presence_update` | `{"room_id": int, "active_participants": list[str]}` | Update for sidebar (#UI_Presence) |
-
-### Notification Consumer
-
-WebSocket: `ws://host/ws/notifications/?token={auth_token}`
-
-#### Message Types (Send to Client)
-
-| Type | Data Payload | Description |
-|------|--------------|-------------|
-| `room_added` | `{"room": Room object}` | Notifies user they were added to a room (#2) |
-
-#### Send Answer
-
-```json
-{
-    "type": "answer",
-    "data": {
-        "target_user_id": 1,
-        "sdp": "v=0\r\no=- ..."
-    }
-}
-```
-
-#### Send ICE Candidate
-
-```json
-{
-    "type": "ice_candidate",
-    "data": {
-        "target_user_id": 2,
-        "candidate": {
-            "candidate": "candidate:...",
-            "sdpMid": "0",
-            "sdpMLineIndex": 0
-        }
-    }
-}
-```
-
-### Event Notifications
-
-#### User Joined
-
-```json
-{
-    "type": "user_joined",
-    "data": {
-        "user": {
-            "id": 2,
-            "username": "newuser"
-        }
-    }
-}
-```
-
-#### User Left
-
-```json
-{
-    "type": "user_left",
-    "data": {
-        "user_id": 2
-    }
-}
-```
-
-#### Call State (presence)
-
-Sent when someone joins or leaves the call, so the UI can show who is in the call. Also available via REST `GET /api/rooms/{id}/call-state/`.
-
-```json
-{
-    "type": "call_state",
-    "data": {
-        "participants": [
-            {"user_id": 1, "username": "alice", "state": "active"},
-            {"user_id": 2, "username": "bob", "state": "connecting"}
-        ],
-        "room_state": "active"
-    }
-}
-```
-
-`room_state` is `"idle"` when no one is in the call, `"active"` otherwise. Participant `state` may be `idle`, `connecting`, `active`, or `ended`.
-
----
+| Type | Data (top level) | Description |
+|------|------------------|-------------|
+| `room_added` | `{room}` | Added to a room / new DM |
+| `room_removed` | `{room_id}` | Removed, banned, or room deleted |
+| `room_activity` | `{room_id, message_id, author_id, author_name, preview, created_at}` | New message in any of the user's rooms |
+| `room_read` | `{room_id}` | The user read a room on another device |
+| `room_presence_update` | `{room_id, active_participants}` | Who is in the room's call |
 
 ## Error Responses
 
@@ -368,13 +239,7 @@ Summary of access rules:
 ### WebSocket Errors
 
 ```json
-{
-    "type": "error",
-    "data": {
-        "code": "error_code",
-        "message": "Human-readable message"
-    }
-}
+{"type": "error", "detail": {"content": ["Message is empty."]}}
 ```
 
 ---

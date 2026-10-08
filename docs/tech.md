@@ -12,13 +12,12 @@ This document describes the technologies, dependencies, and version requirements
 | Django Channels | 4.3+ | WebSocket support |
 | PostgreSQL | 18.2 | Primary database |
 | Redis | 7+ | Cache, Channels layer, Celery broker |
-| Celery | 5.4+ | Background tasks |
 
 ## Frontend Technologies
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| WebRTC API | Native | P2P voice/video |
+| LiveKit (livekit_client) | 2.13 | Voice/video calls (SFU) |
 | Web Audio API | Native | Audio processing (GainNode, AnalyserNode) |
 | JavaScript/TypeScript | ES2022+ | Client-side logic |
 | Tailwind CSS | 3.4+ | Styling and Mobile-first layout |
@@ -27,7 +26,7 @@ This document describes the technologies, dependencies, and version requirements
 
 | Technology | Purpose |
 |------------|---------|
-| coturn | TURN/STUN server for NAT traversal |
+| LiveKit server | Calls: SFU, signaling, TURN |
 | MinIO / S3 | File storage |
 | Docker | Containerization |
 | nginx | Reverse proxy (production) |
@@ -129,10 +128,10 @@ AWS_SECRET_ACCESS_KEY=minioadmin
 AWS_STORAGE_BUCKET_NAME=moznods
 AWS_S3_ENDPOINT_URL=http://localhost:9000
 
-# WebRTC
-TURN_SERVER_URL=turn:localhost:3478
-TURN_SERVER_USERNAME=turnuser
-TURN_SERVER_PASSWORD=turnpassword
+# Calls (LiveKit; `docker compose up livekit` for a dev server)
+LIVEKIT_URL=ws://localhost:7880
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=secret
 ```
 
 ## Docker Configuration

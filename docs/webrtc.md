@@ -1,370 +1,76 @@
-# WebRTC Implementation Guide
+# Calls (LiveKit SFU)
 
-This document describes the WebRTC implementation for voice calls in MOznoDS.
+Voice/video calls run on a self-hosted [LiveKit](https://livekit.io) server (SFU). Django only
+decides **who may join** and mirrors **who is in a call** for the UI. Media, signaling, ICE/TURN,
+reconnects and bandwidth adaptation are handled by LiveKit and its Flutter SDK.
 
-## Architecture Overview
+## Why an SFU (not P2P mesh)
 
-MOznoDS uses **WebRTC with P2P mesh topology** for voice calls:
+The first version used a hand-written P2P mesh: every participant sent its stream to every other
+participant over a separate peer connection, with custom signaling over Django Channels and a
+separate coturn. It broke in several ways: offer/ICE races, no TURN for mobile networks, dropped
+sockets tearing down calls, and upload bandwidth growing with each participant.
 
-```
-        ┌─────────┐
-        │ User A  │
-        └────┬────┘
-             │
-    ┌────────┼────────┐
-    │        │        │
-    ▼        ▼        ▼
-┌───────┐ ┌───────┐ ┌───────┐
-│User B │◄┼►User C│◄┼►User D│
-└───────┘ └───────┘ └───────┘
-```
-
-Each participant connects directly to every other participant. This works well for small groups (up to 4-5 participants) but doesn't scale for larger calls.
-
-## Signaling Flow
-
-WebRTC requires a signaling mechanism to exchange connection metadata. MOznoDS uses Django Channels WebSocket for signaling.
-
-### Connection Establishment
+With LiveKit each participant uploads once; the server forwards streams, picks simulcast layers per
+viewer (adaptive stream), pauses unused layers (dynacast), relays through its embedded TURN when
+UDP is blocked, and the SDK reconnects automatically.
 
 ```
-User A                     Server                     User B
-   │                          │                          │
-   │── join_call ────────────►│                          │
-   │                          │◄──────────── join_call ──│
-   │                          │                          │
-   │◄─ user_joined (B) ───────│                          │
-   │                          │──── user_joined (A) ────►│
-   │                          │                          │
-   │── offer (to B) ─────────►│                          │
-   │                          │──── offer (from A) ─────►│
-   │                          │                          │
-   │                          │◄───── answer (to A) ─────│
-   │◄─ answer (from B) ───────│                          │
-   │                          │                          │
-   │── ice_candidate ────────►│                          │
-   │                          │──── ice_candidate ──────►│
-   │                          │                          │
-   │◄───────────────── ice_candidate ───────────────────►│
-   │                          │                          │
-   │◄═══════════════ P2P Media Stream ═════════════════►│
+Flutter app ──HTTPS──> Django  POST /api/calls/token/  (room member? -> JWT)
+     │
+     └──WSS /rtc──> nginx ──> LiveKit (host network) <── media UDP 7882-7883 / TCP 7881 / TURN 3478, 5349
+                                   │
+                                   └──webhook──> Django /api/calls/livekit-webhook/
+                                                   -> call_state -> room_presence_update (sidebar)
 ```
 
-### Message Types
+## Server side (`apps/calls/`)
 
-| Type | Direction | Description |
-|------|-----------|-------------|
-| `join_call` | Client → Server | User wants to join call |
-| `leave_call` | Client → Server | User leaves call |
-| `user_joined` | Server → Client | Notification: new participant |
-| `user_left` | Server → Client | Notification: participant left |
-| `offer` | Client → Server → Client | SDP offer for connection |
-| `answer` | Client → Server → Client | SDP answer for connection |
-| `ice_candidate` | Client → Server → Client | ICE candidate for NAT traversal |
+- `services.LiveKitService.create_join_token(room, user)` — HS256 JWT signed with
+  `LIVEKIT_API_SECRET`: `sub` = user id, `name` = display name, grant
+  `{room: "room-<id>", roomJoin, canPublish, canSubscribe, canPublishData}`. Only room members;
+  channels have no calls.
+- `LiveKitService.verify_webhook` — checks the JWT in `Authorization` and that its `sha256` claim
+  matches the body. `handle_webhook` maps `participant_joined` / `participant_left` /
+  `room_finished` into `call_state` and calls `broadcast_presence(room_id)`.
+- The participant `sid` is stored per user, so a late `participant_left` for an old connection does
+  not remove a user who already rejoined.
+- `LiveKitService.remove_from_call` — when a user is kicked/banned (`RoomService.remove_participant`)
+  they are removed from the running call through LiveKit's `RoomService/RemoveParticipant` API.
 
-## Client Implementation
+## Client side (Flutter)
 
-### Audio Processing Pipeline
+- `store/call_provider.dart` — fetches the token, `Room.connect`, publishes the microphone (and the
+  camera for video calls). States: `connecting → connected ⇄ reconnecting → idle`. End reasons
+  (removed, joined elsewhere, failed) are shown once.
+- `ui/screens/call_screen.dart` (`/call`) — adaptive grid; a screen share takes the stage with
+  others in a strip. Controls: mic, camera, flip (phones), speaker (phones), screen share (web and
+  desktop), devices (web and desktop), leave.
+- `ui/widgets/call_overlay.dart` — draggable mini window over the chat while a call runs.
+- Browsers may block audio until a tap: the call screen shows "Tap to enable sound".
 
-MOznoDS uses the **Web Audio API** to process incoming streams:
+## Configuration
 
-1.  **MediaStreamSource**: Ingests audio from the `RTCPeerConnection`.
-2.  **GainNode**: Controls the local volume of the participant (0.0 to 2.0).
-3.  **AnalyserNode**: Performs real-time frequency analysis for "is speaking" detection (threshold > 15).
-4.  **Destination**: Outputs the processed audio to the user's speakers/headphones.
+| Variable | Where | Meaning |
+|----------|-------|---------|
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `.env` | Shared by Django and LiveKit (secret ≥ 32 chars) |
+| `DOMAIN` | `.env` | Used for `LIVEKIT_URL=wss://$DOMAIN`, the webhook URL and the TURN TLS cert |
+| `LIVEKIT_URL` | compose → web | Public URL given to apps (nginx proxies `/rtc` to LiveKit) |
+| `LIVEKIT_API_URL` | compose → web | Server API reachable from Django (`http://host.docker.internal:7880`) |
 
-Note: Local video elements are kept `muted`, and audio is played exclusively through the `AudioContext` for precise control.
+LiveKit itself is configured inline in `docker-compose.production.yml` (`LIVEKIT_CONFIG`).
 
-### Basic WebRTC Setup
+**Firewall:** open `7881/tcp`, `7882-7883/udp`, `3478/udp`, `5349/tcp` (plus 80/443 for nginx).
 
-```javascript
-class CallManager {
-    constructor(roomId, userId) {
-        this.roomId = roomId;
-        this.userId = userId;
-        this.peerConnections = new Map(); // userId -> RTCPeerConnection
-        this.localStream = null;
-        this.ws = null;
-        this.volumes = new Map(); // userId -> volume (0-2)
-    }
+### Local development
 
-    async init(withVideo = true) {
-        // 1. Get local stream (audio/video)
-        this.localStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true },
-            video: withVideo
-        });
-
-        // 2. Audio Processing (#1, #14)
-        this.audioContext = new AudioContext();
-        // Setup GainNode for each remote stream to allow local volume control
-        // Setup AnalyserNode for speaking detection (visual feedback)
-
-        // 3. Connect to signaling server (use /ws/call/ for WebRTC signaling)
-        this.ws = new WebSocket(`ws://server/ws/call/${this.roomId}/?token=YOUR_AUTH_TOKEN`);
-        this.ws.onmessage = (event) => this.handleSignalingMessage(JSON.parse(event.data));
-    }
-
-    async handleSignalingMessage(message) {
-        switch (message.type) {
-            case 'user_joined':
-                await this.createOffer(message.data.user.id);
-                break;
-            case 'offer':
-                await this.handleOffer(message.data);
-                break;
-            case 'answer':
-                await this.handleAnswer(message.data);
-                break;
-            case 'ice_candidate':
-                await this.handleIceCandidate(message.data);
-                break;
-            case 'user_left':
-                this.removePeer(message.data.user_id);
-                break;
-        }
-    }
-
-    createPeerConnection(userId) {
-        const config = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                {
-                    urls: 'turn:your-turn-server:3478',
-                    username: 'user',
-                    credential: 'password'
-                }
-            ]
-        };
-
-        const pc = new RTCPeerConnection(config);
-
-        // Add local stream
-        this.localStream.getTracks().forEach(track => {
-            pc.addTrack(track, this.localStream);
-        });
-
-        // Handle incoming stream
-        pc.ontrack = (event) => {
-            this.onRemoteStream(userId, event.streams[0]);
-        };
-
-        // Handle ICE candidates
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                this.sendSignalingMessage('ice_candidate', {
-                    target_user_id: userId,
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        this.peerConnections.set(userId, pc);
-        return pc;
-    }
-
-    async createOffer(targetUserId) {
-        const pc = this.createPeerConnection(targetUserId);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        this.sendSignalingMessage('offer', {
-            target_user_id: targetUserId,
-            sdp: offer.sdp
-        });
-    }
-
-    async handleOffer(data) {
-        const pc = this.createPeerConnection(data.from_user_id);
-        await pc.setRemoteDescription(new RTCSessionDescription({
-            type: 'offer',
-            sdp: data.sdp
-        }));
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        this.sendSignalingMessage('answer', {
-            target_user_id: data.from_user_id,
-            sdp: answer.sdp
-        });
-    }
-
-    async handleAnswer(data) {
-        const pc = this.peerConnections.get(data.from_user_id);
-        if (pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription({
-                type: 'answer',
-                sdp: data.sdp
-            }));
-        }
-    }
-
-    async handleIceCandidate(data) {
-        const pc = this.peerConnections.get(data.from_user_id);
-        if (pc) {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-    }
-
-    sendSignalingMessage(type, data) {
-        this.ws.send(JSON.stringify({ type, data }));
-    }
-
-    onRemoteStream(userId, stream) {
-        // Create audio element for remote stream
-        const audio = document.createElement('audio');
-        audio.srcObject = stream;
-        audio.autoplay = true;
-        audio.id = `audio-${userId}`;
-        document.body.appendChild(audio);
-    }
-
-    removePeer(userId) {
-        const pc = this.peerConnections.get(userId);
-        if (pc) {
-            pc.close();
-            this.peerConnections.delete(userId);
-        }
-        const audio = document.getElementById(`audio-${userId}`);
-        if (audio) {
-            audio.remove();
-        }
-    }
-
-    disconnect() {
-        this.peerConnections.forEach(pc => pc.close());
-        this.peerConnections.clear();
-        if (this.localStream) {
-            this.localStream.getTracks().forEach(track => track.stop());
-        }
-        if (this.ws) {
-            this.ws.close();
-        }
-    }
-}
-```
-
-## Call State (Presence) in Redis
-
-For UI presence (who is in the call, idle vs active), the server stores call state in Redis:
-
-- **Key:** `call:state:{room_id}` — Redis hash of `user_id` → JSON `{ "state", "username" }`.
-- **States:** `idle`, `connecting`, `active`, `ended`.
-- **TTL:** 1 hour on the key so stale entries expire if the consumer disconnects without cleanup.
-
-On WebSocket connect the user is set to `connecting`; on `join_call` to `active`; on `leave_call` the user is removed immediately. If the socket just drops, the user is removed (and `user_left` sent) only after `CALL_RECONNECT_GRACE_SECONDS` (default 15s) if no new socket of this user has connected; kicked users are removed immediately. After each change, a `call_state` message is broadcast to the room group so all connected clients can update the UI.
-
-REST endpoint `GET /api/rooms/{id}/call-state/` (room participants only) returns current participants and `room_state` for polling without WebSocket.
-
-## Server Implementation
-
-### Django Channels Consumer
-
-The signaling consumer lives in `apps/calls/consumers.py` (`SignalingConsumer`).
-
-- **URL:** `ws://host/ws/call/<room_id>/?token=<auth_token>` (see [api.md](api.md#websocket-api)).
-- **Auth:** User is resolved from `token` query parameter; only room participants can connect (same pattern as chat).
-- **Group:** `call_{room_id}`. On connect the consumer joins the group; on disconnect it leaves and sends `user_left` after the reconnect grace period (see above).
-- **Incoming:** `join_call` → broadcast `user_joined` (excluding self); `leave_call` → broadcast `user_left`; `offer`, `answer`, `ice_candidate` → relay to `target_user_id` via group event `signaling_relay`. SDP/ICE payloads are forwarded unchanged.
-- **Handlers:** `user_joined`, `user_left` broadcast to all in group (with exclude for join); `signaling_relay` sends only to the target user.
-
-## TURN/STUN Configuration
-
-### Why TURN is Needed
-
-P2P connections often fail due to NAT (Network Address Translation). TURN servers relay media when direct connection is impossible.
-
-```
-Without TURN (fails):
-User A (behind NAT) ──X──► User B (behind NAT)
-
-With TURN (works):
-User A ──► TURN Server ──► User B
-```
-
-### coturn Setup
-
-coturn описан в `docker-compose.production.yml`:
-- `network_mode: host`, порты 3478 (UDP/TCP) и relay 49152–49999/UDP — их нужно открыть в фаерволе;
-- режим `use-auth-secret` с `--static-auth-secret=${TURN_SECRET}`;
-- `TURN_EXTERNAL_IP` — публичный IP сервера.
-
-### Выдача ICE-серверов клиентам
-
-`GET /api/calls/ice-servers/` (нужна авторизация) возвращает:
-
-```json
-{"ice_servers": [
-  {"urls": ["stun:..."]},
-  {"urls": ["turn:host:3478?transport=udp", "turn:host:3478?transport=tcp"],
-   "username": "<expiry>:<user_id>", "credential": "<base64 hmac-sha1>"}
-], "ttl": 43200}
-```
-
-Учётные данные TURN временные (coturn REST API): `username = "<unix_expiry>:<user_id>"`,
-`credential = base64(HMAC-SHA1(TURN_SECRET, username))`. Код: `apps/calls/services.py`.
-
-Переменные окружения: `TURN_SECRET`, `TURN_URLS` (по умолчанию — хост запроса, udp+tcp),
-`STUN_URLS`, `TURN_CREDENTIAL_TTL`. Если `TURN_SECRET` пуст, но заданы `TURN_USERNAME`/`TURN_PASSWORD`,
-отдаются статичные учётные данные.
-
-Flutter и веб-клиент запрашивают этот эндпоинт перед звонком; при ошибке используют только STUN.
-
-### Клиентская логика (Flutter, `call_provider.dart`)
-
-- Соединение инициирует тот, кто уже в звонке (получил `user_joined`); новичок создаёт `RTCPeerConnection` при входящем offer.
-- Сообщения сигналинга обрабатываются строго последовательно; ICE-кандидаты до `setRemoteDescription` копятся в очереди.
-- Offer содержит `pc_id` соединения. Новый `pc_id` от собеседника → пересоздать своё соединение; тот же → обычная ренеготиация / ICE restart.
-- `failed` или `disconnected` дольше 5 с → инициатор делает ICE restart.
-- Сокет сигналинга: ping каждые 20 с, тишина 45 с = мёртвый сокет; переподключение с экспоненциальной паузой (до 30 с), кроме кода 4403. После переподключения клиент снова шлёт `join_call`; собеседники с живым соединением его игнорируют.
-- Формат SDP/ICE: `{"sdp": {"type", "sdp"}, "pc_id"}` и `{"candidate": {"candidate", "sdpMid", "sdpMLineIndex"}}` (совместим с веб-клиентом).
-
-## Scaling Considerations
-
-### Mesh Limitations
-
-| Participants | Connections per User | Total Connections |
-|--------------|---------------------|-------------------|
-| 2 | 1 | 1 |
-| 3 | 2 | 3 |
-| 4 | 3 | 6 |
-| 5 | 4 | 10 |
-| 10 | 9 | 45 |
-
-**Recommendation:** Mesh works well for up to 4-5 participants.
-
-### Future: SFU Architecture
-
-For larger calls, consider migrating to SFU (Selective Forwarding Unit):
-
-- **mediasoup** – Node.js SFU
-- **Janus** – General-purpose WebRTC server
-- **LiveKit** – Open-source WebRTC infrastructure
-
-```
-Mesh (current):          SFU (future):
-A ◄──► B                 A ──► SFU ──► B
-│ ╲ ╱ │                      │
-│  ╳  │                      ▼
-│ ╱ ╲ │                      C
-C ◄──► D                     │
-                             ▼
-                             D
-```
+`docker compose up livekit` starts `livekit-server --dev` (key `devkey`, secret `secret`) on
+`ws://localhost:7880`; `.env.example` has matching values. Webhooks are not configured in dev mode,
+so the "in call" sidebar indicator does not update locally.
 
 ## Troubleshooting
 
-### Common Issues
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No audio | Microphone permission denied | Check browser permissions |
-| Connection fails | NAT traversal issue | Ensure TURN server is configured |
-| One-way audio | Asymmetric NAT | Use TURN relay |
-| Echo | No echo cancellation | Enable `echoCancellation: true` in getUserMedia |
-
-### Debug Tools
-
-- **chrome://webrtc-internals** – Chrome WebRTC debugging
-- **about:webrtc** – Firefox WebRTC debugging
+- **Token request fails with "Calls are not configured"** — `LIVEKIT_*` env vars are missing in the web container.
+- **Joins hang on "Connecting…"** — check that `wss://<domain>/rtc` reaches LiveKit (`make logs-nginx`, `make logs-livekit`).
+- **Connected but no audio/video between people** — media ports blocked: check the firewall list above; LiveKit logs show ICE failures.
+- **Sidebar never shows who is in a call** — the webhook cannot reach `https://<domain>/api/calls/livekit-webhook/` or the key/secret differ.

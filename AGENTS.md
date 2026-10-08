@@ -7,7 +7,7 @@ This document is the **single source of truth** for any autonomous or semi-auton
 ## 1. Project Overview & Principles
 
 **MOznoDS** is a Discord-like platform (voice calls, chat).
-- **Stack**: Django 5, Channels (InMemory), SQLite 3, WebRTC (P2P), Flutter (Cross-platform UI).
+- **Stack**: Django 5, Channels (Redis in production), PostgreSQL / SQLite, LiveKit (calls, SFU), Flutter (Cross-platform UI).
 - **Principles**: Documentation-driven, greppable memory (`AICODE-*`), verification before finish.
 
 ---
@@ -52,10 +52,10 @@ Each app follows: `models.py`, `services.py`, `views.py`, `serializers.py`, `url
 
 ---
 
-## 6. WebRTC & Call State
+## 6. Calls & Real-time
 
-- **Signaling** – Handled via Django Channels.
-- **Message Types** – `join_room`, `leave_room`, `offer`, `answer`, `ice_candidate`.
-- **Call State** – Managed in-memory or via models (small-scale). `idle`, `connecting`, `active`, `ended`.
+- **Calls** – LiveKit SFU. Django issues join tokens (`apps/calls/services.py`) and mirrors presence from LiveKit webhooks into `call_state`. No custom WebRTC signaling. See `docs/webrtc.md`.
+- **Chat** – every change goes through `MessageService`, which broadcasts (`apps/chat/events.py`) to `chat_{room}` and `user_{id}` groups after commit. Do not broadcast from views/consumers directly.
+- **Verification** – `pytest`, `ruff check .`, `flutter analyze`, `flutter test` (CI runs all of them).
 
 Не пытайся запустить проект, я сделаю это сам

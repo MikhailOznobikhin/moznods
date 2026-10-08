@@ -10,7 +10,7 @@ moznods/
 │   ├── accounts/              # Users, authentication, profiles
 │   ├── rooms/                 # Room management
 │   ├── chat/                  # Messages and attachments
-│   ├── calls/                 # WebRTC signaling
+│   ├── calls/                 # LiveKit tokens, webhooks, call presence
 │   └── files/                 # File storage
 ├── core/                      # Shared utilities
 ├── config/                    # Project configuration
@@ -66,18 +66,12 @@ Text messaging with attachments.
 
 ### `apps/calls/`
 
-WebRTC signaling for voice calls (MVP: signaling only; no DB models).
+Calls run on LiveKit (see [webrtc.md](webrtc.md)); no DB models.
 
-**Responsibilities:**
-- WebRTC signaling over WebSocket (offer, answer, ice_candidate)
-- Relay to target user; broadcast user_joined / user_left
-- Call presence state in Redis (idle, connecting, active, ended) for UI
-
-**WebSocket Consumers:**
-- `SignalingConsumer` – Handles WebRTC signaling messages
-
-**Modules:**
-- `call_state.py` – Redis-backed call presence (set/remove user state, get room state)
+- `services.py` – `LiveKitService` (join tokens, webhook verification/handling, removing kicked
+  users from calls), `broadcast_presence`
+- `views.py` – `POST /api/calls/token/`, `POST /api/calls/livekit-webhook/`
+- `call_state.py` – who is in each room's call (Django cache)
 
 ### `apps/files/`
 

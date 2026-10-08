@@ -1,5 +1,7 @@
 # 003 — Стабильность звонков
 
+> Устарело: звонки переведены на LiveKit SFU, см. `004-make-it-shine.md` и `docs/webrtc.md`.
+
 Звонки то соединяются, то нет. Причины и исправления по порядку.
 
 ## 1. Сигналинг во Flutter (`moznods_flutter/lib/store/call_provider.dart`)
