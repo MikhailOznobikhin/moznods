@@ -25,7 +25,7 @@ endef
 
 .PHONY: help manage makemigrations migrate createsuperuser collectstatic test cleancache \
 	check check-deploy start stop down restart build build-web build-all pull up \
-	deploy list logs logs-web logs-nginx logs-postgres logs-redis logs-livekit \
+	deploy deploy-local-build list logs logs-web logs-nginx logs-postgres logs-redis logs-livekit \
 	bash shell dbshell psql redis-cli dump-db restore-dump reload-nginx \
 	flutter-volumes flutter-shell sync-main lint ruff-format pytest
 
@@ -97,7 +97,13 @@ build-web: ## Пересобрать только образ web (как в comm
 build-all: ## build --no-cache --pull для всего стека
 	$(DC) build --no-cache --pull
 
-deploy: ## git pull + build web + up + migrate
+deploy: ## git pull + скачать готовый образ из GHCR + up + migrate
+	git pull
+	$(DC) pull web
+	$(DC) up -d --remove-orphans
+	$(EXEC_WEB_T) $(MANAGE) migrate --noinput
+
+deploy-local-build: ## Как deploy, но собрать образ на сервере (нужно ~3 ГБ RAM)
 	git pull
 	$(DC) build web
 	$(DC) up -d --remove-orphans

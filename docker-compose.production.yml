@@ -2,6 +2,9 @@ version: '3.8'
 
 services:
   web:
+    # Built and published by .github/workflows/docker-image.yml; the server only pulls it.
+    # `make build-web` still builds locally (needs ~3 GB RAM for Flutter web).
+    image: ${MOZNODS_IMAGE:-ghcr.io/mikhailoznobikhin/moznods-web:latest}
     build:
       context: .
       dockerfile: Dockerfile
