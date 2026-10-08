@@ -1,4 +1,3 @@
-from typing import Optional
 
 from django.contrib.auth import get_user_model
 
@@ -8,7 +7,7 @@ User = get_user_model()
 def create_user(
     *,
     username: str = "user",
-    email: Optional[str] = None,  # noqa: UP045
+    email: str | None = None,  # noqa: UP045
     password: str = "testpass123",
     **kwargs,
 ) -> User:

@@ -16,7 +16,7 @@ ignore = ["E501", "UP045", "N806"]  # N806: `User = get_user_model()` idiom
 
 [tool.ruff.lint.per-file-ignores]
 "config/settings/*.py" = ["F403", "F405", "E402"]
-"config/asgi.py" = ["E402"]
+"config/asgi.py" = ["E402", "I001"]  # imports must follow django.setup()
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"

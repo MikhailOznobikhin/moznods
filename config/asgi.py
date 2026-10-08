@@ -13,10 +13,11 @@ django.setup()
 django_asgi_app = get_asgi_application()
 
 # Import consumers after setup
-from apps.chat.consumers import ChatConsumer
 from channels.routing import ProtocolTypeRouter, URLRouter
 from core.consumers import NotificationConsumer
 from django.urls import path
+
+from apps.chat.consumers import ChatConsumer
 
 websocket_urlpatterns = [
     path("ws/chat/<int:room_id>/", ChatConsumer.as_asgi()),
