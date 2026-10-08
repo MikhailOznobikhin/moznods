@@ -1,24 +1,38 @@
 # Рекомендуемая инфраструктура для MOznoDS
 
-Этот документ описывает минимальные и рекомендуемые системные требования для развертывания платформы MOznoDS, включая основное приложение (Django + Channels) и вспомогательный сервер WebRTC (Coturn).
+Этот документ описывает системные требования и подготовку сервера для MOznoDS (Django + Channels, PostgreSQL, Redis, LiveKit).
 
 ---
 
-## 1. Основное приложение (Django, Channels, SQLite)
+## 1. Сервер под production-стек
 
-MOznoDS спроектирован как легковесное решение, использующее SQLite и Django Channels (в режиме `InMemoryChannelLayer` для экономии ресурсов).
+Стек из `docker-compose.production.yml`: web (Daphne, один процесс), PostgreSQL, Redis, LiveKit, nginx.
+Образ собирается в GitHub Actions, сервер только скачивает его, поэтому память на сборку Flutter не нужна.
 
-### Минимальные требования (до 10-20 онлайн-пользователей):
-- **CPU**: 1 ядро (Shared vCPU).
-- **RAM**: 1 ГБ (минимум 512 МБ, но 1 ГБ обеспечит стабильность при сборке фронтенда и работе нескольких процессов Daphne).
-- **Диск**: 10 ГБ HDD/SSD (SQLite база данных и медиа-файлы занимают мало места в начале).
-- **ОС**: Ubuntu 22.04 LTS или аналогичный Linux.
+### Сколько памяти занимает стек (оценка, не замер)
+| Что | В простое | Лимит в compose |
+|-----|-----------|-----------------|
+| ОС + Docker | ~300–400 МБ | — |
+| web (Daphne) | ~150–250 МБ | 512 МБ |
+| PostgreSQL | ~100–300 МБ (`shared_buffers=256MB`) | 512 МБ |
+| Redis | ~10–50 МБ (`maxmemory 128mb`) | 192 МБ |
+| LiveKit | ~50–150 МБ, растёт со звонками | 512 МБ |
+| nginx | ~10–20 МБ | 128 МБ |
 
-### Рекомендуемые требования (50+ пользователей):
-- **CPU**: 2 ядра (Dedicated).
-- **RAM**: 2-4 ГБ.
-- **Диск**: 20 ГБ NVMe.
-- **Рекомендация**: При росте нагрузки стоит перейти с `InMemoryChannelLayer` на **Redis** и использовать **PostgreSQL** вместо SQLite.
+Итого ~0,7–1,2 ГБ, поэтому:
+- **Минимум (до ~20–30 человек онлайн, звонки на несколько человек)**: 1 vCPU, 2 ГБ RAM + 2 ГБ swap, 20–40 ГБ SSD.
+- **Комфортно (видеозвонки на 5+ человек, запас)**: 2 vCPU, 4 ГБ RAM, SSD.
+- Узкое место при звонках сначала канал (каждый видеопоток ~0,5–2 Мбит/с, сервер раздаёт его каждому участнику), потом CPU у LiveKit и TLS.
+- Диск лучше SSD/NVMe: PostgreSQL на HDD заметно медленнее. Место уходит на ОС (~3–4 ГБ), swap, образы (~1,5–2 ГБ, старые удаляет `make deploy`), БД и `media_volume`. На 10 ГБ стек помещается со swap 1 ГБ (`SWAP_SIZE=1G`), но вложения быстро съедят остаток; 20 ГБ спокойнее.
+- ОС: Ubuntu LTS (24.04).
+
+### Подготовка сервера
+1. `sh docker/server-setup.sh` от root: swap, sysctl, Docker, ufw с портами LiveKit, fail2ban, автообновления безопасности.
+2. SSH: вход по ключу, в `/etc/ssh/sshd_config` поставить `PasswordAuthentication no` и `PermitRootLogin prohibit-password`, затем `systemctl restart ssh`. Сначала проверить вход по ключу в отдельной сессии.
+3. Сертификат: `certbot certonly --standalone -d <домен> -d www.<домен>` (до запуска nginx, пока порт 80 свободен).
+4. `.env` и `make deploy` (см. раздел 4).
+
+Docker пишет свои правила iptables в обход ufw, поэтому порт web открыт только на `127.0.0.1`.
 
 ---
 
@@ -65,12 +79,11 @@ TURN (UDP 3478 и TLS 5349 с сертификатом Let's Encrypt домен�
 cp .env.production.example .env
 nano .env  # Fill in your SECRET_KEY, domain, passwords
 
-# 2. Generate SSL certificates (or use Let's Encrypt)
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nginx/ssl/privkey.pem -out nginx/ssl/fullchain.pem
+# 2. Let's Encrypt certificate (nginx and LiveKit read /etc/letsencrypt)
+certbot certonly --standalone -d <domain> -d www.<domain>
 
-# 3. Build and start
+# 3. Pull the image built in GitHub Actions and start
+docker compose -f docker-compose.production.yml pull
 docker compose -f docker-compose.production.yml up -d
 
 # 4. Run migrations

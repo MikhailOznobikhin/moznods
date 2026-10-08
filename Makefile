@@ -102,6 +102,7 @@ deploy: ## git pull + скачать готовый образ из GHCR + up + 
 	$(DC) pull web
 	$(DC) up -d --remove-orphans
 	$(EXEC_WEB_T) $(MANAGE) migrate --noinput
+	docker image prune -f
 
 deploy-local-build: ## Как deploy, но собрать образ на сервере (нужно ~3 ГБ RAM)
 	git pull
