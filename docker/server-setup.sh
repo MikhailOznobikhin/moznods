@@ -7,7 +7,8 @@ set -eu
 SWAP_SIZE="${SWAP_SIZE:-2G}"
 
 echo "== swap ($SWAP_SIZE)"
-if ! swapon --show | grep -q /swapfile; then
+# Skip when any swap is already active (the Ubuntu installer often creates /swap.img).
+if [ -z "$(swapon --noheadings)" ]; then
   fallocate -l "$SWAP_SIZE" /swapfile
   chmod 600 /swapfile
   mkswap /swapfile
